@@ -9,6 +9,7 @@ import Dice from "@/pages/Dice";
 import Coinflip from "@/pages/Coinflip";
 import Mines from "@/pages/Mines";
 import DailySpin from "@/pages/DailySpin";
+import Rewards from "@/pages/Rewards";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/coinflip" component={Coinflip} />
       <Route path="/mines" component={Mines} />
       <Route path="/daily-spin" component={DailySpin} />
+      <Route path="/rewards" component={Rewards} />
       <Route component={NotFound} />
     </Switch>
   );

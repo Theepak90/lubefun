@@ -19,6 +19,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { ProvablyFairModal } from "@/components/ProvablyFairModal";
 import { DailyBonusDropdown } from "@/components/DailyBonusDropdown";
 import { DailySpinDropdown } from "@/components/DailySpinDropdown";
+import { RewardsDropdown } from "@/components/RewardsDropdown";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -74,7 +75,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <DailyBonusDropdown />
+              <RewardsDropdown />
               <DailySpinDropdown />
               <div className="hidden sm:flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg border border-white/5">
                 <span className="text-sm font-medium text-muted-foreground">Balance:</span>
