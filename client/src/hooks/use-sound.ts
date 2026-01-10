@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -248,6 +248,60 @@ function playChipDropSound() {
   clickOsc.stop(ctx.currentTime + 0.02);
 }
 
+function playBallTickSound() {
+  const ctx = getAudioContext();
+  
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  oscillator.frequency.value = 2800 + Math.random() * 400;
+  oscillator.type = "sine";
+  
+  gainNode.gain.setValueAtTime(0.04, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.025);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.025);
+}
+
+function playBallLandSound() {
+  const ctx = getAudioContext();
+  
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
+  oscillator.type = "triangle";
+  
+  gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.2);
+  
+  const clickOsc = ctx.createOscillator();
+  const clickGain = ctx.createGain();
+  
+  clickOsc.connect(clickGain);
+  clickGain.connect(ctx.destination);
+  
+  clickOsc.frequency.value = 1200;
+  clickOsc.type = "sine";
+  
+  clickGain.gain.setValueAtTime(0.08, ctx.currentTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+  
+  clickOsc.start(ctx.currentTime);
+  clickOsc.stop(ctx.currentTime + 0.05);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -290,6 +344,12 @@ export function useSound() {
           break;
         case "chipDrop":
           playChipDropSound();
+          break;
+        case "ballTick":
+          playBallTickSound();
+          break;
+        case "ballLand":
+          playBallLandSound();
           break;
       }
     } catch (e) {
