@@ -333,8 +333,6 @@ export default function DailySpin() {
               style={{ 
                 left: `calc(50% - ${ITEM_WIDTH / 2}px)`,
                 gap: `${ITEM_GAP}px`,
-                paddingLeft: ITEM_WIDTH,
-                paddingRight: ITEM_WIDTH,
               }}
             >
               {displayItems.map((prize, i) => {
