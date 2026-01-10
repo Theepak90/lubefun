@@ -1,24 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { BetControls } from "@/components/BetControls";
 import { useMinesGame } from "@/hooks/use-games";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bomb, Gem, Skull, Zap } from "lucide-react";
+import { Bomb, Gem, Skull } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
+  const { user } = useAuth(); // Could be used to restore state if needed
 
   const [minesCount, setMinesCount] = useState<string>("3");
   const [gameState, setGameState] = useState<{
     active: boolean;
     betId?: number;
     revealed: number[];
-    mines?: number[];
-    profit: number;
+    mines?: number[]; // Only present when game ends
+    profit: number; // Current profit
     multiplier: number;
     isCashout?: boolean;
     explodedIndex?: number;
@@ -49,6 +52,7 @@ export default function Mines() {
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
         if (!data.active) {
+          // Game Over (Lost)
           setGameState(prev => ({
             ...prev,
             active: false,
@@ -56,6 +60,7 @@ export default function Mines() {
             explodedIndex: index
           }));
         } else {
+          // Keep Playing
           setGameState(prev => ({
              ...prev,
              revealed: [...prev.revealed, index],
@@ -82,7 +87,10 @@ export default function Mines() {
     });
   };
 
+  // Helper utility for frontend prediction (would usually come from backend state)
+  // This is a simplified calculation for display purposes
   const calculateMultiplier = (revealedCount: number, mines: number) => {
+    // Basic probability math for display only - real calc is on backend
     let multiplier = 1;
     for(let i=0; i<revealedCount; i++) {
         multiplier *= (25 - i) / (25 - mines - i);
@@ -96,28 +104,28 @@ export default function Mines() {
 
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto">
+      <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
         {/* Controls */}
-        <div className="w-full lg:w-80 lg:shrink-0 flex flex-col gap-4">
-          <div className="neon-card p-5 lg:hidden">
-             <h2 className="font-display font-bold text-lg flex items-center gap-2 text-purple-400 tracking-wider">
-               <Bomb className="w-5 h-5" /> Mines
+        <div className="w-full lg:w-auto lg:shrink-0 rounded-2xl overflow-hidden shadow-2xl flex flex-col bg-card border border-border">
+          <div className="bg-card border-b border-border p-4 lg:hidden">
+             <h2 className="font-display font-bold text-xl flex items-center gap-2">
+               <Bomb className="w-6 h-6 text-primary" /> Mines
              </h2>
           </div>
           
-          <div className="neon-card p-5">
-            <Label className="text-xs font-display text-cyan-400 uppercase tracking-wider mb-3 block">Mines Count</Label>
+          <div className="p-4 lg:p-6 border-b border-border space-y-2">
+            <Label>Mines Count</Label>
             <Select 
               value={minesCount} 
               onValueChange={setMinesCount} 
               disabled={gameState.active}
             >
-              <SelectTrigger className="h-12 bg-purple-900/30 border-purple-500/30 font-display font-bold text-foreground">
+              <SelectTrigger className="h-12 bg-secondary/50 border-input font-bold">
                 <SelectValue placeholder="Select mines" />
               </SelectTrigger>
-              <SelectContent className="bg-card border-purple-500/30">
+              <SelectContent>
                 {[1, 2, 3, 4, 5, 10, 15, 20, 24].map(num => (
-                  <SelectItem key={num} value={num.toString()} className="font-display">{num} Mines</SelectItem>
+                  <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -126,69 +134,68 @@ export default function Mines() {
           <BetControls 
              onBet={handleBet} 
              isPending={start.isPending || gameState.active} 
-             actionLabel={gameState.active ? "Game Active" : "Start Game"}
+             actionLabel={gameState.active ? "Game in Progress" : "Bet"}
              disabled={gameState.active}
-             className="neon-card"
+             className="border-none shadow-none"
           />
 
           {gameState.active && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="neon-card neon-glow-cyan p-5"
-            >
+            <div className="p-4 bg-primary/10 border-t border-primary/20">
                <div className="flex justify-between items-center mb-4">
-                  <span className="text-sm font-display text-cyan-400 uppercase tracking-wider">Profit</span>
-                  <span className="text-2xl font-mono font-bold text-cyan-400 text-glow-cyan">
+                  <span className="text-sm font-bold text-muted-foreground">Current Profit</span>
+                  <span className="text-lg font-mono font-bold text-primary text-glow">
                     ${gameState.profit.toFixed(2)}
                   </span>
                </div>
                <Button 
                  onClick={handleCashout} 
-                 className="w-full h-12 neon-button font-display font-bold text-black tracking-wider rounded-xl"
+                 className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                  disabled={cashout.isPending || gameState.revealed.length === 0}
                >
-                 <Zap className="w-4 h-4 mr-2" />
-                 {cashout.isPending ? "Cashing..." : "Cashout"}
+                 {cashout.isPending ? "Cashing out..." : "Cashout"}
                </Button>
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Game Grid */}
-        <div className="flex-1 neon-card p-6 lg:p-10 flex items-center justify-center min-h-[500px]">
-          <div className="grid grid-cols-5 gap-3 w-full max-w-[480px] aspect-square">
+        <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex items-center justify-center min-h-[500px]">
+          <div className="grid grid-cols-5 gap-3 sm:gap-4 w-full max-w-[500px] aspect-square">
             {Array.from({ length: 25 }).map((_, i) => {
               const isRevealed = gameState.revealed.includes(i);
               const isMine = !gameState.active && gameState.mines?.includes(i);
               const isExploded = i === gameState.explodedIndex;
-              const isSafeRevealed = !gameState.active && !isMine && !isRevealed;
+              const isSafeRevealed = !gameState.active && !isMine && !isRevealed; // Show unrevealed gems at end
 
               return (
                 <motion.button
                   key={i}
-                  whileHover={gameState.active && !isRevealed ? { scale: 1.05 } : {}}
-                  whileTap={gameState.active && !isRevealed ? { scale: 0.95 } : {}}
+                  whileHover={!gameState.active && !isRevealed ? { scale: 1.05 } : {}}
+                  whileTap={!gameState.active && !isRevealed ? { scale: 0.95 } : {}}
                   onClick={() => handleTileClick(i)}
                   disabled={!gameState.active || isRevealed}
                   className={cn(
-                    "rounded-xl relative transition-all duration-300 w-full h-full border-2",
-                    "bg-purple-900/30 border-purple-500/30",
-                    gameState.active && !isRevealed && "hover:border-cyan-400/50 hover:bg-purple-800/40 cursor-pointer neon-hover",
-                    isRevealed && "bg-cyan-500/20 border-cyan-400/50 neon-glow-cyan",
-                    isExploded && "bg-pink-500/30 border-pink-400 neon-glow-magenta",
-                    isMine && !isExploded && "bg-purple-900/20 border-purple-500/20 opacity-50",
-                    isSafeRevealed && "bg-purple-900/20 border-purple-500/20 opacity-30"
+                    "rounded-xl relative shadow-lg transition-all duration-300 w-full h-full",
+                    // Base styles
+                    "bg-secondary/40 border-b-4 border-black/20",
+                    // Interactive states
+                    gameState.active && !isRevealed && "hover:bg-secondary/60 cursor-pointer",
+                    // Revealed State
+                    isRevealed && "bg-card border-transparent shadow-none",
+                    // Game Over States
+                    isExploded && "bg-destructive/20 border-destructive",
+                    isMine && !isExploded && "bg-secondary/20 opacity-50",
+                    isSafeRevealed && "bg-primary/5 opacity-50"
                   )}
                 >
                   <AnimatePresence>
                     {isRevealed && (
                       <motion.div
-                        initial={{ scale: 0, opacity: 0, rotate: -180 }}
-                        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
                         className="absolute inset-0 flex items-center justify-center"
                       >
-                         <Gem className="w-1/2 h-1/2 text-cyan-400 drop-shadow-[0_0_15px_hsl(180,100%,50%)]" />
+                         <Gem className="w-1/2 h-1/2 text-primary drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
                       </motion.div>
                     )}
                     
@@ -199,9 +206,9 @@ export default function Mines() {
                          className="absolute inset-0 flex items-center justify-center"
                       >
                          {isExploded ? (
-                            <Skull className="w-1/2 h-1/2 text-pink-400 drop-shadow-[0_0_15px_hsl(320,100%,60%)]" />
+                            <Skull className="w-1/2 h-1/2 text-destructive drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
                          ) : (
-                            <Bomb className="w-1/2 h-1/2 text-purple-400/60" />
+                            <Bomb className="w-1/2 h-1/2 text-muted-foreground" />
                          )}
                       </motion.div>
                     )}
@@ -209,10 +216,10 @@ export default function Mines() {
                     {isSafeRevealed && (
                        <motion.div
                          initial={{ scale: 0, opacity: 0 }}
-                         animate={{ scale: 0.7, opacity: 0.3 }}
-                         className="absolute inset-0 flex items-center justify-center"
+                         animate={{ scale: 0.8, opacity: 0.3 }}
+                         className="absolute inset-0 flex items-center justify-center grayscale"
                        >
-                          <Gem className="w-1/2 h-1/2 text-purple-500/50" />
+                          <Gem className="w-1/2 h-1/2 text-muted-foreground" />
                        </motion.div>
                     )}
                   </AnimatePresence>
@@ -220,7 +227,7 @@ export default function Mines() {
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
     </Layout>
   );
