@@ -132,6 +132,55 @@ export const api = {
       },
     },
   },
+  rewards: {
+    bonusStatus: {
+      method: "GET" as const,
+      path: "/api/rewards/bonus/status",
+      responses: {
+        200: z.object({
+          canClaim: z.boolean(),
+          nextClaimTime: z.string().nullable(),
+          bonusAmount: z.number(),
+        }),
+      },
+    },
+    claimBonus: {
+      method: "POST" as const,
+      path: "/api/rewards/bonus/claim",
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          amount: z.number(),
+          newBalance: z.number(),
+        }),
+        400: errorSchemas.gameError,
+      },
+    },
+    wheelStatus: {
+      method: "GET" as const,
+      path: "/api/rewards/wheel/status",
+      responses: {
+        200: z.object({
+          canSpin: z.boolean(),
+          nextSpinTime: z.string().nullable(),
+        }),
+      },
+    },
+    spinWheel: {
+      method: "POST" as const,
+      path: "/api/rewards/wheel/spin",
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          prizeIndex: z.number(),
+          prizeLabel: z.string(),
+          prizeValue: z.number(),
+          newBalance: z.number(),
+        }),
+        400: errorSchemas.gameError,
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

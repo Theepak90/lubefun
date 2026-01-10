@@ -20,6 +20,9 @@ export interface IStorage {
   getBet(id: number): Promise<Bet | undefined>;
   getUserBets(userId: number, limit?: number): Promise<Bet[]>;
   getActiveMinesBet(userId: number): Promise<Bet | undefined>;
+  
+  updateLastBonusClaim(id: number): Promise<User>;
+  updateLastWheelSpin(id: number): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -108,6 +111,22 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     return bet;
+  }
+  
+  async updateLastBonusClaim(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastBonusClaim: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async updateLastWheelSpin(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastWheelSpin: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 }
 

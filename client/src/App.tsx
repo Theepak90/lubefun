@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import Dice from "@/pages/Dice";
 import Coinflip from "@/pages/Coinflip";
 import Mines from "@/pages/Mines";
+import Rewards from "@/pages/Rewards";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/dice" component={Dice} />
       <Route path="/coinflip" component={Coinflip} />
       <Route path="/mines" component={Mines} />
+      <Route path="/rewards" component={Rewards} />
       <Route component={NotFound} />
     </Switch>
   );

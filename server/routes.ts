@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT } from "@shared/schema";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -351,6 +351,99 @@ export async function registerRoutes(
     });
     
     res.json(updatedBet);
+  });
+
+  // === Rewards Routes ===
+  
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  
+  function canClaimBonus(lastClaim: Date | null): boolean {
+    if (!lastClaim) return true;
+    return Date.now() - new Date(lastClaim).getTime() >= TWENTY_FOUR_HOURS;
+  }
+  
+  function getNextClaimTime(lastClaim: Date | null): string | null {
+    if (!lastClaim) return null;
+    const nextTime = new Date(lastClaim).getTime() + TWENTY_FOUR_HOURS;
+    if (Date.now() >= nextTime) return null;
+    return new Date(nextTime).toISOString();
+  }
+  
+  function spinWheelWeighted(): number {
+    const totalWeight = WHEEL_PRIZES.reduce((sum, p) => sum + p.weight, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (let i = 0; i < WHEEL_PRIZES.length; i++) {
+      random -= WHEEL_PRIZES[i].weight;
+      if (random <= 0) return i;
+    }
+    return 0; // Fallback
+  }
+  
+  app.get(api.rewards.bonusStatus.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    res.json({
+      canClaim: canClaimBonus(user.lastBonusClaim),
+      nextClaimTime: getNextClaimTime(user.lastBonusClaim),
+      bonusAmount: DAILY_BONUS_AMOUNT,
+    });
+  });
+  
+  app.post(api.rewards.claimBonus.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    if (!canClaimBonus(user.lastBonusClaim)) {
+      return res.status(400).json({ message: "Bonus already claimed today" });
+    }
+    
+    await storage.updateLastBonusClaim(user.id);
+    const updatedUser = await storage.updateUserBalance(user.id, DAILY_BONUS_AMOUNT);
+    
+    res.json({
+      success: true,
+      amount: DAILY_BONUS_AMOUNT,
+      newBalance: updatedUser.balance,
+    });
+  });
+  
+  app.get(api.rewards.wheelStatus.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    res.json({
+      canSpin: canClaimBonus(user.lastWheelSpin),
+      nextSpinTime: getNextClaimTime(user.lastWheelSpin),
+    });
+  });
+  
+  app.post(api.rewards.spinWheel.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    if (!canClaimBonus(user.lastWheelSpin)) {
+      return res.status(400).json({ message: "Wheel already spun today" });
+    }
+    
+    const prizeIndex = spinWheelWeighted();
+    const prize = WHEEL_PRIZES[prizeIndex];
+    
+    await storage.updateLastWheelSpin(user.id);
+    const updatedUser = await storage.updateUserBalance(user.id, prize.value);
+    
+    res.json({
+      success: true,
+      prizeIndex,
+      prizeLabel: prize.label,
+      prizeValue: prize.value,
+      newBalance: updatedUser.balance,
+    });
   });
 
   // Seed Data

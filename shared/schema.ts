@@ -10,8 +10,24 @@ export const users = pgTable("users", {
   clientSeed: text("client_seed").notNull(),
   serverSeed: text("server_seed").notNull(), // Current active seed (hidden hash usually shown)
   nonce: integer("nonce").default(0).notNull(),
+  lastBonusClaim: timestamp("last_bonus_claim"),
+  lastWheelSpin: timestamp("last_wheel_spin"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Wheel prizes with weights (higher weight = more common)
+export const WHEEL_PRIZES = [
+  { label: "1¢", value: 0.01, weight: 35 },
+  { label: "2¢", value: 0.02, weight: 25 },
+  { label: "3¢", value: 0.03, weight: 20 },
+  { label: "5¢", value: 0.05, weight: 12 },
+  { label: "$5", value: 5, weight: 5 },
+  { label: "$50", value: 50, weight: 2 },
+  { label: "$500", value: 500, weight: 0.8 },
+  { label: "$1000", value: 1000, weight: 0.2 },
+] as const;
+
+export const DAILY_BONUS_AMOUNT = 10; // $10 daily bonus
 
 export const bets = pgTable("bets", {
   id: serial("id").primaryKey(),
