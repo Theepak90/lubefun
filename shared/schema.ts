@@ -19,17 +19,19 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Wheel prizes with weights (higher weight = more common)
+// Lootbox prizes with stable IDs and weights (higher weight = more common)
 export const WHEEL_PRIZES = [
-  { label: "1¢", value: 0.01, weight: 35 },
-  { label: "2¢", value: 0.02, weight: 25 },
-  { label: "3¢", value: 0.03, weight: 20 },
-  { label: "5¢", value: 0.05, weight: 12 },
-  { label: "$5", value: 5, weight: 5 },
-  { label: "$50", value: 50, weight: 2 },
-  { label: "$500", value: 500, weight: 0.8 },
-  { label: "$1000", value: 1000, weight: 0.2 },
+  { id: "penny_1", label: "1¢", value: 0.01, weight: 35 },
+  { id: "penny_2", label: "2¢", value: 0.02, weight: 25 },
+  { id: "penny_3", label: "3¢", value: 0.03, weight: 20 },
+  { id: "penny_5", label: "5¢", value: 0.05, weight: 12 },
+  { id: "dollar_5", label: "$5", value: 5, weight: 5 },
+  { id: "dollar_50", label: "$50", value: 50, weight: 2 },
+  { id: "dollar_500", label: "$500", value: 500, weight: 0.8 },
+  { id: "dollar_1000", label: "$1000", value: 1000, weight: 0.2 },
 ] as const;
+
+export type PrizeId = typeof WHEEL_PRIZES[number]["id"];
 
 export const DAILY_BONUS_AMOUNT = 10; // $10 daily bonus
 export const REQUIRED_DAILY_VOLUME = 50; // Must wager $50 to unlock next day's bonus

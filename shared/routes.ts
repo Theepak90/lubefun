@@ -172,10 +172,11 @@ export const api = {
       responses: {
         200: z.object({
           success: z.boolean(),
-          prizeIndex: z.number(),
+          prizeId: z.string(),
           prizeLabel: z.string(),
           prizeValue: z.number(),
           newBalance: z.number(),
+          cooldownEndsAt: z.string(),
         }),
         400: errorSchemas.gameError,
       },

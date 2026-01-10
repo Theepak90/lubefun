@@ -12,6 +12,7 @@ import { WHEEL_PRIZES } from "@shared/schema";
 type SpinState = "idle" | "preparing" | "spinning" | "revealing" | "cooldown";
 
 interface ReelItem {
+  id: string;
   label: string;
   value: number;
   originalIndex: number;
@@ -60,7 +61,7 @@ export default function DailySpin() {
   const { toast } = useToast();
   const [state, setState] = useState<SpinState>("idle");
   const [timeRemaining, setTimeRemaining] = useState("");
-  const [wonPrize, setWonPrize] = useState<{ label: string; value: number; index: number } | null>(null);
+  const [wonPrize, setWonPrize] = useState<{ id: string; label: string; value: number } | null>(null);
   const [reelOffset, setReelOffset] = useState(0);
   const [reelItems, setReelItems] = useState<ReelItem[]>([]);
   const [isMuted, setIsMuted] = useState(() => {
@@ -104,7 +105,7 @@ export default function DailySpin() {
     }
   }, [isMuted]);
   
-  const generateReelItems = useCallback((targetIndex: number): ReelItem[] => {
+  const generateReelItems = useCallback((targetPrizeId: string): ReelItem[] => {
     const items: ReelItem[] = [];
     const prizeCount = WHEEL_PRIZES.length;
     
@@ -112,6 +113,7 @@ export default function DailySpin() {
       for (let i = 0; i < prizeCount; i++) {
         const prize = WHEEL_PRIZES[i];
         items.push({
+          id: prize.id,
           label: prize.label,
           value: prize.value,
           originalIndex: i,
@@ -119,11 +121,13 @@ export default function DailySpin() {
       }
     }
     
-    const targetPrize = WHEEL_PRIZES[targetIndex];
+    const targetIndex = WHEEL_PRIZES.findIndex(p => p.id === targetPrizeId);
+    const targetPrize = WHEEL_PRIZES[targetIndex >= 0 ? targetIndex : 0];
     items.push({
+      id: targetPrize.id,
       label: targetPrize.label,
       value: targetPrize.value,
-      originalIndex: targetIndex,
+      originalIndex: targetIndex >= 0 ? targetIndex : 0,
     });
     
     return items;
@@ -134,9 +138,14 @@ export default function DailySpin() {
     onSuccess: async (response) => {
       const data = await response.json();
       
-      const items = generateReelItems(data.prizeIndex);
+      const items = generateReelItems(data.prizeId);
       setReelItems(items);
       setReelOffset(0);
+      
+      const animatedItem = items[items.length - 1];
+      if (import.meta.env.DEV) {
+        console.log(`[Lootbox] Backend prizeId=${data.prizeId}, Animated prizeId=${animatedItem.id}, Match=${data.prizeId === animatedItem.id}`);
+      }
       
       setState("preparing");
       
@@ -151,7 +160,11 @@ export default function DailySpin() {
         setTimeout(() => {
           setState("revealing");
           playSound("win");
-          setWonPrize({ label: data.prizeLabel, value: data.prizeValue, index: data.prizeIndex });
+          setWonPrize({ 
+            id: data.prizeId,
+            label: data.prizeLabel, 
+            value: data.prizeValue
+          });
           
           queryClient.invalidateQueries({ queryKey: ["/api/user"] });
           refetch();
@@ -230,6 +243,7 @@ export default function DailySpin() {
                      state === "preparing" || state === "spinning" ? "opening" : "opened";
   
   const defaultReelItems: ReelItem[] = WHEEL_PRIZES.map((prize, i) => ({
+    id: prize.id,
     label: prize.label,
     value: prize.value,
     originalIndex: i,

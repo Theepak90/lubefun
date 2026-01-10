@@ -473,15 +473,20 @@ export async function registerRoutes(
     const prizeIndex = spinWheelWeighted();
     const prize = WHEEL_PRIZES[prizeIndex];
     
-    await storage.updateLastWheelSpin(user.id);
+    const userAfterSpin = await storage.updateLastWheelSpin(user.id);
     const updatedUser = await storage.updateUserBalance(user.id, prize.value);
+    
+    const cooldownEndsAt = getNextClaimTime(userAfterSpin.lastWheelSpin) || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    console.log(`[Lootbox] User ${user.id} won prize: id=${prize.id}, label=${prize.label}, value=${prize.value}`);
     
     res.json({
       success: true,
-      prizeIndex,
+      prizeId: prize.id,
       prizeLabel: prize.label,
       prizeValue: prize.value,
       newBalance: updatedUser.balance,
+      cooldownEndsAt,
     });
   });
   
