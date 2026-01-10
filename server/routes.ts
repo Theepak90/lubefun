@@ -371,13 +371,20 @@ export async function registerRoutes(
   
   function spinWheelWeighted(): number {
     const totalWeight = WHEEL_PRIZES.reduce((sum, p) => sum + p.weight, 0);
-    let random = Math.random() * totalWeight;
+    const rawRandom = Math.random();
+    let random = rawRandom * totalWeight;
+    
+    console.log(`[Wheel] Total weight: ${totalWeight}, Raw random: ${rawRandom.toFixed(6)}, Scaled random: ${random.toFixed(4)}`);
     
     for (let i = 0; i < WHEEL_PRIZES.length; i++) {
       random -= WHEEL_PRIZES[i].weight;
-      if (random <= 0) return i;
+      if (random <= 0) {
+        console.log(`[Wheel] Selected index ${i}: ${WHEEL_PRIZES[i].id} (${WHEEL_PRIZES[i].label})`);
+        return i;
+      }
     }
-    return 0; // Fallback
+    console.log(`[Wheel] Fallback to index 0`);
+    return 0;
   }
   
   function getStartOfToday(): Date {
