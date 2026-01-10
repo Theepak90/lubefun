@@ -27,23 +27,43 @@ export default function Coinflip() {
   const [result, setResult] = useState<"heads" | "tails" | null>(null);
   const [amount, setAmount] = useState<string>("10");
   const [targetRotation, setTargetRotation] = useState(0);
+  const [doubleStake, setDoubleStake] = useState(false);
+  const [insurance, setInsurance] = useState(false);
   const isAnimatingRef = useRef(false);
 
-  const multiplier = (2 * GAME_CONFIG.RTP).toFixed(4);
+  const INSURANCE_FEE_PERCENT = 0.05;
+  const INSURANCE_REFUND_PERCENT = 0.10;
+
+  const baseMultiplier = 2 * GAME_CONFIG.RTP;
+  const multiplier = baseMultiplier.toFixed(4);
+  
+  const baseAmount = parseFloat(amount || "0");
+  const effectiveBet = doubleStake ? baseAmount * 2 : baseAmount;
+  const insuranceFee = insurance ? baseAmount * INSURANCE_FEE_PERCENT : 0;
+  const totalDeducted = baseAmount + insuranceFee;
+  const potentialProfit = effectiveBet * baseMultiplier - baseAmount;
+  const insuranceRefund = insurance ? baseAmount * INSURANCE_REFUND_PERCENT : 0;
+  const potentialLoss = baseAmount - insuranceRefund;
 
   const handleBet = () => {
     if (isAnimatingRef.current) return;
     
     const val = parseFloat(amount);
     if (isNaN(val) || val < 1) return;
+    if (totalDeducted > (user?.balance || 0)) return;
     
     isAnimatingRef.current = true;
     setFlipping(true);
     setResult(null);
     playSound("flip");
     
+    const currentDoubleStake = doubleStake;
+    const currentInsurance = insurance;
+    const currentInsuranceFee = insuranceFee;
+    const currentInsuranceRefund = insuranceRefund;
+    
     playCoinflip(
-      { betAmount: val, side },
+      { betAmount: effectiveBet, side },
       {
         onSuccess: (data: any) => {
           const flipResult = data.result.flip as "heads" | "tails";
@@ -51,12 +71,23 @@ export default function Coinflip() {
           const finalRotation = flipResult === "tails" ? baseRotations + 180 : baseRotations;
           setTargetRotation(finalRotation);
           
+          let actualProfit = data.profit;
+          if (!data.won && currentInsurance) {
+            actualProfit = -val + currentInsuranceRefund;
+          }
+          actualProfit -= currentInsuranceFee;
+          
+          const boosters: string[] = [];
+          if (currentDoubleStake) boosters.push("2x Stake");
+          if (currentInsurance) boosters.push("Insurance");
+          const boosterStr = boosters.length > 0 ? ` [${boosters.join(", ")}]` : "";
+          
           addResult({
             game: "coinflip",
-            betAmount: val,
+            betAmount: val + currentInsuranceFee,
             won: data.won,
-            profit: data.profit,
-            detail: `Picked ${side}, got ${flipResult}`
+            profit: actualProfit,
+            detail: `Picked ${side}, got ${flipResult}${boosterStr}`
           });
           
           setTimeout(() => {
@@ -152,23 +183,106 @@ export default function Coinflip() {
               </div>
 
               {/* Profit on Win */}
-              <div className="space-y-2 mb-6">
+              <div className="space-y-2 mb-4">
                 <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                   Profit on Win
                 </Label>
                 <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5">
                   <span className="font-mono font-semibold text-emerald-400 text-sm">
-                    +${((parseFloat(amount || "0") * parseFloat(multiplier)) - parseFloat(amount || "0")).toFixed(2)}
+                    +${potentialProfit.toFixed(2)}
                   </span>
                 </div>
               </div>
+
+              {/* Boosters Section */}
+              <div className="space-y-2 mb-5">
+                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  Boosters (Optional)
+                </Label>
+                
+                {/* Double Stake Booster */}
+                <button
+                  onClick={() => setDoubleStake(!doubleStake)}
+                  disabled={flipping}
+                  className={cn(
+                    "w-full p-3 rounded-lg border transition-all text-left",
+                    doubleStake 
+                      ? "bg-amber-500/10 border-amber-500/50 shadow-[0_0_10px_-3px_rgba(245,158,11,0.3)]" 
+                      : "bg-[#0d1419] border-[#1a2530] hover:border-[#2a3a4a]"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn(
+                      "text-xs font-semibold",
+                      doubleStake ? "text-amber-400" : "text-slate-300"
+                    )}>
+                      Double Stake
+                    </span>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      doubleStake ? "border-amber-400 bg-amber-400" : "border-slate-500"
+                    )}>
+                      {doubleStake && <div className="w-1.5 h-1.5 rounded-full bg-amber-900" />}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Bet ${effectiveBet.toFixed(2)} → Win ${(effectiveBet * baseMultiplier).toFixed(2)}
+                  </p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">
+                    Win chance stays at 50%
+                  </p>
+                </button>
+
+                {/* Insurance Booster */}
+                <button
+                  onClick={() => setInsurance(!insurance)}
+                  disabled={flipping}
+                  className={cn(
+                    "w-full p-3 rounded-lg border transition-all text-left",
+                    insurance 
+                      ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_10px_-3px_rgba(59,130,246,0.3)]" 
+                      : "bg-[#0d1419] border-[#1a2530] hover:border-[#2a3a4a]"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn(
+                      "text-xs font-semibold",
+                      insurance ? "text-blue-400" : "text-slate-300"
+                    )}>
+                      Insurance
+                    </span>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      insurance ? "border-blue-400 bg-blue-400" : "border-slate-500"
+                    )}>
+                      {insurance && <div className="w-1.5 h-1.5 rounded-full bg-blue-900" />}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Fee: ${insuranceFee.toFixed(2)} ({(INSURANCE_FEE_PERCENT * 100).toFixed(0)}%) • Refund on loss: ${insuranceRefund.toFixed(2)} ({(INSURANCE_REFUND_PERCENT * 100).toFixed(0)}%)
+                  </p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">
+                    Lose only ${potentialLoss.toFixed(2)} instead of ${baseAmount.toFixed(2)}
+                  </p>
+                </button>
+              </div>
+
+              {/* Total Cost Display */}
+              {(doubleStake || insurance) && (
+                <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg p-2.5 mb-4">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500">Total cost:</span>
+                    <span className="text-white font-mono font-semibold">${totalDeducted.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Place Bet Button */}
               <Button 
                 size="lg" 
                 className="w-full h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]" 
                 onClick={handleBet}
-                disabled={isPending || flipping || !user || parseFloat(amount) > (user?.balance || 0)}
+                disabled={isPending || flipping || !user || totalDeducted > (user?.balance || 0)}
                 data-testid="button-place-bet"
               >
                 {isPending || flipping ? "Flipping..." : user ? "Place Bet" : "Login to Play"}
