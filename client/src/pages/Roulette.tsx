@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { RotateCcw, Volume2, VolumeX, Loader2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { getRouletteColor, ROULETTE_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +44,7 @@ const TABLE_ROWS = [
 export default function Roulette() {
   const { user } = useAuth();
   const { addResult } = useGameHistory();
+  const { recordResult } = useProfitTracker();
   const { toast } = useToast();
   const { enabled: soundEnabled, toggle: toggleSound, play: playSound } = useSound();
   
@@ -221,6 +224,17 @@ export default function Roulette() {
           ...prev.slice(0, 7),
         ]);
         
+        const won = data.totalPayout > 0;
+        recordResult("roulette", data.totalBet, data.totalPayout, won);
+        
+        toast({
+          title: won ? "You won!" : "You lost",
+          description: won 
+            ? `Won ${formatCurrency(data.totalPayout)} (profit ${formatCurrency(data.profit)})`
+            : `Lost ${formatCurrency(data.totalBet)} (profit ${formatCurrency(-data.totalBet)})`,
+          duration: 1500,
+        });
+        
         if (data.totalPayout > 0) {
           setWinPopup({ amount: data.totalPayout, visible: true });
           playSound("win");
@@ -240,7 +254,7 @@ export default function Roulette() {
         addResult({
           game: "roulette",
           betAmount: data.totalBet,
-          won: data.totalPayout > 0,
+          won,
           profit: data.profit,
           detail: `${data.winningNumber} ${data.color}`,
         });
@@ -419,15 +433,22 @@ export default function Roulette() {
             )}
           </div>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSound}
-            className="text-slate-400 hover:text-white"
-            data-testid="button-toggle-sound"
-          >
-            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            <ProfitTrackerWidget gameId="roulette" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
+              <Shield className="w-3 h-3 text-emerald-400" />
+              <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSound}
+              className="text-slate-400 hover:text-white"
+              data-testid="button-toggle-sound"
+            >
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
         
         <div className="flex flex-col items-center">

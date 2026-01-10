@@ -11,14 +11,19 @@ import { GAME_CONFIG } from "@shared/config";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useSound } from "@/hooks/use-sound";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dice() {
   const { mutate: playDice, isPending } = useDiceGame();
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
   const { play: playSound } = useSound();
+  const { recordResult } = useProfitTracker();
+  const { toast } = useToast();
   const [target, setTarget] = useState(50);
   const [condition, setCondition] = useState<"above" | "below">("above");
   const [lastResult, setLastResult] = useState<{ result: number, won: boolean } | null>(null);
@@ -51,6 +56,17 @@ export default function Dice() {
           
           setTimeout(() => {
             playSound(data.won ? "win" : "lose");
+            
+            const payout = data.won ? val + data.profit : 0;
+            recordResult("dice", val, payout, data.won);
+            
+            toast({
+              title: data.won ? "You won!" : "You lost",
+              description: data.won 
+                ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(data.profit)})`
+                : `Lost ${formatCurrency(val)} (profit ${formatCurrency(-val)})`,
+              duration: 1500,
+            });
           }, 300);
           
           addResult({
@@ -201,8 +217,9 @@ export default function Dice() {
             {/* Right Column: Game Panel */}
             <div className="flex-1 p-5 lg:p-6 relative flex flex-col justify-center min-h-[420px]">
               
-              {/* Fair Play Badge */}
-              <div className="absolute top-4 right-4">
+              {/* Fair Play Badge + Profit Tracker */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <ProfitTrackerWidget gameId="dice" />
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>

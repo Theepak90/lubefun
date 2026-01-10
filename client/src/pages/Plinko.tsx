@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { getPlinkoMultipliers, PlinkoRisk, PLINKO_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useMutation } from "@tanstack/react-query";
@@ -53,6 +55,7 @@ const AUTO_DROP_INTERVAL = 200; // 5 balls per second for auto mode
 export default function Plinko() {
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
+  const { recordResult } = useProfitTracker();
   const { toast } = useToast();
   const { play: playSound } = useSound();
   
@@ -322,7 +325,23 @@ export default function Plinko() {
               }
               
               if (ball.status === 'animating') {
-                // Add result to history only once
+                const payout = ball.bet.won ? ball.betAmount + ball.bet.profit : 0;
+                
+                // Record to profit tracker
+                recordResult("plinko", ball.betAmount, payout, ball.bet.won);
+                
+                // Show toast (only for significant wins to avoid spam with multi-ball)
+                if (ball.multiplier >= 2 || !ball.bet.won) {
+                  toast({
+                    title: ball.bet.won ? "You won!" : "You lost",
+                    description: ball.bet.won 
+                      ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(ball.bet.profit)})`
+                      : `Lost ${formatCurrency(ball.betAmount)} (profit ${formatCurrency(-ball.betAmount)})`,
+                    duration: 1200,
+                  });
+                }
+                
+                // Add result to history
                 addResult({
                   game: "plinko",
                   betAmount: ball.betAmount,
@@ -671,8 +690,9 @@ export default function Plinko() {
             {/* Right Column: Game Panel */}
             <div className="flex-1 p-4 lg:p-6 relative flex flex-col items-center justify-center min-h-[480px]">
               
-              {/* Fair Play Badge */}
-              <div className="absolute top-3 right-3">
+              {/* Fair Play Badge + Profit Tracker */}
+              <div className="absolute top-3 right-3 flex items-center gap-2">
+                <ProfitTrackerWidget gameId="plinko" />
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>

@@ -11,8 +11,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useSound } from "@/hooks/use-sound";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
+import { useToast } from "@/hooks/use-toast";
 
 const FLIP_DURATION = 1.4;
 const FLIP_ROTATIONS = 6;
@@ -22,6 +25,8 @@ export default function Coinflip() {
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
   const { play: playSound } = useSound();
+  const { recordResult } = useProfitTracker();
+  const { toast } = useToast();
   const [side, setSide] = useState<"heads" | "tails">("heads");
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState<"heads" | "tails" | null>(null);
@@ -90,6 +95,17 @@ export default function Coinflip() {
             isAnimatingRef.current = false;
             playSound(won ? "win" : "lose");
             
+            const payout = won ? currentAmount * baseMultiplier : 0;
+            recordResult("coinflip", currentAmount, payout, won);
+            
+            toast({
+              title: won ? "You won!" : "You lost",
+              description: won 
+                ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(profit)})`
+                : `Lost ${formatCurrency(currentAmount)} (profit ${formatCurrency(-currentAmount)})`,
+              duration: 1500,
+            });
+            
             if (isAutoBet && !autoStopRef.current) {
               if ((won && currentStopOnWin) || (!won && currentStopOnLoss)) {
                 setAutoRunning(false);
@@ -118,7 +134,7 @@ export default function Coinflip() {
         }
       }
     );
-  }, [amount, side, user?.balance, playCoinflip, playSound, addResult, baseMultiplier, stopOnWin, stopOnLoss]);
+  }, [amount, side, user?.balance, playCoinflip, playSound, addResult, baseMultiplier, stopOnWin, stopOnLoss, recordResult, toast]);
 
   useEffect(() => {
     if (autoRunning && autoBetsRemaining > 0 && !flipping && !isAnimatingRef.current && !autoStopRef.current) {
@@ -369,8 +385,9 @@ export default function Coinflip() {
             {/* Right Column: Game Panel */}
             <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[480px]">
               
-              {/* Fair Play Badge */}
-              <div className="absolute top-4 right-4">
+              {/* Fair Play Badge + Profit Tracker */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <ProfitTrackerWidget gameId="coinflip" />
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>

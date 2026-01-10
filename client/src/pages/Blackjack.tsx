@@ -7,6 +7,8 @@ import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -106,6 +108,7 @@ function EmptyCard() {
 export default function Blackjack() {
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
+  const { recordResult } = useProfitTracker();
   const { toast } = useToast();
   
   const [amount, setAmount] = useState<string>("1");
@@ -203,11 +206,38 @@ export default function Blackjack() {
                          data.outcome === "win" ? "Win" :
                          data.outcome === "push" ? "Push" : "Lose";
     
+    const betAmount = data.bet?.betAmount || baseAmount;
+    const profit = data.bet?.profit || 0;
+    const won = data.outcome === "win" || data.outcome === "blackjack";
+    const isPush = data.outcome === "push";
+    const payout = won ? betAmount + profit : (isPush ? betAmount : 0);
+    
+    // Only record wins and losses - pushes are neutral and don't affect stats
+    if (!isPush) {
+      recordResult("blackjack", betAmount, payout, won);
+    }
+    
+    if (isPush) {
+      toast({
+        title: "Push",
+        description: `Bet returned ${formatCurrency(betAmount)}`,
+        duration: 1500,
+      });
+    } else {
+      toast({
+        title: won ? "You won!" : "You lost",
+        description: won 
+          ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(profit)})`
+          : `Lost ${formatCurrency(betAmount)} (profit ${formatCurrency(-betAmount)})`,
+        duration: 1500,
+      });
+    }
+    
     addResult({
       game: "blackjack",
-      betAmount: data.bet?.betAmount || baseAmount,
-      won: data.outcome === "win" || data.outcome === "blackjack",
-      profit: data.bet?.profit || 0,
+      betAmount,
+      won,
+      profit,
       detail: `${outcomeLabel} - Player ${data.playerTotal} vs Dealer ${data.dealerTotal}`,
     });
   };
@@ -391,8 +421,9 @@ export default function Blackjack() {
             {/* Right Column: Game Panel */}
             <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[520px]">
               
-              {/* Fair Play Badge */}
-              <div className="absolute top-4 right-4">
+              {/* Fair Play Badge + Profit Tracker */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <ProfitTrackerWidget gameId="blackjack" />
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>

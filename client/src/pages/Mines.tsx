@@ -12,14 +12,19 @@ import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useSound } from "@/hooks/use-sound";
+import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
+import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
   const { play: playSound } = useSound();
+  const { recordResult } = useProfitTracker();
+  const { toast } = useToast();
   const [amount, setAmount] = useState<string>("10");
   const [minesCount, setMinesCount] = useState<string>("3");
   const [gameState, setGameState] = useState<{
@@ -87,6 +92,14 @@ export default function Mines() {
           setIsShaking(true);
           setTimeout(() => setIsShaking(false), 500);
           
+          recordResult("mines", data.betAmount, 0, false);
+          
+          toast({
+            title: "You lost",
+            description: `Lost ${formatCurrency(data.betAmount)} (profit ${formatCurrency(-data.betAmount)})`,
+            duration: 1500,
+          });
+          
           addResult({
             game: "mines",
             betAmount: data.betAmount,
@@ -123,6 +136,15 @@ export default function Mines() {
         playSound("win");
         setShowWinPulse(true);
         setTimeout(() => setShowWinPulse(false), 600);
+        
+        const payout = data.betAmount + data.profit;
+        recordResult("mines", data.betAmount, payout, true);
+        
+        toast({
+          title: "You won!",
+          description: `Won ${formatCurrency(payout)} (profit ${formatCurrency(data.profit)})`,
+          duration: 1500,
+        });
         
         addResult({
           game: "mines",
@@ -276,8 +298,9 @@ export default function Mines() {
             {/* Right Column: Game Panel */}
             <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[520px]">
               
-              {/* Fair Play Badge */}
-              <div className="absolute top-4 right-4">
+              {/* Fair Play Badge + Profit Tracker */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <ProfitTrackerWidget gameId="mines" />
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>
