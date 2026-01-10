@@ -119,7 +119,7 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   );
 }
 
-function ChipStack({ total, onClick, animate = false }: { total: number; onClick?: () => void; animate?: boolean }) {
+function ChipStack({ total, onClick, animate = false, showTotal = true }: { total: number; onClick?: () => void; animate?: boolean; showTotal?: boolean }) {
   if (total <= 0) return null;
   
   const chips: ChipValue[] = [];
@@ -134,7 +134,9 @@ function ChipStack({ total, onClick, animate = false }: { total: number; onClick
     }
   }
   
-  const displayChips = chips.slice(0, 5);
+  const maxVisible = 6;
+  const displayChips = chips.slice(0, maxVisible);
+  const extraCount = chips.length - maxVisible;
   
   return (
     <motion.div 
@@ -148,21 +150,39 @@ function ChipStack({ total, onClick, animate = false }: { total: number; onClick
         <motion.div
           key={i}
           className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-[8px] font-bold border-2 shadow-md",
-            chip.color,
-            chip.textColor,
-            chip.borderColor,
-            i > 0 && "-mt-5"
+            "w-9 h-9 rounded-full flex items-center justify-center text-[9px] font-bold shadow-lg relative",
+            i > 0 && "-mt-6"
           )}
+          style={{
+            background: `radial-gradient(circle at 30% 30%, ${chip.color.replace('bg-', '').replace('-500', '-400').replace('-900', '-700')}, ${chip.color.replace('bg-', '')})`,
+            boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3)"
+          }}
           initial={animate ? { scale: 0.8 } : false}
           animate={animate ? { scale: 1 } : false}
-          transition={{ delay: i * 0.05, type: "spring", stiffness: 500 }}
+          transition={{ delay: i * 0.03, type: "spring", stiffness: 500 }}
         >
-          {i === displayChips.length - 1 && (
-            <span className="drop-shadow-md">${total.toFixed(2)}</span>
-          )}
+          <div className={cn(
+            "absolute inset-1 rounded-full border-2 border-dashed flex items-center justify-center",
+            chip.textColor,
+            "border-current opacity-40"
+          )} />
+          <span className={cn("drop-shadow-md z-10", chip.textColor)}>
+            {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
+          </span>
         </motion.div>
       ))}
+      {extraCount > 0 && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-amber-500 text-black text-[8px] font-bold flex items-center justify-center shadow-md">
+          +{extraCount}
+        </div>
+      )}
+      {showTotal && (
+        <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+          <span className="text-[10px] font-mono font-bold text-white bg-slate-900/80 px-1.5 py-0.5 rounded">
+            ${total.toFixed(2)}
+          </span>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -383,105 +403,183 @@ function PlayingCard({
   );
 }
 
-function Seat({ 
-  index, 
-  isOccupied, 
-  isPlayer, 
-  username,
-  onClick,
+function SeatWithBets({ 
+  seatIndex,
+  position,
+  isSelected,
+  onSelect,
   cards,
   total,
   isActive,
   outcome,
+  mainBet,
+  ppBet,
+  plus3Bet,
+  onPlaceMainBet,
+  onPlacePPBet,
+  onPlacePlus3Bet,
+  showPP,
+  showPlus3,
+  isPlaying,
 }: {
-  index: number;
-  isOccupied: boolean;
-  isPlayer: boolean;
-  username?: string;
-  onClick?: () => void;
+  seatIndex: number;
+  position: number;
+  isSelected: boolean;
+  onSelect: () => void;
   cards?: number[];
   total?: number;
   isActive?: boolean;
   outcome?: string;
+  mainBet: number;
+  ppBet: number;
+  plus3Bet: number;
+  onPlaceMainBet: () => void;
+  onPlacePPBet: () => void;
+  onPlacePlus3Bet: () => void;
+  showPP: boolean;
+  showPlus3: boolean;
+  isPlaying: boolean;
 }) {
-  const angle = (index - 3) * 22;
-  const radius = 85;
+  const angle = (position - 3) * 20;
+  const radius = 80;
   const x = Math.sin(angle * Math.PI / 180) * radius;
-  const y = Math.cos(angle * Math.PI / 180) * 20;
+  const y = Math.cos(angle * Math.PI / 180) * 15;
 
   return (
     <div
       className="absolute flex flex-col items-center"
       style={{
         left: `calc(50% + ${x}%)`,
-        bottom: `${8 + y}%`,
+        bottom: `${12 + y}%`,
         transform: 'translateX(-50%)'
       }}
     >
-      <button
-        onClick={onClick}
-        disabled={isOccupied && !isPlayer}
-        className={cn(
-          "w-20 h-12 rounded-[50%] border-2 flex items-center justify-center transition-all relative",
-          isPlayer 
-            ? "border-white/80 bg-white/10" 
-            : isOccupied 
-              ? "border-white/40 bg-white/5 cursor-not-allowed"
-              : "border-white/30 bg-transparent hover:border-white/60 hover:bg-white/10 cursor-pointer",
-          isActive && "border-amber-400 ring-2 ring-amber-400/50 animate-pulse"
-        )}
-        data-testid={`seat-${index}`}
-      >
-        {cards && cards.length > 0 && (
-          <motion.div 
+      {cards && cards.length > 0 && (
+        <motion.div 
+          className={cn(
+            "absolute -top-28 left-1/2 -translate-x-1/2 flex rounded-lg",
+            outcome === "blackjack" && "shadow-[0_0_25px_rgba(251,191,36,0.7)]",
+            outcome === "win" && "shadow-[0_0_25px_rgba(34,197,94,0.6)]",
+            outcome === "lose" && "shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+          )}
+          animate={outcome ? { scale: [1, 1.03, 1] } : {}}
+          transition={{ duration: 0.4 }}
+        >
+          {cards.map((card, i) => (
+            <PlayingCard 
+              key={i} 
+              cardIndex={card} 
+              delay={i * 0.2}
+              className={cn(i > 0 && "-ml-10")}
+            />
+          ))}
+        </motion.div>
+      )}
+      
+      {total !== undefined && cards && cards.length > 0 && (
+        <div className={cn(
+          "absolute -top-6 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full text-xs font-bold shadow-lg",
+          total > 21 ? "bg-red-500 text-white" :
+          total === 21 ? "bg-emerald-500 text-white" :
+          "bg-slate-900/95 text-white border border-slate-700"
+        )}>
+          {total}
+        </div>
+      )}
+
+      <div className="flex items-end gap-1 mb-2">
+        {showPP && (
+          <button
+            onClick={onPlacePPBet}
+            disabled={isPlaying}
             className={cn(
-              "absolute -top-24 left-1/2 -translate-x-1/2 flex gap-1 rounded-lg p-1",
-              outcome === "blackjack" && "shadow-[0_0_20px_rgba(251,191,36,0.6)]",
-              outcome === "win" && "shadow-[0_0_20px_rgba(34,197,94,0.5)]",
-              outcome === "lose" && total && total > 21 && "shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+              "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+              ppBet > 0 
+                ? "border-amber-400 bg-amber-400/20" 
+                : "border-white/20 bg-transparent hover:border-amber-400/50",
+              isPlaying && "opacity-50 cursor-not-allowed"
             )}
-            animate={outcome ? { scale: [1, 1.02, 1] } : {}}
-            transition={{ duration: 0.3 }}
+            data-testid={`seat-${seatIndex}-pp`}
           >
-            {cards.map((card, i) => (
-              <PlayingCard 
-                key={i} 
-                cardIndex={card} 
-                delay={i * 0.15}
-                className={cn(i > 0 && "-ml-8")}
-              />
-            ))}
-            {total !== undefined && (
-              <div className={cn(
-                "absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold",
-                total > 21 ? "bg-red-500 text-white" :
-                total === 21 ? "bg-emerald-500 text-white" :
-                "bg-slate-800/90 text-white"
-              )}>
-                {total}
-              </div>
+            {ppBet > 0 ? (
+              <ChipStack total={ppBet} animate showTotal={false} />
+            ) : (
+              <span className="text-[7px] text-white/40 font-medium">PP</span>
             )}
-          </motion.div>
+          </button>
         )}
-      </button>
+        
+        <button
+          onClick={isSelected ? onPlaceMainBet : onSelect}
+          disabled={isPlaying && !isSelected}
+          className={cn(
+            "w-16 h-10 rounded-[50%] border-2 flex items-center justify-center transition-all relative",
+            isSelected 
+              ? "border-white/80 bg-white/10 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
+              : "border-white/30 bg-transparent hover:border-white/60 hover:bg-white/5 cursor-pointer",
+            isActive && "border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)] animate-pulse"
+          )}
+          data-testid={`seat-${seatIndex}`}
+        >
+          {mainBet > 0 ? (
+            <ChipStack total={mainBet} animate showTotal={false} />
+          ) : (
+            <span className="text-[8px] text-white/40 font-medium">
+              {isSelected ? "BET" : "SIT"}
+            </span>
+          )}
+        </button>
+        
+        {showPlus3 && (
+          <button
+            onClick={onPlacePlus3Bet}
+            disabled={isPlaying}
+            className={cn(
+              "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+              plus3Bet > 0 
+                ? "border-amber-400 bg-amber-400/20" 
+                : "border-white/20 bg-transparent hover:border-amber-400/50",
+              isPlaying && "opacity-50 cursor-not-allowed"
+            )}
+            data-testid={`seat-${seatIndex}-21plus3`}
+          >
+            {plus3Bet > 0 ? (
+              <ChipStack total={plus3Bet} animate showTotal={false} />
+            ) : (
+              <span className="text-[7px] text-white/40 font-medium">21+3</span>
+            )}
+          </button>
+        )}
+      </div>
       
       <span className={cn(
-        "text-[9px] mt-1 font-medium",
-        isPlayer ? "text-white" : isOccupied ? "text-white/50" : "text-white/30"
+        "text-[9px] font-medium",
+        isSelected ? "text-white" : "text-white/30"
       )}>
-        {isPlayer ? "You" : isOccupied ? username || "Player" : ""}
+        {isSelected ? "You" : ""}
       </span>
 
+      {mainBet > 0 && !isPlaying && (
+        <span className="text-[10px] font-mono text-amber-400 mt-0.5">
+          ${mainBet.toFixed(2)}
+        </span>
+      )}
+
       {outcome && (
-        <div className={cn(
-          "mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-          outcome === "blackjack" ? "bg-amber-500 text-black" :
-          outcome === "win" ? "bg-emerald-500 text-white" :
-          outcome === "push" ? "bg-slate-500 text-white" :
-          "bg-red-500 text-white"
-        )}>
-          {outcome === "blackjack" ? "BJ!" : outcome}
-        </div>
+        <motion.div 
+          className={cn(
+            "mt-1 px-3 py-1 rounded text-xs font-bold uppercase shadow-lg",
+            outcome === "blackjack" ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black" :
+            outcome === "win" ? "bg-gradient-to-r from-emerald-400 to-emerald-500 text-white" :
+            outcome === "push" ? "bg-gradient-to-r from-slate-400 to-slate-500 text-white" :
+            "bg-gradient-to-r from-red-400 to-red-500 text-white"
+          )}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 400 }}
+        >
+          {outcome === "blackjack" ? "BLACKJACK!" : outcome.toUpperCase()}
+        </motion.div>
       )}
     </div>
   );
@@ -934,56 +1032,28 @@ export default function Blackjack() {
 
               <div className="absolute inset-0">
                 {seatPositions.map((pos, idx) => (
-                  <Seat
+                  <SeatWithBets
                     key={idx}
-                    index={pos}
-                    isOccupied={selectedSeat === idx}
-                    isPlayer={selectedSeat === idx}
-                    onClick={() => !isPlaying && handleSitDown(idx)}
+                    seatIndex={idx}
+                    position={pos}
+                    isSelected={selectedSeat === idx}
+                    onSelect={() => !isPlaying && handleSitDown(idx)}
                     cards={selectedSeat === idx && gameState?.playerCards ? gameState.playerCards : undefined}
                     total={selectedSeat === idx && gameState?.playerCards ? playerTotal : undefined}
                     isActive={selectedSeat === idx && isPlaying}
                     outcome={selectedSeat === idx && isCompleted ? gameState?.outcome : undefined}
+                    mainBet={selectedSeat === idx ? handBets[0].main : 0}
+                    ppBet={selectedSeat === idx ? handBets[0].perfectPairs : 0}
+                    plus3Bet={selectedSeat === idx ? handBets[0].twentyOnePlus3 : 0}
+                    onPlaceMainBet={() => addChipToBet(0, 'main')}
+                    onPlacePPBet={() => addChipToBet(0, 'perfectPairs')}
+                    onPlacePlus3Bet={() => addChipToBet(0, 'twentyOnePlus3')}
+                    showPP={sideBetsEnabled.perfectPairs}
+                    showPlus3={sideBetsEnabled.twentyOnePlus3}
+                    isPlaying={isPlaying || isCompleted}
                   />
                 ))}
               </div>
-
-              {selectedSeat !== null && !isPlaying && !isCompleted && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-8 items-end">
-                  {Array.from({ length: activeHandCount }).map((_, handIdx) => (
-                    <div key={handIdx} className="flex flex-col items-center gap-2">
-                      {multiHand && (
-                        <span className="text-[10px] text-amber-400/80 font-medium bg-slate-900/60 px-2 py-0.5 rounded">
-                          Hand {handIdx + 1}
-                        </span>
-                      )}
-                      <div className="flex gap-2 items-end">
-                        {sideBetsEnabled.perfectPairs && (
-                          <BetSpot
-                            bet={handBets[handIdx].perfectPairs}
-                            label="PP"
-                            onClick={() => addChipToBet(handIdx, 'perfectPairs')}
-                            small
-                          />
-                        )}
-                        <BetSpot
-                          bet={handBets[handIdx].main}
-                          label={multiHand ? `H${handIdx + 1}` : "BET"}
-                          onClick={() => addChipToBet(handIdx, 'main')}
-                        />
-                        {sideBetsEnabled.twentyOnePlus3 && (
-                          <BetSpot
-                            bet={handBets[handIdx].twentyOnePlus3}
-                            label="21+3"
-                            onClick={() => addChipToBet(handIdx, 'twentyOnePlus3')}
-                            small
-                          />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {error && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">

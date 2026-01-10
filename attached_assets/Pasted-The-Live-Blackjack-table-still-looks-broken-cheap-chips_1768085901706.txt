@@ -1,0 +1,123 @@
+The Live Blackjack table still looks broken/cheap (chips floating, cards dealing badly, side bets unclear, layout inconsistent between betting and dealing). Fix it properly with a full UI/UX pass and correct positioning system.
+
+GOAL
+
+Make Blackjack look premium, stable, and “live-casino” quality: clean felt table, proper chip stacks on bet spots, correct card dealing animation that lands in the right places, and side bets that are visibly placed + resolved.
+
+1) Build a real layout grid (stop random absolute positions)
+
+Create a single Table coordinate system component that all positions use (seats, bet spots, hand areas, dealer area, shoe).
+
+Use normalized anchors (percent-based) so it scales reliably at any screen size.
+
+The table must not shift between betting phase and dealing phase.
+
+All seats and their bet/hand anchors remain fixed.
+
+2) Premium table visuals (replace cheap felt)
+
+Replace current background with a clean premium felt: deep blue/green gradient + subtle noise texture + soft vignette.
+
+Add a smooth curved rail (gold/bronze) at the bottom arc and a thin inner border.
+
+Remove harsh gradients and flat colors.
+
+Seats should be subtle circles with clean outline, and the “You” seat should have a premium glow ring.
+
+3) Seats: show 5–7 seats cleanly and consistently
+
+Place seats evenly along the bottom arc (use 5 seats on smaller widths, 7 on wide screens).
+
+Each seat has:
+
+Seat circle
+
+Username/Empty label
+
+Bet spots directly in front of seat (main bet center + optional side bet spots left/right)
+
+Ensure seats are never too high/low; no overlap.
+
+4) Fix side bets (they exist but user can’t tell how to activate/place them)
+
+Side bets must be visibly placeable with clear spots:
+
+Perfect Pairs (PP) spot
+
+21+3 spot
+
+When PP/21+3 toggles are ON, show the side bet circles glowing and clickable.
+
+Allow placing chips on those side bet circles separately from main bet.
+
+If toggles are OFF, side bet circles are hidden or disabled (dimmed).
+
+Show side bet amounts next to the spots.
+
+Ensure side bet payouts resolve and display in the round result log.
+
+5) Chips: fix look + stacking + sizing
+
+Replace current chips with clean Vegas chips: clear denomination text, proper ring design, shadow, and consistent color palette.
+
+Chips placed on table must stack neatly at the bet spot (small offsets).
+
+No random floating chips; clamp chip positions to the bet spot anchor.
+
+Cap visible stack to e.g. 6 chips, then show “+N” badge for extra.
+
+6) Cards: fix dealing animation and landing positions (it looks bad now)
+
+Add a shoe position near dealer (top right is fine) and deal from there.
+
+Deal order must look like real blackjack:
+
+First card to each active seat (left to right), then dealer upcard
+
+Second card to each active seat, then dealer hole card (face down)
+
+Cards must slide smoothly to seat hand anchors and stack/fan slightly.
+
+Dealer hand area centered under dealer label; dealer cards aligned and not overlapping weirdly.
+
+Hand value badge should be small and positioned consistently near the hand, not on top of cards.
+
+7) Buttons/UI cleanup (keep it minimal + premium)
+
+During BETTING: show chip selector + bet controls (Undo/Clear/Repeat/2x) + Deal button.
+
+During ACTION: hide chip selector and show only action buttons for the active hand: Hit / Stand / Double (and Split if enabled).
+
+Keep layout stable; don’t push the table up/down when switching phases.
+
+8) Sounds (clean)
+
+Chip place sound (soft) when placing chips.
+
+Card deal sound (paper flick) per dealt card.
+
+Win/lose sound at the end.
+
+Respect mute toggle; default muted until user interaction.
+
+9) Visual polish
+
+Add subtle glow on active seat/active hand.
+
+Add a soft shadow under cards and chips.
+
+Add gentle animations only (no cheesy effects).
+
+10) Deliverables
+
+Refactor BlackjackTable to use a single consistent positioning/anchor system.
+
+Implement proper side bet placement UX (spots + toggle behavior).
+
+Replace felt/rail styling with premium table styling.
+
+Fix chip visuals and chip stacking at bet spots.
+
+Fix dealing animation and card landing positions so it looks like real live blackjack.
+
+Keep blackjack game logic and provably fair shuffle intact (do not change outcomes).
