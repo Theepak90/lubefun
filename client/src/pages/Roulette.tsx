@@ -281,14 +281,25 @@ export default function Roulette() {
     return bet?.amount || 0;
   };
 
-  const handleRepeat = () => {
+  const handleRebet = () => {
     if (lastBets.length === 0 || isSpinning) return;
-    const repeatTotal = lastBets.reduce((sum, b) => sum + b.amount, 0);
-    if (repeatTotal > (user?.balance || 0)) {
-      toast({ title: "Insufficient balance to repeat", variant: "destructive" });
+    const rebetTotal = lastBets.reduce((sum, b) => sum + b.amount, 0);
+    if (rebetTotal > (user?.balance || 0)) {
+      toast({ title: "Insufficient balance to rebet", variant: "destructive" });
       return;
     }
     setPendingBets(lastBets);
+    playSound("chipDrop");
+  };
+
+  const handleDouble = () => {
+    if (pendingBets.length === 0 || isSpinning) return;
+    const doubledTotal = totalPendingBet * 2;
+    if (doubledTotal > (user?.balance || 0)) {
+      toast({ title: "Insufficient balance to double", variant: "destructive" });
+      return;
+    }
+    setPendingBets(prev => prev.map(b => ({ ...b, amount: b.amount * 2 })));
     playSound("chipDrop");
   };
 
@@ -631,13 +642,24 @@ export default function Roulette() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRepeat}
+                onClick={handleRebet}
                 disabled={lastBets.length === 0 || isSpinning}
                 className="border-[#2a3a4a] text-slate-400 hover:text-white"
-                data-testid="button-repeat"
+                data-testid="button-rebet"
               >
                 <RotateCcw className="w-4 h-4 mr-1" />
-                Repeat
+                Rebet
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDouble}
+                disabled={pendingBets.length === 0 || isSpinning}
+                className="border-[#2a3a4a] text-slate-400 hover:text-white"
+                data-testid="button-double"
+              >
+                2x
               </Button>
               
               <Button
