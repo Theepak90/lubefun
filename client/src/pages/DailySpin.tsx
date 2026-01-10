@@ -106,26 +106,43 @@ export default function DailySpin() {
   }, [isMuted]);
   
   const generateReelItems = useCallback((targetPrizeId: string): { items: ReelItem[]; winnerIndex: number } => {
-    const REEL_SIZE = 50;
-    const STOP_INDEX = 42; // Winner lands here, leaving 7 items visible after
+    const REEL_SIZE = 60;
+    const STOP_INDEX = 50; // Winner lands here, leaving items visible after
     
-    // Calculate total weight for weighted random sampling
-    const totalWeight = WHEEL_PRIZES.reduce((sum, p) => sum + p.weight, 0);
-    
-    // Weighted random prize picker
-    const pickRandomPrize = (): typeof WHEEL_PRIZES[number] => {
-      let random = Math.random() * totalWeight;
-      for (const prize of WHEEL_PRIZES) {
-        random -= prize.weight;
-        if (random <= 0) return prize;
-      }
-      return WHEEL_PRIZES[0];
+    // Group prizes by rarity for visual variety
+    const prizesByRarity: Record<Rarity, typeof WHEEL_PRIZES[number][]> = {
+      common: WHEEL_PRIZES.filter(p => p.rarity === "common"),
+      uncommon: WHEEL_PRIZES.filter(p => p.rarity === "uncommon"),
+      rare: WHEEL_PRIZES.filter(p => p.rarity === "rare"),
+      epic: WHEEL_PRIZES.filter(p => p.rarity === "epic"),
+      legendary: WHEEL_PRIZES.filter(p => p.rarity === "legendary"),
     };
     
-    // Build reel with weighted random prizes
+    // Pick random prize from a rarity tier
+    const pickFromRarity = (rarity: Rarity): typeof WHEEL_PRIZES[number] => {
+      const pool = prizesByRarity[rarity];
+      if (pool.length === 0) {
+        // Fallback to common if rarity has no prizes
+        return prizesByRarity.common[Math.floor(Math.random() * prizesByRarity.common.length)];
+      }
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
+    
+    // Pick a prize with visual variety distribution (not payout odds)
+    // 70% common, 20% uncommon/rare, 8% epic, 2% legendary
+    const pickVisuallyVariedPrize = (): typeof WHEEL_PRIZES[number] => {
+      const roll = Math.random() * 100;
+      if (roll < 70) return pickFromRarity("common");
+      if (roll < 85) return pickFromRarity("uncommon");
+      if (roll < 93) return pickFromRarity("rare");
+      if (roll < 98) return pickFromRarity("epic");
+      return pickFromRarity("legendary");
+    };
+    
+    // Build reel with visually varied prizes
     const items: ReelItem[] = [];
     for (let i = 0; i < REEL_SIZE; i++) {
-      const prize = pickRandomPrize();
+      const prize = pickVisuallyVariedPrize();
       items.push({
         id: prize.id,
         label: prize.label,
@@ -134,7 +151,7 @@ export default function DailySpin() {
       });
     }
     
-    // Find the winning prize definition
+    // Find the winning prize definition (backend's selection - single source of truth)
     const winningPrize = WHEEL_PRIZES.find(p => p.id === targetPrizeId) || WHEEL_PRIZES[0];
     
     // Insert winning prize at the stop index
