@@ -60,7 +60,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body">
       {/* Header */}
-      <header className="h-16 border-b border-[#1e2a36] bg-[#0f1923]/95 backdrop-blur-md fixed top-0 w-full z-50 flex items-center px-4 lg:px-6">
+      <header className="h-16 border-b border-[#1e2a36] bg-[#0f1923]/95 backdrop-blur-md fixed top-0 w-full z-50 flex items-center justify-between px-4 lg:px-6">
         {/* Left: Logo + Mobile Menu */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden text-slate-400 hover:text-white">
@@ -73,9 +73,9 @@ export function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        {/* Center: Balance + Wallet (only when logged in) */}
+        {/* Center: Balance + Wallet - absolutely positioned for true centering */}
         {user && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center gap-2">
               {/* Balance Pill */}
               <div className="flex items-center gap-2 bg-[#1a2633] px-4 py-2 rounded-full border border-[#2a3a4a] cursor-pointer hover:bg-[#1e2a38] transition-colors">
