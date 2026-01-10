@@ -71,13 +71,14 @@ export default function Plinko() {
   const numBins = rows + 1;
   const activeBallCount = balls.filter(b => b.status !== 'done').length;
 
-  // Constants for board layout
-  const PEG_SPACING = 32;
-  const ROW_HEIGHT = 28;
-  const PEG_AREA_TOP = 16;
-  const BIN_HEIGHT = 28;
-  const BIN_MARGIN = 4;
+  // Constants for board layout - refined spacing
+  const PEG_SPACING = 36; // Wider spacing for cleaner look
+  const ROW_HEIGHT = 32; // Taller rows for better visibility
+  const PEG_AREA_TOP = 24; // More top padding
+  const BIN_HEIGHT = 32; // Taller bins for cleaner typography
+  const BIN_MARGIN = 8; // More margin above bins
   const BALL_RADIUS = 8;
+  const BOARD_PADDING = 16; // Side padding
 
   const plinkoMutation = useMutation({
     mutationFn: async (data: { betAmount: number; risk: string; rows: number; ballId: string }) => {
@@ -241,8 +242,9 @@ export default function Plinko() {
 
   // Animation loop for all balls with physics
   useEffect(() => {
-    const currentBoardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
-    const binCenterY = currentBoardHeight - 4 - BIN_HEIGHT / 2;
+    // Match boardHeight calculation exactly for proper ball/bin alignment
+    const currentBoardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 16;
+    const binCenterY = currentBoardHeight - 8 - BIN_HEIGHT / 2;
     const finalY = binCenterY - BALL_RADIUS;
 
     const animate = (time: number) => {
@@ -397,13 +399,14 @@ export default function Plinko() {
   };
 
   const getMultiplierColor = (mult: number) => {
-    if (mult >= 900) return "bg-gradient-to-b from-yellow-400 via-amber-500 to-orange-600 text-black font-black border-yellow-300 shadow-[0_0_12px_rgba(251,191,36,0.8),0_0_24px_rgba(251,191,36,0.4)] animate-pulse";
-    if (mult >= 100) return "bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-bold border-emerald-300";
-    if (mult >= 10) return "bg-emerald-500 text-white border-emerald-400";
-    if (mult >= 3) return "bg-emerald-500/60 text-white border-emerald-400/60";
-    if (mult >= 1.5) return "bg-amber-500/60 text-white border-amber-400/60";
-    if (mult >= 1) return "bg-slate-600 text-white border-slate-500";
-    return "bg-red-500/60 text-white border-red-400/60";
+    // Minimal glow, clean colors
+    if (mult >= 900) return "bg-gradient-to-b from-yellow-400 via-amber-500 to-orange-600 text-black font-black border-yellow-500/50";
+    if (mult >= 100) return "bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-bold border-emerald-500/50";
+    if (mult >= 10) return "bg-emerald-600 text-white border-emerald-500/40";
+    if (mult >= 3) return "bg-emerald-700 text-white border-emerald-600/30";
+    if (mult >= 1.5) return "bg-amber-600 text-white border-amber-500/30";
+    if (mult >= 1) return "bg-slate-700 text-slate-200 border-slate-600/30";
+    return "bg-red-700 text-white border-red-600/30";
   };
 
   const pegRows = [];
@@ -414,8 +417,8 @@ export default function Plinko() {
 
   // Calculate board dimensions based on the widest row (bottom row)
   const maxPegsInRow = rows + 2;
-  const boardWidth = maxPegsInRow * PEG_SPACING;
-  const boardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
+  const boardWidth = maxPegsInRow * PEG_SPACING + BOARD_PADDING * 2;
+  const boardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 16;
 
   // Get recently landed balls for highlighting bins
   const landedBalls = balls.filter(b => b.status === 'landed');
@@ -486,52 +489,55 @@ export default function Plinko() {
                 </div>
               </div>
 
-              {/* Risk Level */}
-              <div className="space-y-2 mb-5">
-                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Risk Level
-                </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {PLINKO_CONFIG.RISKS.map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setRisk(level)}
-                      disabled={isControlsDisabled}
-                      data-testid={`button-risk-${level}`}
-                      className={cn(
-                        "py-2.5 rounded-lg font-semibold text-xs transition-all capitalize",
-                        risk === level
-                          ? level === "low" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                            level === "medium" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" :
-                            "bg-red-500 text-white shadow-lg shadow-red-500/20"
-                          : "bg-[#1a2530] text-slate-400 hover:text-white border border-[#2a3a4a]"
-                      )}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Rows */}
-              <div className="space-y-2 mb-5">
-                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Rows
-                </Label>
-                <Select 
-                  value={String(rows)} 
-                  onValueChange={(v) => setRows(Number(v))} 
-                  disabled={isControlsDisabled}
-                >
-                  <SelectTrigger className="bg-[#0d1419] border-[#1a2530] h-10" data-testid="select-rows">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: PLINKO_CONFIG.MAX_ROWS - PLINKO_CONFIG.MIN_ROWS + 1 }, (_, i) => i + PLINKO_CONFIG.MIN_ROWS).map((r) => (
-                      <SelectItem key={r} value={String(r)}>{r} rows</SelectItem>
+              {/* Risk & Rows - Compact Panel */}
+              <div className="bg-[#0d1419] rounded-lg border border-[#1a2530] p-3 mb-5">
+                {/* Risk Level */}
+                <div className="mb-3">
+                  <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-2">
+                    Risk
+                  </Label>
+                  <div className="flex gap-1.5">
+                    {PLINKO_CONFIG.RISKS.map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => setRisk(level)}
+                        disabled={isControlsDisabled}
+                        data-testid={`button-risk-${level}`}
+                        className={cn(
+                          "flex-1 py-2 rounded-md font-semibold text-[11px] transition-all capitalize",
+                          risk === level
+                            ? level === "low" ? "bg-emerald-600 text-white" :
+                              level === "medium" ? "bg-amber-600 text-white" :
+                              "bg-red-600 text-white"
+                            : "bg-[#1a2530] text-slate-400 hover:text-white"
+                        )}
+                      >
+                        {level === "low" ? "Low" : level === "medium" ? "Med" : "High"}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
+
+                {/* Rows */}
+                <div>
+                  <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-2">
+                    Rows
+                  </Label>
+                  <Select 
+                    value={String(rows)} 
+                    onValueChange={(v) => setRows(Number(v))} 
+                    disabled={isControlsDisabled}
+                  >
+                    <SelectTrigger className="bg-[#1a2530] border-[#2a3a4a] h-9 text-sm" data-testid="select-rows">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: PLINKO_CONFIG.MAX_ROWS - PLINKO_CONFIG.MIN_ROWS + 1 }, (_, i) => i + PLINKO_CONFIG.MIN_ROWS).map((r) => (
+                        <SelectItem key={r} value={String(r)}>{r} rows</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Payout Range */}
@@ -630,22 +636,22 @@ export default function Plinko() {
                     transformOrigin: 'top center',
                   }}
                 >
-                  {/* Pegs */}
+                  {/* Pegs - smaller, evenly spaced grid */}
                   <div className="flex flex-col items-center" style={{ paddingTop: PEG_AREA_TOP }}>
                     {pegRows.map((pegsInRow, rowIndex) => (
                       <div 
                         key={rowIndex} 
-                        className="flex justify-center"
+                        className="flex justify-center items-center"
                         style={{ 
-                          marginBottom: ROW_HEIGHT - 10,
+                          height: ROW_HEIGHT,
                           width: pegsInRow * PEG_SPACING,
                         }}
                       >
                         {Array.from({ length: pegsInRow }).map((_, pegIndex) => (
                           <div 
                             key={pegIndex}
-                            className="w-2.5 h-2.5 rounded-full bg-slate-600 shrink-0"
-                            style={{ margin: `0 ${(PEG_SPACING - 10) / 2}px` }}
+                            className="w-[6px] h-[6px] rounded-full bg-slate-500 shrink-0"
+                            style={{ margin: `0 ${(PEG_SPACING - 6) / 2}px` }}
                           />
                         ))}
                       </div>
@@ -728,11 +734,11 @@ export default function Plinko() {
                     );
                   })}
 
-                  {/* Multiplier Bins - positioned to exactly match ball physics */}
+                  {/* Multiplier Bins - larger, centered, cleaner typography */}
                   <div 
                     className="absolute left-0 right-0"
                     style={{
-                      bottom: 4,
+                      bottom: 8,
                       height: BIN_HEIGHT,
                     }}
                   >
@@ -746,15 +752,15 @@ export default function Plinko() {
                         <div 
                           key={i}
                           className={cn(
-                            "absolute flex items-center justify-center font-bold rounded border transition-all",
+                            "absolute flex items-center justify-center font-semibold rounded-md border transition-all",
                             getMultiplierColor(mult),
-                            isHighlighted && "ring-2 ring-white ring-offset-1 ring-offset-[#0a0e12] scale-110 z-10"
+                            isHighlighted && "ring-2 ring-white/80 scale-105 z-10"
                           )}
                           style={{
                             left: `calc(50% + ${binCenterOffset}px - ${binWidth / 2}px)`,
                             width: binWidth,
                             height: BIN_HEIGHT,
-                            fontSize: '8px',
+                            fontSize: mult >= 100 ? '9px' : '10px',
                           }}
                           data-testid={`bin-${i}`}
                         >
@@ -766,32 +772,9 @@ export default function Plinko() {
                 </div>
               </div>
 
-              {/* Stats Row */}
-              <div className="flex gap-6 mt-6">
-                <div className="text-center">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                    Risk
-                  </span>
-                  <span className={cn(
-                    "font-mono font-semibold capitalize",
-                    risk === "low" ? "text-emerald-400" :
-                    risk === "medium" ? "text-amber-400" : "text-red-400"
-                  )}>{risk}</span>
-                </div>
-                <div className="w-px bg-[#1a2530]" />
-                <div className="text-center">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                    Rows
-                  </span>
-                  <span className="font-mono font-semibold text-white">{rows}</span>
-                </div>
-                <div className="w-px bg-[#1a2530]" />
-                <div className="text-center">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                    House Edge
-                  </span>
-                  <span className="font-mono font-semibold text-white">2%</span>
-                </div>
+              {/* Minimal Info Row */}
+              <div className="flex items-center justify-center gap-4 mt-4 text-[10px] text-slate-500">
+                <span className="uppercase tracking-wide">House Edge: 2%</span>
               </div>
 
             </div>
