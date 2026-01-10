@@ -46,7 +46,7 @@ export default function Coinflip() {
     if (isAnimatingRef.current) return;
     
     const val = parseFloat(amount);
-    if (isNaN(val) || val < 1) return;
+    if (isNaN(val) || val < 0.1) return;
     if (val > (user?.balance || 0)) return;
     
     isAnimatingRef.current = true;
@@ -198,7 +198,8 @@ export default function Coinflip() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="border-none bg-transparent h-9 focus-visible:ring-0 font-mono font-semibold text-white text-sm"
-                    min={1}
+                    min={0.1}
+                    step={0.1}
                     max={1000}
                     disabled={autoRunning}
                     data-testid="input-bet-amount"

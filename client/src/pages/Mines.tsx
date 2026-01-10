@@ -54,7 +54,7 @@ export default function Mines() {
 
   const handleBet = () => {
     const val = parseFloat(amount);
-    if (isNaN(val) || val < 1) return;
+    if (isNaN(val) || val < 0.1) return;
     
     playSound("bet");
     start.mutate({ betAmount: val, minesCount: parseInt(minesCount) }, {
