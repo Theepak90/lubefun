@@ -43,10 +43,13 @@ export default function Roulette() {
   const [wheelRotation, setWheelRotation] = useState(0);
   const [lastWinningNumber, setLastWinningNumber] = useState<number | null>(null);
   const [winPopup, setWinPopup] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false });
+  const [chipBounce, setChipBounce] = useState<string | null>(null);
+  const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number; delay: number }[]>([]);
   
   const spinAnimatedRef = useRef(false);
   const spinSoundPlayedRef = useRef<number | null>(null);
   const winCheckedRef = useRef<number | null>(null);
+  const sparkleIdRef = useRef(0);
 
   const status = roundState?.status || "betting";
   const countdown = Math.ceil((roundState?.countdown || 0) / 1000);
@@ -159,7 +162,16 @@ export default function Roulette() {
       const winnings = calculateWinnings(pendingBets, roundState.winningNumber, roundState.winningColor || "");
       if (winnings > 0) {
         setWinPopup({ amount: winnings, visible: true });
+        // Generate sparkle particles
+        const newSparkles = Array.from({ length: 8 }, (_, i) => ({
+          id: sparkleIdRef.current++,
+          x: Math.random() * 100 - 50,
+          y: Math.random() * 60 - 30,
+          delay: i * 50,
+        }));
+        setSparkles(newSparkles);
         setTimeout(() => setWinPopup(prev => ({ ...prev, visible: false })), 1500);
+        setTimeout(() => setSparkles([]), 1200);
       }
     }
   }, [isResults, roundState?.roundId, roundState?.winningNumber]);
@@ -221,6 +233,11 @@ export default function Roulette() {
     }
 
     playSound("bet");
+    
+    // Trigger chip bounce animation
+    const bounceKey = `${type}-${number ?? 'none'}`;
+    setChipBounce(bounceKey);
+    setTimeout(() => setChipBounce(null), 300);
 
     // Optimistically add to pending bets
     setPendingBets(prev => {
@@ -280,14 +297,22 @@ export default function Roulette() {
     });
   };
 
-  const ChipStack = ({ amount, small = false }: { amount: number; small?: boolean }) => {
+  const ChipStack = ({ amount, small = false, bouncing = false }: { amount: number; small?: boolean; bouncing?: boolean }) => {
     if (amount === 0) return null;
     const size = small ? "w-5 h-5 text-[8px]" : "w-7 h-7 text-[9px]";
     return (
-      <div className={cn(
-        "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 border-2 border-yellow-300 shadow-lg flex items-center justify-center font-bold text-slate-900 z-10",
-        size
-      )}>
+      <div 
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 border-2 border-yellow-300 flex items-center justify-center font-bold text-slate-900 z-10 transition-all duration-200",
+          size,
+          bouncing ? "animate-chip-drop" : ""
+        )}
+        style={{
+          boxShadow: bouncing 
+            ? "0 8px 16px -4px rgba(0,0,0,0.5), 0 4px 8px -2px rgba(234,179,8,0.3)" 
+            : "0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -1px rgba(0,0,0,0.2)"
+        }}
+      >
         {amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount.toFixed(amount < 1 ? 2 : 0)}
       </div>
     );
@@ -466,8 +491,15 @@ export default function Roulette() {
           
           {/* Large Roulette Wheel */}
           <div className="relative mb-6">
+            {/* Glow ring during spin */}
+            {isSpinning && (
+              <div className="absolute -inset-3 rounded-full animate-wheel-glow pointer-events-none" />
+            )}
             <div 
-              className="w-72 h-72 md:w-80 md:h-80 rounded-full border-4 border-amber-600 bg-gradient-to-br from-amber-900 to-amber-950 shadow-2xl relative overflow-hidden"
+              className={cn(
+                "w-72 h-72 md:w-80 md:h-80 rounded-full border-4 border-amber-600 bg-gradient-to-br from-amber-900 to-amber-950 shadow-2xl relative overflow-hidden",
+                isSpinning && "motion-safe:blur-[0.5px]"
+              )}
               style={{
                 transform: `rotate(${wheelRotation}deg)`,
                 transition: isSpinning ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
@@ -518,6 +550,19 @@ export default function Roulette() {
               <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[16px] border-l-transparent border-r-transparent border-t-white drop-shadow-lg" />
             </div>
             
+            {/* Sparkle particles on win */}
+            {sparkles.map((sparkle) => (
+              <div
+                key={sparkle.id}
+                className="absolute top-1/2 left-1/2 w-2 h-2 rounded-full bg-gradient-to-br from-yellow-300 to-amber-400 animate-sparkle pointer-events-none z-30"
+                style={{
+                  marginLeft: `${sparkle.x}px`,
+                  marginTop: `${sparkle.y}px`,
+                  animationDelay: `${sparkle.delay}ms`,
+                }}
+              />
+            ))}
+            
             {/* Win Popup - subtle toast near wheel */}
             <div 
               className={cn(
@@ -566,7 +611,7 @@ export default function Roulette() {
                 className="relative w-8 h-20 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 rounded-l-lg flex items-center justify-center text-white font-bold text-sm transition-all"
               >
                 0
-                <ChipStack amount={getBetAmount("straight", 0)} small />
+                <ChipStack amount={getBetAmount("straight", 0)} small bouncing={chipBounce === "straight-0"} />
               </button>
               
               <div className="flex-1 grid grid-rows-3 gap-px">
@@ -588,7 +633,7 @@ export default function Roulette() {
                           )}
                         >
                           {num}
-                          <ChipStack amount={getBetAmount("straight", num)} small />
+                          <ChipStack amount={getBetAmount("straight", num)} small bouncing={chipBounce === `straight-${num}`} />
                         </button>
                       );
                     })}
@@ -606,7 +651,7 @@ export default function Roulette() {
                     className="relative w-8 h-6 bg-[#1a6b4f] hover:bg-[#228b5b] border border-[#2a8b6f] flex items-center justify-center text-white font-bold text-[9px] transition-all"
                   >
                     2:1
-                    <ChipStack amount={getBetAmount(col as BetType)} small />
+                    <ChipStack amount={getBetAmount(col as BetType)} small bouncing={chipBounce === `${col}-none`} />
                   </button>
                 ))}
               </div>
@@ -627,7 +672,7 @@ export default function Roulette() {
                   className="relative h-8 bg-[#1a6b4f] hover:bg-[#228b5b] border border-[#2a8b6f] rounded flex items-center justify-center text-white font-bold text-xs transition-all"
                 >
                   {label}
-                  <ChipStack amount={getBetAmount(type)} small />
+                  <ChipStack amount={getBetAmount(type)} small bouncing={chipBounce === `${type}-none`} />
                 </button>
               ))}
             </div>
@@ -657,7 +702,7 @@ export default function Roulette() {
                   {isRed && <div className="w-4 h-4 bg-red-500 rotate-45 border border-red-300" />}
                   {isBlack && <div className="w-4 h-4 bg-slate-900 rotate-45 border border-slate-600" />}
                   {label}
-                  <ChipStack amount={getBetAmount(type)} small />
+                  <ChipStack amount={getBetAmount(type)} small bouncing={chipBounce === `${type}-none`} />
                 </button>
               ))}
             </div>
