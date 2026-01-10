@@ -29,9 +29,9 @@ interface SpinResult {
 
 const WHEEL_NUMBERS = ROULETTE_CONFIG.WHEEL_ORDER;
 const CHIP_DENOMINATIONS = [0.20, 1, 2, 10, 50, 200, 1000, 4000];
-const SPIN_DURATION = 4000;
-const BALL_ORBIT_DURATION = 3200;
-const BALL_DROP_DURATION = 600;
+const SPIN_DURATION = 2000;
+const BALL_ORBIT_DURATION = 1500;
+const BALL_DROP_DURATION = 400;
 
 const TABLE_ROWS = [
   [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
@@ -89,14 +89,14 @@ export default function Roulette() {
       if (elapsed < BALL_ORBIT_DURATION) {
         const progress = elapsed / BALL_ORBIT_DURATION;
         const easeOut = 1 - Math.pow(1 - progress, 3);
-        const totalRotations = 6 + (2 * (1 - easeOut));
+        const totalRotations = 3 + (1.5 * (1 - easeOut));
         const currentAngle = startAngle - (totalRotations * 360 * progress);
         ballAngleRef.current = currentAngle;
         ballRadiusRef.current = 48;
         setBallAngle(currentAngle);
         setBallRadius(48);
         
-        const tickInterval = 30 + (progress * 180);
+        const tickInterval = 25 + (progress * 120);
         if (elapsed - tickSoundRef.current > tickInterval) {
           tickSoundRef.current = elapsed;
           playSound("ballTick");
@@ -166,7 +166,7 @@ export default function Roulette() {
       const numberIndex = WHEEL_NUMBERS.indexOf(data.winningNumber);
       const segmentAngle = 360 / WHEEL_NUMBERS.length;
       const targetPocketAngle = 360 - (numberIndex * segmentAngle) - (segmentAngle / 2);
-      const totalRotation = wheelRotation + 1800 + targetPocketAngle;
+      const totalRotation = wheelRotation + 900 + targetPocketAngle;
       setWheelRotation(totalRotation);
       
       const initialBallAngle = Math.random() * 360;
