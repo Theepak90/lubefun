@@ -604,9 +604,8 @@ function SeatWithBets({
     if (mainLongPress.shouldPreventClick()) return;
     if (!isSelected) {
       onSelect();
-    } else if (mainChips.length === 0 && ppChips.length === 0 && plus3Chips.length === 0) {
-      onSelect();
     } else {
+      // When seat is selected, always place a chip - no auto-deselect
       onPlaceMainBet();
     }
   };
@@ -793,12 +792,28 @@ function SeatWithBets({
         )}
       </div>
       
-      <span className={cn(
-        "text-[9px] font-medium",
-        isSelected ? "text-white" : "text-white/30"
-      )}>
-        {isSelected ? "You" : ""}
-      </span>
+      <div className="flex items-center gap-1">
+        <span className={cn(
+          "text-[9px] font-medium",
+          isSelected ? "text-white" : "text-white/30"
+        )}>
+          {isSelected ? "You" : ""}
+        </span>
+        {/* Leave seat button - only shows when seated but no chips */}
+        {isSelected && mainChips.length === 0 && ppChips.length === 0 && plus3Chips.length === 0 && !isPlaying && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className="text-[8px] text-white/40 hover:text-white/80 transition-colors ml-1"
+            title="Leave seat"
+            data-testid={`seat-${seatIndex}-leave`}
+          >
+            (leave)
+          </button>
+        )}
+      </div>
 
       {(mainBet > 0 || ppBet > 0 || plus3Bet > 0) && !isPlaying && (
         <span className="text-[10px] font-mono text-amber-400 mt-0.5">
@@ -1210,17 +1225,26 @@ export default function Blackjack() {
   };
 
   const handleHit = () => {
-    if (!gameState?.bet?.id) return;
+    if (!gameState?.bet?.id) {
+      toast({ title: "Error", description: "No active hand found", variant: "destructive" });
+      return;
+    }
     hitMutation.mutate(gameState.bet.id);
   };
 
   const handleStand = () => {
-    if (!gameState?.bet?.id) return;
+    if (!gameState?.bet?.id) {
+      toast({ title: "Error", description: "No active hand found", variant: "destructive" });
+      return;
+    }
     standMutation.mutate(gameState.bet.id);
   };
 
   const handleDouble = () => {
-    if (!gameState?.bet?.id) return;
+    if (!gameState?.bet?.id) {
+      toast({ title: "Error", description: "No active hand found", variant: "destructive" });
+      return;
+    }
     doubleMutation.mutate(gameState.bet.id);
   };
 
