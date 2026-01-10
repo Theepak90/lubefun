@@ -1,0 +1,127 @@
+Build a live-style Blackjack game that visually matches the reference images: a dealer behind a semi-circle table, seat circles, chips placed on betting spots, and realistic card dealing animations. This must be fully functional (play-money for now) with correct Blackjack rules and clean UX.
+
+1) Table + Seats (Live Blackjack look)
+
+Replace the current Blackjack UI with a full table scene:
+
+Dealer area at the top center (dealer avatar optional placeholder).
+
+A semi-circle felt table with 7 seats (circles) along the bottom arc (like the image).
+
+Each seat has: seat circle, username label (or “Empty”), and a bet spot in front of the seat.
+
+User must click a seat to sit down (only one seat for the current user).
+
+When seated, show a small panel for controls (bet, actions) but keep the focus on the table.
+
+2) Chips + Betting (main bet + side bets)
+
+Add Vegas-style chips (clean numbers) and allow placing chips on:
+
+Main bet (per hand)
+
+Side bets (at least: Perfect Pairs and 21+3 as optional toggles)
+
+Bets are placed by selecting a chip, then clicking the bet spot(s).
+
+Add buttons: Undo, Clear, Repeat, Double Bet (doubles current bet amounts if balance allows).
+
+Allow multiple simultaneous hands ONLY if the user activates:
+
+“Multi-hand” toggle (up to 3 hands), each with its own main bet spot.
+
+Validate: cannot exceed balance; show clean inline error.
+
+3) Game Flow (like live BJ)
+
+Round phases:
+
+BETTING OPEN (timer optional, e.g., 8–12s)
+
+DEALING (dealer deals one card at a time around table)
+
+PLAYER ACTIONS (Hit/Stand/Double/Split if enabled)
+
+DEALER PLAY (reveal hole card, draw to rules)
+
+PAYOUTS + short results pause
+
+Seat selection + betting must feel like live tables: user places bet, then clicks “Deal” (or auto-start when betting closes).
+
+4) Correct Blackjack Rules (configurable)
+
+Use standard rules and make them explicit in the UI:
+
+Dealer stands on 17 (choose “stand on soft 17” OR “hit soft 17” and implement consistently; default stand).
+
+Blackjack pays 3:2.
+
+Double allowed on first two cards.
+
+Split allowed (optional v1; if too complex, ship without split first but structure code to add later).
+
+Surrender optional (off by default).
+
+Side bets:
+
+Perfect Pairs: paytable by pair type (mixed/colored/perfect)
+
+21+3: evaluate player’s first two cards + dealer upcard (flush/straight/3kind/straight flush)
+
+Ensure all payouts update balance correctly and log results.
+
+5) Provably Fair / Deterministic Dealing
+
+The deck order must be generated server-side using provably-fair seeds: server seed + client seed + nonce, then shuffle deterministically.
+
+Each round increments nonce and uses a fresh deck/shoe logic.
+
+Provide a Fair Play modal showing: server seed hash, client seed, nonce, and a way to rotate seeds.
+
+IMPORTANT: do not reveal the server seed until rotated, but ensure past rounds can be verified.
+
+6) Realistic Animations (must look good)
+
+Deal animation: cards slide from dealer shoe area to each seat’s hand position in sequence (player hands first, then dealer upcard, then second card round, then dealer hole card).
+
+Card placement must align to table spots (hand stacking with slight offsets).
+
+Chip placement animation: chip drops onto bet spot with a tiny bounce.
+
+When a hand busts/wins, highlight that hand briefly (subtle glow).
+
+7) Sound Effects (premium but not annoying)
+
+Add sound system with global mute toggle (default muted; must only play after user interaction):
+
+Chip place sound (soft click)
+
+Card deal sound (paper flick)
+
+Win chime / lose thud (subtle)
+
+Throttle sounds so multiple quick actions don’t spam.
+
+8) Results + Profit UI (consistent across games)
+
+After each round, show a clean toast for ~1s:
+
+“You won $X.XX (profit $Y.YY)” OR “You lost $X.XX (profit -$X.XX)”
+
+Log each round into the shared Recent Results panel.
+
+Integrate the Profit Tracker popup for Blackjack (session profit, wagered, W/L).
+
+9) Performance + Responsiveness
+
+Must run smoothly on Replit preview.
+
+Table scales for smaller screens (reduce seats to 5 on mobile or allow horizontal scroll).
+
+10) Deliverables
+
+A fully playable Blackjack table with seat selection, chip betting, dealing animations, actions, payouts, side bets, sounds, provably-fair deck generation, and clean UI.
+
+Keep code modular: BlackjackTable, Seat, BetSpot, ChipSelector, Card, HandArea, useSound, provablyFairShuffle utilities.
+
+Build this inside the existing app structure and keep styling consistent with the site (dark premium theme).

@@ -273,6 +273,16 @@ export default function Plinko() {
 
   // Track sounds to play (processed after state update to avoid issues)
   const pendingSoundsRef = useRef<{ type: 'tick' | 'land' | 'win' | 'lose' }[]>([]);
+  
+  // Track balls that just landed for processing after state update
+  const pendingLandedBallsRef = useRef<{
+    betAmount: number;
+    payout: number;
+    won: boolean;
+    profit: number;
+    multiplier: number;
+    detail: string;
+  }[]>([]);
 
   // Animation loop for all balls with physics
   useEffect(() => {
@@ -327,26 +337,13 @@ export default function Plinko() {
               if (ball.status === 'animating') {
                 const payout = ball.bet.won ? ball.betAmount + ball.bet.profit : 0;
                 
-                // Record to profit tracker
-                recordResult("plinko", ball.betAmount, payout, ball.bet.won);
-                
-                // Show toast (only for significant wins to avoid spam with multi-ball)
-                if (ball.multiplier >= 2 || !ball.bet.won) {
-                  toast({
-                    title: ball.bet.won ? "You won!" : "You lost",
-                    description: ball.bet.won 
-                      ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(ball.bet.profit)})`
-                      : `Lost ${formatCurrency(ball.betAmount)} (profit ${formatCurrency(-ball.betAmount)})`,
-                    duration: 1200,
-                  });
-                }
-                
-                // Add result to history
-                addResult({
-                  game: "plinko",
+                // Queue landed ball for processing after state update (avoid setState during render)
+                pendingLandedBallsRef.current.push({
                   betAmount: ball.betAmount,
+                  payout,
                   won: ball.bet.won,
                   profit: ball.bet.profit,
+                  multiplier: ball.multiplier,
                   detail: `${risk} risk, ${rows} rows → ${ball.multiplier}x`,
                 });
                 
@@ -422,6 +419,39 @@ export default function Plinko() {
           .filter(ball => ball.status !== 'done');
       });
       
+      // Process pending landed balls after state update (defer to avoid setState during render)
+      if (pendingLandedBallsRef.current.length > 0) {
+        const landedBalls = [...pendingLandedBallsRef.current];
+        pendingLandedBallsRef.current = [];
+        
+        setTimeout(() => {
+          for (const landed of landedBalls) {
+            // Record to profit tracker
+            recordResult("plinko", landed.betAmount, landed.payout, landed.won);
+            
+            // Show toast (only for significant wins to avoid spam with multi-ball)
+            if (landed.multiplier >= 2 || !landed.won) {
+              toast({
+                title: landed.won ? "You won!" : "You lost",
+                description: landed.won 
+                  ? `Won ${formatCurrency(landed.payout)} (profit ${formatCurrency(landed.profit)})`
+                  : `Lost ${formatCurrency(landed.betAmount)} (profit ${formatCurrency(-landed.betAmount)})`,
+                duration: 1200,
+              });
+            }
+            
+            // Add result to history
+            addResult({
+              game: "plinko",
+              betAmount: landed.betAmount,
+              won: landed.won,
+              profit: landed.profit,
+              detail: landed.detail,
+            });
+          }
+        }, 0);
+      }
+      
       // Process pending sounds after state update (throttled for ticks)
       for (const sound of pendingSoundsRef.current) {
         if (sound.type === 'tick') {
@@ -447,7 +477,7 @@ export default function Plinko() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [balls.length, rows, risk, addResult, getTargetPosition, playTickSoundThrottled, playSound]);
+  }, [balls.length, rows, risk, addResult, recordResult, toast, getTargetPosition, playTickSoundThrottled, playSound]);
 
   // Cleanup on unmount
   useEffect(() => {

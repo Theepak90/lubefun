@@ -8,6 +8,7 @@ export interface GameStats {
   wins: number;
   losses: number;
   totalPayout: number;
+  profitHistory: number[];
 }
 
 interface ProfitTrackerState {
@@ -19,12 +20,15 @@ type Action =
   | { type: "RESET_SESSION"; game: GameId }
   | { type: "RESET_ALL" };
 
+const MAX_HISTORY_POINTS = 150;
+
 const initialGameStats: GameStats = {
   wagered: 0,
   profit: 0,
   wins: 0,
   losses: 0,
   totalPayout: 0,
+  profitHistory: [],
 };
 
 const initialState: ProfitTrackerState = {
@@ -44,16 +48,24 @@ function profitTrackerReducer(state: ProfitTrackerState, action: Action): Profit
       const { game, wager, payout, won } = action;
       const profit = payout - wager;
       const currentStats = state.stats[game];
+      const newCumulativeProfit = currentStats.profit + profit;
+      
+      const newHistory = [...currentStats.profitHistory, newCumulativeProfit];
+      if (newHistory.length > MAX_HISTORY_POINTS) {
+        newHistory.shift();
+      }
+      
       return {
         ...state,
         stats: {
           ...state.stats,
           [game]: {
             wagered: currentStats.wagered + wager,
-            profit: currentStats.profit + profit,
+            profit: newCumulativeProfit,
             wins: currentStats.wins + (won ? 1 : 0),
             losses: currentStats.losses + (won ? 0 : 1),
             totalPayout: currentStats.totalPayout + payout,
+            profitHistory: newHistory,
           },
         },
       };
@@ -81,7 +93,7 @@ interface ProfitTrackerContextValue {
   resetSession: (game: GameId) => void;
   resetAll: () => void;
   getStats: (game: GameId) => GameStats;
-  getRTP: (game: GameId) => number | null;
+  getHistory: (game: GameId) => number[];
 }
 
 const ProfitTrackerContext = createContext<ProfitTrackerContextValue | null>(null);
@@ -105,14 +117,12 @@ export function ProfitTrackerProvider({ children }: { children: ReactNode }) {
     return state.stats[game];
   }, [state.stats]);
 
-  const getRTP = useCallback((game: GameId) => {
-    const stats = state.stats[game];
-    if (stats.wagered === 0) return null;
-    return (stats.totalPayout / stats.wagered) * 100;
+  const getHistory = useCallback((game: GameId) => {
+    return state.stats[game].profitHistory;
   }, [state.stats]);
 
   return (
-    <ProfitTrackerContext.Provider value={{ stats: state.stats, recordResult, resetSession, resetAll, getStats, getRTP }}>
+    <ProfitTrackerContext.Provider value={{ stats: state.stats, recordResult, resetSession, resetAll, getStats, getHistory }}>
       {children}
     </ProfitTrackerContext.Provider>
   );
