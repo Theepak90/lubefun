@@ -106,50 +106,46 @@ export default function DailySpin() {
   }, [isMuted]);
   
   const generateReelItems = useCallback((targetPrizeId: string): { items: ReelItem[]; winnerIndex: number } => {
-    const items: ReelItem[] = [];
-    const allPrizes = [...WHEEL_PRIZES];
+    const REEL_SIZE = 50;
+    const STOP_INDEX = 42; // Winner lands here, leaving 7 items visible after
     
-    // Fisher-Yates shuffle for randomizing prize order each cycle
-    const shuffle = <T,>(arr: T[]): T[] => {
-      const copy = [...arr];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
+    // Calculate total weight for weighted random sampling
+    const totalWeight = WHEEL_PRIZES.reduce((sum, p) => sum + p.weight, 0);
+    
+    // Weighted random prize picker
+    const pickRandomPrize = (): typeof WHEEL_PRIZES[number] => {
+      let random = Math.random() * totalWeight;
+      for (const prize of WHEEL_PRIZES) {
+        random -= prize.weight;
+        if (random <= 0) return prize;
       }
-      return copy;
+      return WHEEL_PRIZES[0];
     };
     
-    // Generate multiple cycles with shuffled order each time
-    for (let cycle = 0; cycle < REEL.FULL_CYCLES; cycle++) {
-      const shuffled = shuffle(allPrizes);
-      for (const prize of shuffled) {
-        items.push({
-          id: prize.id,
-          label: prize.label,
-          value: prize.value,
-          rarity: prize.rarity,
-        });
-      }
+    // Build reel with weighted random prizes
+    const items: ReelItem[] = [];
+    for (let i = 0; i < REEL_SIZE; i++) {
+      const prize = pickRandomPrize();
+      items.push({
+        id: prize.id,
+        label: prize.label,
+        value: prize.value,
+        rarity: prize.rarity,
+      });
     }
     
-    // Find the winning prize
-    const prizeDefIndex = WHEEL_PRIZES.findIndex(p => p.id === targetPrizeId);
-    const targetPrize = WHEEL_PRIZES[prizeDefIndex >= 0 ? prizeDefIndex : 0];
+    // Find the winning prize definition
+    const winningPrize = WHEEL_PRIZES.find(p => p.id === targetPrizeId) || WHEEL_PRIZES[0];
     
-    // Insert winning prize near the end but not at the very last position
-    // This creates a natural "landing" feel with items visible after the winner
-    const insertPosition = items.length - Math.floor(Math.random() * 5) - 3;
-    const winnerIndex = Math.max(insertPosition, Math.floor(items.length * 0.8));
-    
-    // Replace the item at winnerIndex with the winning prize
-    items[winnerIndex] = {
-      id: targetPrize.id,
-      label: targetPrize.label,
-      value: targetPrize.value,
-      rarity: targetPrize.rarity,
+    // Insert winning prize at the stop index
+    items[STOP_INDEX] = {
+      id: winningPrize.id,
+      label: winningPrize.label,
+      value: winningPrize.value,
+      rarity: winningPrize.rarity,
     };
     
-    return { items, winnerIndex };
+    return { items, winnerIndex: STOP_INDEX };
   }, []);
   
   const spinMutation = useMutation({
