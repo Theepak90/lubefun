@@ -20,27 +20,28 @@ export const users = pgTable("users", {
 });
 
 // Lootbox prizes with stable IDs and weights (higher weight = more common)
-// Common prizes (~99.5% total): $0.10 - $2.00
-// Big wins (~0.5% total): $5.00 - $100.00
+// Total weight: 100 (for easy percentage calculation)
+// Common prizes: 99.5% total ($0.10 - $2.00)
+// Big wins: 0.5% total ($5.00 - $100.00) - extremely rare
 export const WHEEL_PRIZES = [
-  // Common tier - high probability
-  { id: "cent_10", label: "$0.10", value: 0.10, weight: 14, rarity: "common" as const },
-  { id: "cent_20", label: "$0.20", value: 0.20, weight: 13, rarity: "common" as const },
-  { id: "cent_25", label: "$0.25", value: 0.25, weight: 12, rarity: "common" as const },
-  { id: "cent_50", label: "$0.50", value: 0.50, weight: 11, rarity: "common" as const },
-  { id: "cent_75", label: "$0.75", value: 0.75, weight: 10, rarity: "common" as const },
-  { id: "dollar_1", label: "$1.00", value: 1.00, weight: 9, rarity: "common" as const },
-  { id: "dollar_1_25", label: "$1.25", value: 1.25, weight: 6, rarity: "common" as const },
-  { id: "dollar_1_50", label: "$1.50", value: 1.50, weight: 5, rarity: "common" as const },
-  { id: "dollar_2", label: "$2.00", value: 2.00, weight: 4.5, rarity: "common" as const },
-  // Big wins - super low probability
-  { id: "dollar_5", label: "$5.00", value: 5.00, weight: 0.25, rarity: "uncommon" as const },
-  { id: "dollar_7_50", label: "$7.50", value: 7.50, weight: 0.12, rarity: "uncommon" as const },
-  { id: "dollar_10", label: "$10.00", value: 10.00, weight: 0.06, rarity: "rare" as const },
-  { id: "dollar_15", label: "$15.00", value: 15.00, weight: 0.03, rarity: "rare" as const },
-  { id: "dollar_20", label: "$20.00", value: 20.00, weight: 0.02, rarity: "epic" as const },
-  { id: "dollar_75", label: "$75.00", value: 75.00, weight: 0.015, rarity: "epic" as const },
-  { id: "dollar_100", label: "$100.00", value: 100.00, weight: 0.005, rarity: "legendary" as const },
+  // Common tier - 99.5% combined probability
+  { id: "cent_10", label: "$0.10", value: 0.10, weight: 18, rarity: "common" as const },    // 18%
+  { id: "cent_20", label: "$0.20", value: 0.20, weight: 16, rarity: "common" as const },    // 16%
+  { id: "cent_25", label: "$0.25", value: 0.25, weight: 14, rarity: "common" as const },    // 14%
+  { id: "cent_50", label: "$0.50", value: 0.50, weight: 13, rarity: "common" as const },    // 13%
+  { id: "cent_75", label: "$0.75", value: 0.75, weight: 12, rarity: "common" as const },    // 12%
+  { id: "dollar_1", label: "$1.00", value: 1.00, weight: 10, rarity: "common" as const },   // 10%
+  { id: "dollar_1_25", label: "$1.25", value: 1.25, weight: 7, rarity: "common" as const }, // 7%
+  { id: "dollar_1_50", label: "$1.50", value: 1.50, weight: 5.5, rarity: "common" as const }, // 5.5%
+  { id: "dollar_2", label: "$2.00", value: 2.00, weight: 4, rarity: "common" as const },    // 4%
+  // Big wins - 0.5% combined probability (extremely rare)
+  { id: "dollar_5", label: "$5.00", value: 5.00, weight: 0.2, rarity: "uncommon" as const },   // 0.2%
+  { id: "dollar_7_50", label: "$7.50", value: 7.50, weight: 0.12, rarity: "uncommon" as const }, // 0.12%
+  { id: "dollar_10", label: "$10.00", value: 10.00, weight: 0.08, rarity: "rare" as const },   // 0.08%
+  { id: "dollar_15", label: "$15.00", value: 15.00, weight: 0.045, rarity: "rare" as const },  // 0.045%
+  { id: "dollar_20", label: "$20.00", value: 20.00, weight: 0.03, rarity: "epic" as const },   // 0.03%
+  { id: "dollar_75", label: "$75.00", value: 75.00, weight: 0.02, rarity: "epic" as const },   // 0.02%
+  { id: "dollar_100", label: "$100.00", value: 100.00, weight: 0.005, rarity: "legendary" as const }, // 0.005%
 ] as const;
 
 export type PrizeId = typeof WHEEL_PRIZES[number]["id"];
