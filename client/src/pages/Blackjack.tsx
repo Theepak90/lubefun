@@ -88,33 +88,56 @@ function calculateTotal(cards: number[]): number {
   return total;
 }
 
+const CHIP_COLORS: Record<number, { bg: string; ring: string }> = {
+  0.1: { bg: "#9ca3af", ring: "#6b7280" },
+  0.5: { bg: "#ef4444", ring: "#b91c1c" },
+  1: { bg: "#3b82f6", ring: "#1d4ed8" },
+  5: { bg: "#22c55e", ring: "#15803d" },
+  10: { bg: "#a855f7", ring: "#7c3aed" },
+  25: { bg: "#f59e0b", ring: "#d97706" },
+  100: { bg: "#1e293b", ring: "#475569" },
+};
+
 function Chip({ chip, selected, onClick, size = "md" }: { 
   chip: ChipValue; 
   selected?: boolean; 
   onClick?: () => void;
   size?: "sm" | "md" | "lg";
 }) {
-  const sizeClasses = {
-    sm: "w-8 h-8 text-[8px]",
-    md: "w-12 h-12 text-xs",
-    lg: "w-16 h-16 text-sm",
+  const sizes = {
+    sm: { outer: 32, text: 8 },
+    md: { outer: 48, text: 11 },
+    lg: { outer: 64, text: 14 },
   };
+  const s = sizes[size];
+  const colors = CHIP_COLORS[chip.value] || { bg: "#6b7280", ring: "#4b5563" };
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full flex items-center justify-center font-bold border-4 shadow-lg transition-all",
-        sizeClasses[size],
-        chip.color,
-        chip.textColor,
-        chip.borderColor,
+        "rounded-full flex items-center justify-center font-bold transition-all relative",
         selected && "ring-2 ring-white ring-offset-2 ring-offset-transparent scale-110",
         onClick && "hover:scale-105 active:scale-95 cursor-pointer"
       )}
+      style={{
+        width: s.outer,
+        height: s.outer,
+        background: `radial-gradient(circle at 30% 30%, ${colors.bg}dd, ${colors.bg})`,
+        boxShadow: `0 2px 4px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3), inset 0 0 0 3px ${colors.ring}`
+      }}
       data-testid={`chip-${chip.value}`}
     >
-      {chip.value >= 1 ? chip.value : chip.value.toFixed(1)}
+      <div 
+        className="absolute inset-1.5 rounded-full border-2 border-dashed opacity-30"
+        style={{ borderColor: chip.textColor.includes('white') ? 'white' : 'black' }}
+      />
+      <span 
+        className={cn("drop-shadow-md z-10 font-bold", chip.textColor)}
+        style={{ fontSize: s.text }}
+      >
+        {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
+      </span>
     </button>
   );
 }
@@ -146,33 +169,35 @@ function ChipStack({ total, onClick, animate = false, showTotal = true }: { tota
       animate={animate ? { y: 0, opacity: 1 } : false}
       transition={{ type: "spring", stiffness: 400, damping: 15 }}
     >
-      {displayChips.map((chip, i) => (
-        <motion.div
-          key={i}
-          className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-[9px] font-bold shadow-lg relative",
-            i > 0 && "-mt-6"
-          )}
-          style={{
-            background: `radial-gradient(circle at 30% 30%, ${chip.color.replace('bg-', '').replace('-500', '-400').replace('-900', '-700')}, ${chip.color.replace('bg-', '')})`,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3)"
-          }}
-          initial={animate ? { scale: 0.8 } : false}
-          animate={animate ? { scale: 1 } : false}
-          transition={{ delay: i * 0.03, type: "spring", stiffness: 500 }}
-        >
-          <div className={cn(
-            "absolute inset-1 rounded-full border-2 border-dashed flex items-center justify-center",
-            chip.textColor,
-            "border-current opacity-40"
-          )} />
-          <span className={cn("drop-shadow-md z-10", chip.textColor)}>
-            {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
-          </span>
-        </motion.div>
-      ))}
+      {displayChips.map((chip, i) => {
+        const colors = CHIP_COLORS[chip.value] || { bg: "#6b7280", ring: "#4b5563" };
+        return (
+          <motion.div
+            key={i}
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-[8px] font-bold shadow-lg relative",
+              i > 0 && "-mt-5"
+            )}
+            style={{
+              background: `radial-gradient(circle at 30% 30%, ${colors.bg}dd, ${colors.bg})`,
+              boxShadow: `0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 0 0 2px ${colors.ring}`
+            }}
+            initial={animate ? { scale: 0.8 } : false}
+            animate={animate ? { scale: 1 } : false}
+            transition={{ delay: i * 0.03, type: "spring", stiffness: 500 }}
+          >
+            <div 
+              className="absolute inset-1 rounded-full border border-dashed opacity-25"
+              style={{ borderColor: chip.textColor.includes('white') ? 'white' : 'black' }}
+            />
+            <span className={cn("drop-shadow-md z-10", chip.textColor)}>
+              {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
+            </span>
+          </motion.div>
+        );
+      })}
       {extraCount > 0 && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-amber-500 text-black text-[8px] font-bold flex items-center justify-center shadow-md">
+        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-black text-[7px] font-bold flex items-center justify-center shadow-md">
           +{extraCount}
         </div>
       )}
@@ -1064,185 +1089,194 @@ export default function Blackjack() {
               )}
             </div>
 
-            <div className="bg-slate-900/95 border-t border-slate-700 p-4">
-              <div className="flex items-center justify-between gap-4">
+            <div className="bg-slate-900/95 border-t border-slate-700 p-4 min-h-[80px]">
+              <div className="flex items-center justify-between gap-4 h-full">
                 
-                {!isPlaying && !isCompleted && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      {CHIP_VALUES.map((chip) => (
-                        <Chip
-                          key={chip.value}
-                          chip={chip}
-                          selected={selectedChip.value === chip.value}
-                          onClick={() => setSelectedChip(chip)}
+                <AnimatePresence mode="wait">
+                  {!isPlaying && !isCompleted && (
+                    <motion.div 
+                      key="betting"
+                      className="flex items-center justify-between gap-4 w-full"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {CHIP_VALUES.map((chip) => (
+                          <Chip
+                            key={chip.value}
+                            chip={chip}
+                            selected={selectedChip.value === chip.value}
+                            onClick={() => setSelectedChip(chip)}
+                            size="sm"
+                          />
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
                           size="sm"
-                        />
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={undoLastBet}
-                        disabled={totalBet === 0}
-                        className="border-slate-600 text-slate-300"
-                        data-testid="button-undo"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearBets}
-                        disabled={totalBet === 0}
-                        className="border-slate-600 text-slate-300"
-                        data-testid="button-clear"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={repeatBet}
-                        disabled={lastBets.length === 0}
-                        className="border-slate-600 text-slate-300"
-                        data-testid="button-repeat"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={doubleBet}
-                        disabled={totalBet === 0}
-                        className="border-slate-600 text-slate-300"
-                        data-testid="button-double-bet"
-                      >
-                        2x
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="multihand"
-                          checked={multiHand}
-                          onCheckedChange={(v) => {
-                            setMultiHand(v);
-                            setActiveHandCount(v ? 3 : 1);
-                            if (!v) {
-                              setHandBets(prev => [prev[0], { main: 0, perfectPairs: 0, twentyOnePlus3: 0 }, { main: 0, perfectPairs: 0, twentyOnePlus3: 0 }]);
-                            }
-                          }}
-                        />
-                        <Label htmlFor="multihand" className="text-xs text-slate-400">Multi</Label>
+                          onClick={undoLastBet}
+                          disabled={totalBet === 0}
+                          className="border-slate-600 text-slate-300"
+                          data-testid="button-undo"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearBets}
+                          disabled={totalBet === 0}
+                          className="border-slate-600 text-slate-300"
+                          data-testid="button-clear"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={repeatBet}
+                          disabled={lastBets.length === 0}
+                          className="border-slate-600 text-slate-300"
+                          data-testid="button-repeat"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={doubleBet}
+                          disabled={totalBet === 0}
+                          className="border-slate-600 text-slate-300"
+                          data-testid="button-double-bet"
+                        >
+                          2x
+                        </Button>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="pp"
-                          checked={sideBetsEnabled.perfectPairs}
-                          onCheckedChange={(v) => {
-                            setSideBetsEnabled(s => ({ ...s, perfectPairs: v }));
-                            if (!v) {
-                              setHandBets(prev => prev.map(h => ({ ...h, perfectPairs: 0 })));
-                            }
-                          }}
-                        />
-                        <Label htmlFor="pp" className="text-xs text-slate-400">PP</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="21p3"
-                          checked={sideBetsEnabled.twentyOnePlus3}
-                          onCheckedChange={(v) => {
-                            setSideBetsEnabled(s => ({ ...s, twentyOnePlus3: v }));
-                            if (!v) {
-                              setHandBets(prev => prev.map(h => ({ ...h, twentyOnePlus3: 0 })));
-                            }
-                          }}
-                        />
-                        <Label htmlFor="21p3" className="text-xs text-slate-400">21+3</Label>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-500 uppercase">Total Bet</div>
-                        <div className="text-lg font-mono font-bold text-amber-400">${totalBet.toFixed(2)}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="pp"
+                            checked={sideBetsEnabled.perfectPairs}
+                            onCheckedChange={(v) => {
+                              setSideBetsEnabled(s => ({ ...s, perfectPairs: v }));
+                              if (!v) {
+                                setHandBets(prev => prev.map(h => ({ ...h, perfectPairs: 0 })));
+                              }
+                            }}
+                          />
+                          <Label htmlFor="pp" className="text-xs text-slate-400">PP</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="21p3"
+                            checked={sideBetsEnabled.twentyOnePlus3}
+                            onCheckedChange={(v) => {
+                              setSideBetsEnabled(s => ({ ...s, twentyOnePlus3: v }));
+                              if (!v) {
+                                setHandBets(prev => prev.map(h => ({ ...h, twentyOnePlus3: 0 })));
+                              }
+                            }}
+                          />
+                          <Label htmlFor="21p3" className="text-xs text-slate-400">21+3</Label>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-500 uppercase">Total Bet</div>
+                          <div className="text-lg font-mono font-bold text-amber-400">${totalBet.toFixed(2)}</div>
+                        </div>
+                        <Button
+                          size="lg"
+                          className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
+                          onClick={handleDeal}
+                          disabled={!user || selectedSeat === null || handBets.slice(0, activeHandCount).every(h => h.main < 0.1) || totalBet > (user?.balance || 0) || isBusy}
+                          data-testid="button-deal"
+                        >
+                          {isBusy ? "Dealing..." : selectedSeat === null ? "Sit Down First" : totalBet === 0 ? "Place Bet" : "Deal"}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {isPlaying && (
+                    <motion.div 
+                      key="playing"
+                      className="flex items-center justify-center gap-4 w-full"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Button
+                        size="lg"
+                        className="h-12 px-8 bg-amber-500 hover:bg-amber-400 font-bold"
+                        onClick={handleHit}
+                        disabled={isBusy}
+                        data-testid="button-hit"
+                      >
+                        Hit
+                      </Button>
+                      <Button
+                        size="lg"
+                        className="h-12 px-8 bg-slate-600 hover:bg-slate-500 font-bold"
+                        onClick={handleStand}
+                        disabled={isBusy}
+                        data-testid="button-stand"
+                      >
+                        Stand
+                      </Button>
+                      {gameState?.canDouble && (
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="h-12 px-8 border-slate-500 text-white font-bold"
+                          onClick={handleDouble}
+                          disabled={isBusy || (user?.balance || 0) < handBets[0].main}
+                          data-testid="button-double"
+                        >
+                          Double
+                        </Button>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {isCompleted && (
+                    <motion.div 
+                      key="completed"
+                      className="flex items-center justify-center gap-4 w-full"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className={cn(
+                        "px-6 py-2 rounded-lg font-bold text-lg",
+                        gameState?.outcome === "blackjack" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
+                        gameState?.outcome === "win" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
+                        gameState?.outcome === "push" ? "bg-slate-500/20 text-slate-300 border border-slate-500/40" :
+                        "bg-red-500/20 text-red-400 border border-red-500/40"
+                      )}>
+                        {gameState?.outcome === "blackjack" ? "BLACKJACK!" :
+                         gameState?.outcome === "win" ? "YOU WIN!" :
+                         gameState?.outcome === "push" ? "PUSH" : "DEALER WINS"}
                       </div>
                       <Button
                         size="lg"
                         className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
-                        onClick={handleDeal}
-                        disabled={!user || selectedSeat === null || handBets.slice(0, activeHandCount).every(h => h.main < 0.1) || totalBet > (user?.balance || 0) || isBusy}
-                        data-testid="button-deal"
+                        onClick={handleNewHand}
+                        data-testid="button-new-hand"
                       >
-                        {isBusy ? "Dealing..." : selectedSeat === null ? "Sit Down First" : totalBet === 0 ? "Place Bet" : "Deal"}
+                        New Hand
                       </Button>
-                    </div>
-                  </>
-                )}
-
-                {isPlaying && (
-                  <div className="flex items-center justify-center gap-4 w-full">
-                    <Button
-                      size="lg"
-                      className="h-12 px-8 bg-amber-500 hover:bg-amber-400 font-bold"
-                      onClick={handleHit}
-                      disabled={isBusy}
-                      data-testid="button-hit"
-                    >
-                      Hit
-                    </Button>
-                    <Button
-                      size="lg"
-                      className="h-12 px-8 bg-slate-600 hover:bg-slate-500 font-bold"
-                      onClick={handleStand}
-                      disabled={isBusy}
-                      data-testid="button-stand"
-                    >
-                      Stand
-                    </Button>
-                    {gameState?.canDouble && (
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="h-12 px-8 border-slate-500 text-white font-bold"
-                        onClick={handleDouble}
-                        disabled={isBusy || (user?.balance || 0) < handBets[0].main}
-                        data-testid="button-double"
-                      >
-                        Double
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {isCompleted && (
-                  <div className="flex items-center justify-center gap-4 w-full">
-                    <div className={cn(
-                      "px-6 py-2 rounded-lg font-bold text-lg",
-                      gameState?.outcome === "blackjack" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
-                      gameState?.outcome === "win" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
-                      gameState?.outcome === "push" ? "bg-slate-500/20 text-slate-300 border border-slate-500/40" :
-                      "bg-red-500/20 text-red-400 border border-red-500/40"
-                    )}>
-                      {gameState?.outcome === "blackjack" ? "BLACKJACK!" :
-                       gameState?.outcome === "win" ? "YOU WIN!" :
-                       gameState?.outcome === "push" ? "PUSH" : "DEALER WINS"}
-                    </div>
-                    <Button
-                      size="lg"
-                      className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
-                      onClick={handleNewHand}
-                      data-testid="button-new-hand"
-                    >
-                      New Hand
-                    </Button>
-                  </div>
-                )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
