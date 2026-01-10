@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -152,6 +152,28 @@ export const api = {
             color: z.enum(["red", "black", "green"]),
             won: z.boolean(),
             payout: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      spinMulti: {
+        method: "POST" as const,
+        path: "/api/games/roulette/spin-multi",
+        input: rouletteMultiBetSchema,
+        responses: {
+          200: z.object({
+            winningNumber: z.number(),
+            color: z.enum(["red", "black", "green"]),
+            totalBet: z.number(),
+            totalPayout: z.number(),
+            profit: z.number(),
+            results: z.array(z.object({
+              betType: z.string(),
+              straightNumber: z.number().optional(),
+              amount: z.number(),
+              won: z.boolean(),
+              payout: z.number(),
+            })),
           }),
           400: errorSchemas.gameError,
         },

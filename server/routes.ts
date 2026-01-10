@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
@@ -510,6 +510,91 @@ export async function registerRoutes(
       });
     } catch (err) {
       console.error("[Roulette] Error:", err);
+      res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+
+  // ROULETTE MULTI-BET SPIN (instant play with multiple bets)
+  app.post(api.games.roulette.spinMulti.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = rouletteMultiBetSchema.parse(req.body);
+      
+      // Calculate total bet amount
+      const totalBet = input.bets.reduce((sum, b) => sum + b.amount, 0);
+      
+      if (user.balance < totalBet) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Deduct total balance upfront
+      await storage.updateUserBalance(user.id, -totalBet);
+
+      // Get single provably fair result for all bets
+      const winningNumber = getRouletteNumber(user.serverSeed, user.clientSeed, user.nonce);
+      await storage.incrementNonce(user.id);
+
+      const color = getRouletteColor(winningNumber);
+      
+      // Process each bet
+      const results: { betType: string; straightNumber?: number; amount: number; won: boolean; payout: number }[] = [];
+      let totalPayout = 0;
+
+      for (const bet of input.bets) {
+        const won = checkRouletteWin(winningNumber, bet.betType as RouletteBetType, bet.straightNumber);
+        const multiplier = won ? ROULETTE_CONFIG.PAYOUTS[bet.betType as keyof typeof ROULETTE_CONFIG.PAYOUTS] : 0;
+        const payout = bet.amount * multiplier;
+        
+        results.push({
+          betType: bet.betType,
+          straightNumber: bet.straightNumber,
+          amount: bet.amount,
+          won,
+          payout,
+        });
+        
+        totalPayout += payout;
+      }
+
+      // Credit total winnings
+      if (totalPayout > 0) {
+        await storage.updateUserBalance(user.id, totalPayout);
+      }
+
+      const profit = totalPayout - totalBet;
+
+      // Create single bet record for the spin
+      await storage.createBet({
+        userId: user.id,
+        game: "roulette",
+        betAmount: totalBet,
+        payoutMultiplier: totalPayout / totalBet || 0,
+        profit,
+        won: totalPayout > 0,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: {
+          winningNumber,
+          color,
+          bets: results,
+        },
+        active: false,
+      });
+
+      res.json({
+        winningNumber,
+        color,
+        totalBet,
+        totalPayout,
+        profit,
+        results,
+      });
+    } catch (err) {
+      console.error("[Roulette Multi] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
     }
   });

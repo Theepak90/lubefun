@@ -205,6 +205,20 @@ export const liveRouletteBetSchema = z.object({
 
 export type LiveRouletteBetRequest = z.infer<typeof liveRouletteBetSchema>;
 
+export const rouletteMultiBetSchema = z.object({
+  bets: z.array(z.object({
+    betType: z.enum(["straight", "red", "black", "odd", "even", "1-18", "19-36", "1st12", "2nd12", "3rd12", "col1", "col2", "col3"]),
+    straightNumber: z.number().min(0).max(36).optional(),
+    amount: z.number().min(0.1),
+  })).min(1),
+}).refine((data) => {
+  return data.bets.every(bet => 
+    bet.betType !== "straight" || (bet.straightNumber !== undefined && bet.straightNumber >= 0 && bet.straightNumber <= 36)
+  );
+}, { message: "Straight bets require a valid number (0-36)" });
+
+export type RouletteMultiBetRequest = z.infer<typeof rouletteMultiBetSchema>;
+
 export type DiceBetRequest = z.infer<typeof diceBetSchema>;
 export type CoinflipBetRequest = z.infer<typeof coinflipBetSchema>;
 export type MinesBetRequest = z.infer<typeof minesBetSchema>;
