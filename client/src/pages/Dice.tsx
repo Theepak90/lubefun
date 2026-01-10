@@ -120,41 +120,71 @@ export default function Dice() {
                 </motion.div>
               </div>
 
-              {/* Main Slider Bar */}
-              <div 
-                className="relative h-3 rounded-full cursor-pointer select-none touch-none"
-                style={{
-                  background: condition === "above"
-                    ? `linear-gradient(to right, #dc2626 0%, #dc2626 ${target}%, #10b981 ${target}%, #10b981 100%)`
-                    : `linear-gradient(to right, #10b981 0%, #10b981 ${target}%, #dc2626 ${target}%, #dc2626 100%)`
-                }}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                data-testid="slider-bar"
-              >
-                {/* Thumb */}
+              {/* Main Slider Bar Container - with padding to prevent thumb overflow */}
+              <div className="px-4">
                 <div 
-                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform hover:scale-110 border-2 border-slate-200"
-                  style={{ left: `${target}%` }}
-                />
+                  className="relative h-4 rounded-full cursor-pointer select-none touch-none overflow-hidden shadow-inner"
+                  style={{ background: '#1a2633' }}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  data-testid="slider-bar"
+                >
+                  {/* Loss segment (left) */}
+                  <div 
+                    className="absolute inset-y-0 left-0 transition-all duration-150 ease-out"
+                    style={{ 
+                      width: `${target}%`,
+                      background: condition === "above" ? '#dc2626' : '#10b981'
+                    }}
+                  />
+                  {/* Win segment (right) */}
+                  <div 
+                    className="absolute inset-y-0 right-0 transition-all duration-150 ease-out"
+                    style={{ 
+                      width: `${100 - target}%`,
+                      background: condition === "above" ? '#10b981' : '#dc2626'
+                    }}
+                  />
+                </div>
+                
+                {/* Thumb - positioned outside the bar to prevent clipping */}
+                <div 
+                  className="relative"
+                  style={{ marginTop: '-22px' }}
+                >
+                  <div 
+                    className="absolute -translate-x-1/2 transition-all duration-150 ease-out"
+                    style={{ left: `${target}%` }}
+                  >
+                    {/* Square thumb with inner lines */}
+                    <div className="w-8 h-8 bg-white rounded-lg shadow-lg cursor-grab active:cursor-grabbing hover:scale-105 transition-transform border border-slate-200 flex items-center justify-center">
+                      {/* Inner grip lines */}
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-3 h-0.5 bg-slate-300 rounded-full" />
+                        <div className="w-3 h-0.5 bg-slate-300 rounded-full" />
+                        <div className="w-3 h-0.5 bg-slate-300 rounded-full" />
+                      </div>
+                    </div>
+                    
+                    {/* Value label beneath thumb */}
+                    <div className="text-center mt-2">
+                      <span className="text-2xl font-mono font-bold text-white transition-all duration-150">
+                        {target.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Tick Marks */}
-              <div className="flex justify-between mt-3 px-1">
+              {/* Tick Marks - aligned with slider */}
+              <div className="flex justify-between mt-16 px-4">
                 {[0, 25, 50, 75, 100].map((tick) => (
                   <div key={tick} className="flex flex-col items-center">
                     <div className="w-px h-2 bg-slate-600 mb-1" />
                     <span className="text-xs font-mono text-slate-500">{tick}</span>
                   </div>
                 ))}
-              </div>
-
-              {/* Target Value Display */}
-              <div className="text-center mt-6">
-                <span className="text-4xl font-mono font-bold text-white">
-                  {target.toFixed(2)}
-                </span>
               </div>
             </div>
 
