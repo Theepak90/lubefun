@@ -98,3 +98,12 @@ export function getPlinkoPath(serverSeed: string, clientSeed: string, nonce: num
   
   return { path, binIndex };
 }
+
+// Roulette: 0-36 (European single-zero wheel)
+export function getRouletteNumber(serverSeed: string, clientSeed: string, nonce: number): number {
+  const hash = getResult(serverSeed, clientSeed, nonce);
+  // Take first 4 bytes and mod 37 for 0-36
+  const subHash = hash.substring(0, 8);
+  const number = parseInt(subHash, 16);
+  return number % 37;
+}

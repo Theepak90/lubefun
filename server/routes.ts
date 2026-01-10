@@ -2,13 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
-import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk } from "@shared/config";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath } from "./fairness";
+import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber } from "./fairness";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -417,6 +417,77 @@ export async function registerRoutes(
       });
     } catch (err) {
       console.error("[Plinko] Error:", err);
+      res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+
+  // ROULETTE
+  app.post(api.games.roulette.spin.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = rouletteBetSchema.parse(req.body);
+      
+      // Validate straight bet has a number
+      if (input.betType === "straight" && input.straightNumber === undefined) {
+        return res.status(400).json({ message: "Straight bet requires a number" });
+      }
+      
+      if (user.balance < input.betAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Deduct balance
+      await storage.updateUserBalance(user.id, -input.betAmount);
+
+      // Get provably fair result
+      const winningNumber = getRouletteNumber(user.serverSeed, user.clientSeed, user.nonce);
+      await storage.incrementNonce(user.id);
+
+      const color = getRouletteColor(winningNumber);
+      const won = checkRouletteWin(winningNumber, input.betType as RouletteBetType, input.straightNumber);
+      
+      // Calculate payout
+      const multiplier = won ? ROULETTE_CONFIG.PAYOUTS[input.betType as keyof typeof ROULETTE_CONFIG.PAYOUTS] : 0;
+      const payout = input.betAmount * multiplier;
+      const profit = payout - input.betAmount;
+
+      // Credit winnings
+      if (payout > 0) {
+        await storage.updateUserBalance(user.id, payout);
+      }
+
+      // Create bet record
+      const bet = await storage.createBet({
+        userId: user.id,
+        game: "roulette",
+        betAmount: input.betAmount,
+        payoutMultiplier: multiplier,
+        profit,
+        won,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: {
+          betType: input.betType,
+          straightNumber: input.straightNumber,
+          winningNumber,
+          color,
+        },
+        active: false,
+      });
+
+      res.json({
+        bet,
+        winningNumber,
+        color,
+        won,
+        payout,
+      });
+    } catch (err) {
+      console.error("[Roulette] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
     }
   });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -135,6 +135,23 @@ export const api = {
             path: z.array(z.number()),
             binIndex: z.number(),
             multiplier: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+    },
+    roulette: {
+      spin: {
+        method: "POST" as const,
+        path: "/api/games/roulette",
+        input: rouletteBetSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            winningNumber: z.number(),
+            color: z.enum(["red", "black", "green"]),
+            won: z.boolean(),
+            payout: z.number(),
           }),
           400: errorSchemas.gameError,
         },

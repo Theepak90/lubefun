@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,43 +6,146 @@ import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { GAME_CONFIG } from "@shared/config";
+import { ROULETTE_CONFIG, getRouletteColor } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-type BetType = "red" | "black" | "green" | "odd" | "even" | "1-18" | "19-36" | null;
+type BetType = "red" | "black" | "odd" | "even" | "1-18" | "19-36" | "straight";
 
-const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-const WHEEL_NUMBERS = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+interface RouletteResponse {
+  bet: any;
+  winningNumber: number;
+  color: "red" | "black" | "green";
+  won: boolean;
+  payout: number;
+}
+
+const WHEEL_NUMBERS = ROULETTE_CONFIG.WHEEL_ORDER;
+const RED_NUMBERS = ROULETTE_CONFIG.RED_NUMBERS;
 
 export default function Roulette() {
   const { user } = useAuth();
-  const { results, clearHistory } = useGameHistory();
-  const [amount, setAmount] = useState<string>("10");
-  const [selectedBet, setSelectedBet] = useState<BetType>(null);
+  const { results, addResult, clearHistory } = useGameHistory();
+  const { toast } = useToast();
+  
+  const [amount, setAmount] = useState<string>("1");
+  const [selectedBet, setSelectedBet] = useState<BetType | null>(null);
+  const [straightNumber, setStraightNumber] = useState<number | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const [wheelRotation, setWheelRotation] = useState(0);
+  const [lastResult, setLastResult] = useState<{ number: number; color: string; won: boolean } | null>(null);
+  const [recentNumbers, setRecentNumbers] = useState<number[]>([32, 15, 19, 4, 21]);
+
+  const spinRef = useRef<NodeJS.Timeout | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
 
-  const getMultiplier = (bet: BetType) => {
-    if (bet === "green") return 35;
-    if (bet === "red" || bet === "black" || bet === "odd" || bet === "even" || bet === "1-18" || bet === "19-36") return 2;
-    return 0;
+  const getMultiplier = (bet: BetType | null) => {
+    if (!bet) return 0;
+    if (bet === "straight") return 36;
+    return 2;
   };
+
+  const rouletteMutation = useMutation({
+    mutationFn: async (data: { betAmount: number; betType: string; straightNumber?: number }) => {
+      const res = await apiRequest("POST", "/api/games/roulette", data);
+      return res.json() as Promise<RouletteResponse>;
+    },
+    onSuccess: (data) => {
+      animateWheel(data.winningNumber, data.color, data.won, data.bet, data.payout);
+    },
+    onError: (error: any) => {
+      setSpinning(false);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to place bet",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const animateWheel = useCallback((winningNumber: number, color: string, won: boolean, bet: any, payout: number) => {
+    const numberIndex = WHEEL_NUMBERS.indexOf(winningNumber);
+    const segmentAngle = 360 / WHEEL_NUMBERS.length;
+    const targetAngle = 360 - (numberIndex * segmentAngle) - (segmentAngle / 2);
+    const totalRotation = wheelRotation + 1800 + targetAngle;
+    
+    setWheelRotation(totalRotation);
+
+    spinRef.current = setTimeout(() => {
+      setSpinning(false);
+      setLastResult({ number: winningNumber, color, won });
+      
+      setRecentNumbers(prev => [winningNumber, ...prev.slice(0, 4)]);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+
+      const betTypeLabel = selectedBet === "straight" 
+        ? `#${straightNumber}` 
+        : selectedBet?.toUpperCase() || "";
+      
+      addResult({
+        game: "roulette",
+        betAmount: bet.betAmount,
+        won: bet.won,
+        profit: bet.profit,
+        detail: `${betTypeLabel} → ${winningNumber} ${color}`,
+      });
+
+      setTimeout(() => {
+        setLastResult(null);
+      }, 3000);
+    }, 4000);
+  }, [wheelRotation, selectedBet, straightNumber, addResult]);
+
+  useEffect(() => {
+    return () => {
+      if (spinRef.current) {
+        clearTimeout(spinRef.current);
+      }
+    };
+  }, []);
 
   const setPercent = (percent: number) => {
     if (!user) return;
     setAmount((user.balance * percent).toFixed(2));
   };
 
-  const halve = () => setAmount((prev) => (parseFloat(prev) / 2).toFixed(2));
+  const halve = () => setAmount((prev) => Math.max(0.1, parseFloat(prev) / 2).toFixed(2));
   const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
 
   const handleSpin = () => {
-    if (baseAmount < 0.1 || !selectedBet || baseAmount > (user?.balance || 0)) return;
+    if (baseAmount < 0.1 || !selectedBet || baseAmount > (user?.balance || 0) || spinning) return;
+    if (selectedBet === "straight" && straightNumber === null) {
+      toast({ title: "Select a number", description: "Pick a number 0-36 for straight bet", variant: "destructive" });
+      return;
+    }
+    
     setSpinning(true);
-    setTimeout(() => setSpinning(false), 3000);
+    setLastResult(null);
+    
+    const payload: { betAmount: number; betType: string; straightNumber?: number } = {
+      betAmount: baseAmount,
+      betType: selectedBet,
+    };
+    if (selectedBet === "straight" && straightNumber !== null) {
+      payload.straightNumber = straightNumber;
+    }
+    
+    rouletteMutation.mutate(payload);
+  };
+
+  const getNumberColor = (num: number): "red" | "black" | "green" => {
+    return getRouletteColor(num);
+  };
+
+  const selectStraightNumber = (num: number) => {
+    setSelectedBet("straight");
+    setStraightNumber(num);
   };
 
   return (
@@ -53,7 +156,7 @@ export default function Roulette() {
           <div className="flex flex-col lg:flex-row">
             
             {/* Left Column: Betting Panel */}
-            <div className="lg:w-72 shrink-0 bg-[#111921] border-b lg:border-b-0 lg:border-r border-[#1a2530] p-5">
+            <div className="lg:w-72 shrink-0 bg-[#111921] border-b lg:border-b-0 lg:border-r border-[#1a2530] p-5 max-h-[600px] overflow-y-auto">
               
               {/* Bet Amount */}
               <div className="space-y-2 mb-5">
@@ -125,13 +228,12 @@ export default function Roulette() {
               {/* Bet Type Selection */}
               <div className="space-y-2 mb-5">
                 <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Place Your Bet
+                  Color Bets (2x)
                 </Label>
                 
-                {/* Color Bets */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setSelectedBet("red")}
+                    onClick={() => { setSelectedBet("red"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-red"
                     className={cn(
@@ -144,20 +246,7 @@ export default function Roulette() {
                     Red
                   </button>
                   <button
-                    onClick={() => setSelectedBet("green")}
-                    disabled={spinning}
-                    data-testid="button-bet-green"
-                    className={cn(
-                      "py-3 rounded-lg font-semibold text-xs transition-all",
-                      selectedBet === "green"
-                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                        : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
-                    )}
-                  >
-                    Green
-                  </button>
-                  <button
-                    onClick={() => setSelectedBet("black")}
+                    onClick={() => { setSelectedBet("black"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-black"
                     className={cn(
@@ -170,11 +259,16 @@ export default function Roulette() {
                     Black
                   </button>
                 </div>
+              </div>
 
-                {/* Other Bets */}
+              {/* Other Outside Bets */}
+              <div className="space-y-2 mb-5">
+                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  Outside Bets (2x)
+                </Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setSelectedBet("odd")}
+                    onClick={() => { setSelectedBet("odd"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-odd"
                     className={cn(
@@ -187,7 +281,7 @@ export default function Roulette() {
                     Odd
                   </button>
                   <button
-                    onClick={() => setSelectedBet("even")}
+                    onClick={() => { setSelectedBet("even"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-even"
                     className={cn(
@@ -200,7 +294,7 @@ export default function Roulette() {
                     Even
                   </button>
                   <button
-                    onClick={() => setSelectedBet("1-18")}
+                    onClick={() => { setSelectedBet("1-18"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-1-18"
                     className={cn(
@@ -213,7 +307,7 @@ export default function Roulette() {
                     1-18
                   </button>
                   <button
-                    onClick={() => setSelectedBet("19-36")}
+                    onClick={() => { setSelectedBet("19-36"); setStraightNumber(null); }}
                     disabled={spinning}
                     data-testid="button-bet-19-36"
                     className={cn(
@@ -225,6 +319,37 @@ export default function Roulette() {
                   >
                     19-36
                   </button>
+                </div>
+              </div>
+
+              {/* Straight Number Bets */}
+              <div className="space-y-2 mb-5">
+                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  Straight Number (36x)
+                </Label>
+                <div className="grid grid-cols-6 gap-1">
+                  {[0, ...Array.from({ length: 36 }, (_, i) => i + 1)].map((num) => {
+                    const color = getNumberColor(num);
+                    return (
+                      <button
+                        key={num}
+                        onClick={() => selectStraightNumber(num)}
+                        disabled={spinning}
+                        data-testid={`button-number-${num}`}
+                        className={cn(
+                          "w-full aspect-square rounded text-[10px] font-bold transition-all",
+                          selectedBet === "straight" && straightNumber === num
+                            ? "ring-2 ring-white ring-offset-1 ring-offset-[#111921] scale-110"
+                            : "",
+                          color === "red" ? "bg-red-500/80 text-white hover:bg-red-500" :
+                          color === "black" ? "bg-slate-700 text-white hover:bg-slate-600" :
+                          "bg-emerald-500/80 text-white hover:bg-emerald-500"
+                        )}
+                      >
+                        {num}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -241,7 +366,7 @@ export default function Roulette() {
             </div>
 
             {/* Right Column: Game Panel */}
-            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[480px]">
+            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[520px]">
               
               {/* Fair Play Badge */}
               <div className="absolute top-4 right-4">
@@ -251,62 +376,145 @@ export default function Roulette() {
                 </div>
               </div>
 
-              {/* Roulette Wheel Placeholder */}
+              {/* Roulette Wheel */}
               <div className="relative">
-                <div className={cn(
-                  "w-48 h-48 rounded-full border-8 border-[#2a3a4a] bg-gradient-to-br from-[#1a2530] to-[#0d1419] flex items-center justify-center shadow-2xl",
-                  spinning && "animate-spin"
-                )} style={{ animationDuration: "0.5s" }}>
-                  <div className="w-32 h-32 rounded-full border-4 border-[#3a4a5a] bg-[#111921] flex items-center justify-center">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg">
-                      <span className="text-2xl font-bold text-white">0</span>
-                    </div>
+                {/* Outer wheel with numbers */}
+                <div 
+                  className="w-64 h-64 rounded-full border-4 border-amber-600 bg-gradient-to-br from-amber-900 to-amber-950 shadow-2xl relative overflow-hidden"
+                  style={{
+                    transform: `rotate(${wheelRotation}deg)`,
+                    transition: spinning ? "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
+                  }}
+                >
+                  {/* Number segments */}
+                  {WHEEL_NUMBERS.map((num, i) => {
+                    const angle = (i * 360) / WHEEL_NUMBERS.length;
+                    const color = getNumberColor(num);
+                    return (
+                      <div
+                        key={num}
+                        className="absolute w-full h-full"
+                        style={{
+                          transform: `rotate(${angle}deg)`,
+                        }}
+                      >
+                        <div 
+                          className={cn(
+                            "absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[50%] origin-bottom flex items-start justify-center pt-1",
+                          )}
+                        >
+                          <div className={cn(
+                            "w-5 h-8 rounded-t-sm flex items-center justify-center text-[8px] font-bold text-white",
+                            color === "red" ? "bg-red-600" :
+                            color === "black" ? "bg-slate-800" :
+                            "bg-emerald-600"
+                          )}>
+                            {num}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Inner circle */}
+                  <div className="absolute inset-8 rounded-full bg-gradient-to-br from-amber-800 to-amber-900 border-4 border-amber-700 shadow-inner" />
+                  
+                  {/* Center hub */}
+                  <div className="absolute inset-20 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 border-2 border-amber-500 shadow-lg flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-amber-400 shadow-inner" />
                   </div>
                 </div>
                 
-                {/* Ball indicator */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2">
-                  <div className="w-4 h-4 rounded-full bg-white shadow-lg border-2 border-slate-300" />
+                {/* Ball indicator (stationary pointer) */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-10">
+                  <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[16px] border-l-transparent border-r-transparent border-t-white drop-shadow-lg" />
                 </div>
               </div>
 
-              {/* Recent Numbers */}
-              <div className="mt-8 flex gap-2">
-                {[32, 15, 19, 4, 21].map((num, i) => (
-                  <div 
-                    key={i}
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md",
-                      num === 0 ? "bg-emerald-500 text-white" :
-                      RED_NUMBERS.includes(num) ? "bg-red-500 text-white" : "bg-slate-800 text-white"
-                    )}
-                  >
-                    {num}
+              {/* Result Display */}
+              {lastResult && (
+                <div className="mt-6 text-center animate-pulse">
+                  <div className={cn(
+                    "inline-flex items-center gap-3 px-6 py-3 rounded-xl",
+                    lastResult.color === "red" ? "bg-red-500/20 border border-red-500/40" :
+                    lastResult.color === "black" ? "bg-slate-700/40 border border-slate-600" :
+                    "bg-emerald-500/20 border border-emerald-500/40"
+                  )}>
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white shadow-lg",
+                      lastResult.color === "red" ? "bg-red-500" :
+                      lastResult.color === "black" ? "bg-slate-800" :
+                      "bg-emerald-500"
+                    )}>
+                      {lastResult.number}
+                    </div>
+                    <div className="text-left">
+                      <div className={cn(
+                        "text-lg font-bold",
+                        lastResult.won ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {lastResult.won ? "WIN!" : "LOSE"}
+                      </div>
+                      <div className="text-slate-400 text-sm capitalize">{lastResult.color}</div>
+                    </div>
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Recent Numbers */}
+              <div className="mt-6">
+                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2 text-center">
+                  Recent Numbers
+                </div>
+                <div className="flex gap-2">
+                  {recentNumbers.map((num, i) => (
+                    <div 
+                      key={i}
+                      className={cn(
+                        "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shadow-md transition-all",
+                        i === 0 && lastResult ? "scale-110 ring-2 ring-white/50" : "",
+                        getNumberColor(num) === "green" ? "bg-emerald-500 text-white" :
+                        getNumberColor(num) === "red" ? "bg-red-500 text-white" : "bg-slate-800 text-white"
+                      )}
+                    >
+                      {num}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Instructions */}
-              <div className="mt-6 text-center">
+              <div className="mt-4 text-center">
                 <p className="text-slate-500 text-sm">
-                  {selectedBet ? `Betting on ${selectedBet.toUpperCase()}` : "Select a bet type to begin"}
+                  {selectedBet === "straight" && straightNumber !== null
+                    ? `Betting on #${straightNumber} (36x payout)`
+                    : selectedBet 
+                      ? `Betting on ${selectedBet.toUpperCase()} (2x payout)` 
+                      : "Select a bet type to begin"}
                 </p>
               </div>
 
               {/* Bottom Stats Row */}
-              <div className="flex gap-6 mt-6">
+              <div className="flex gap-6 mt-4">
                 <div className="text-center">
                   <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                    Green Payout
+                    Straight Payout
                   </span>
-                  <span className="font-mono font-semibold text-white">35x</span>
+                  <span className="font-mono font-semibold text-white">36x</span>
                 </div>
                 <div className="w-px bg-[#1a2530]" />
                 <div className="text-center">
                   <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                    Color Payout
+                    Outside Payout
                   </span>
                   <span className="font-mono font-semibold text-white">2x</span>
+                </div>
+                <div className="w-px bg-[#1a2530]" />
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                    House Edge
+                  </span>
+                  <span className="font-mono font-semibold text-white">2.7%</span>
                 </div>
               </div>
 

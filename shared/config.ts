@@ -66,3 +66,52 @@ export function getPlinkoMultipliers(risk: PlinkoRisk, rows: number): number[] {
   if (!baseMultipliers) return [];
   return baseMultipliers.map(m => Math.round(m * GAME_CONFIG.RTP * 100) / 100);
 }
+
+// Roulette configuration
+export const ROULETTE_CONFIG = {
+  RED_NUMBERS: [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36],
+  BLACK_NUMBERS: [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35],
+  WHEEL_ORDER: [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26],
+  BET_TYPES: ["red", "black", "odd", "even", "1-18", "19-36", "straight"] as const,
+  PAYOUTS: {
+    red: 2,
+    black: 2,
+    odd: 2,
+    even: 2,
+    "1-18": 2,
+    "19-36": 2,
+    straight: 36,
+  } as const,
+};
+
+export type RouletteBetType = typeof ROULETTE_CONFIG.BET_TYPES[number];
+
+export function getRouletteColor(num: number): "red" | "black" | "green" {
+  if (num === 0) return "green";
+  return ROULETTE_CONFIG.RED_NUMBERS.includes(num) ? "red" : "black";
+}
+
+export function checkRouletteWin(num: number, betType: RouletteBetType, straightNumber?: number): boolean {
+  if (betType === "straight") {
+    return num === straightNumber;
+  }
+  if (betType === "red") {
+    return ROULETTE_CONFIG.RED_NUMBERS.includes(num);
+  }
+  if (betType === "black") {
+    return ROULETTE_CONFIG.BLACK_NUMBERS.includes(num);
+  }
+  if (betType === "odd") {
+    return num > 0 && num % 2 === 1;
+  }
+  if (betType === "even") {
+    return num > 0 && num % 2 === 0;
+  }
+  if (betType === "1-18") {
+    return num >= 1 && num <= 18;
+  }
+  if (betType === "19-36") {
+    return num >= 19 && num <= 36;
+  }
+  return false;
+}

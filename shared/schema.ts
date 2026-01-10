@@ -152,7 +152,14 @@ export const plinkoBetSchema = z.object({
   rows: z.number().min(8).max(16),
 });
 
+export const rouletteBetSchema = z.object({
+  betAmount: z.number().min(0.1),
+  betType: z.enum(["red", "black", "odd", "even", "1-18", "19-36", "straight"]),
+  straightNumber: z.number().min(0).max(36).optional(),
+});
+
 export type DiceBetRequest = z.infer<typeof diceBetSchema>;
 export type CoinflipBetRequest = z.infer<typeof coinflipBetSchema>;
 export type MinesBetRequest = z.infer<typeof minesBetSchema>;
 export type PlinkoBetRequest = z.infer<typeof plinkoBetSchema>;
+export type RouletteBetRequest = z.infer<typeof rouletteBetSchema>;
