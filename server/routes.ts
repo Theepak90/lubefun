@@ -505,12 +505,19 @@ export async function registerRoutes(
     if (!user) return res.sendStatus(401);
     
     const todayStart = getStartOfToday();
+    const yesterdayStart = getStartOfYesterday();
     const todayVolume = await storage.getDailyWagerVolume(user.id, todayStart);
+    const yesterdayVolume = await storage.getDailyWagerVolume(user.id, yesterdayStart);
+    const yesterdayOnlyVolume = yesterdayVolume - todayVolume;
     
     // Rakeback calculation
     const lastRakebackDate = user.lastRakebackClaim || user.createdAt || new Date(0);
     const wagerSinceRakeback = await storage.getWagerVolumeSince(user.id, lastRakebackDate);
     const rakebackAmount = Math.floor(wagerSinceRakeback * REWARDS_CONFIG.rakeback.percentage * 100) / 100;
+    
+    // Daily bonus can only be claimed if cooldown passed AND (first claim OR yesterday volume met)
+    const dailyBonusCooldownMet = canClaimWithCooldown(user.lastBonusClaim, REWARDS_CONFIG.dailyBonus.cooldownMs);
+    const dailyBonusVolumeRequirementMet = !user.lastBonusClaim || yesterdayOnlyVolume >= REQUIRED_DAILY_VOLUME;
     
     res.json({
       dailyReload: {
@@ -521,7 +528,7 @@ export async function registerRoutes(
         description: REWARDS_CONFIG.dailyReload.description,
       },
       dailyBonus: {
-        canClaim: canClaimWithCooldown(user.lastBonusClaim, REWARDS_CONFIG.dailyBonus.cooldownMs),
+        canClaim: dailyBonusCooldownMet && dailyBonusVolumeRequirementMet,
         nextClaimTime: getNextClaimTimeWithCooldown(user.lastBonusClaim, REWARDS_CONFIG.dailyBonus.cooldownMs),
         amount: REWARDS_CONFIG.dailyBonus.amount,
         label: REWARDS_CONFIG.dailyBonus.label,
@@ -573,12 +580,28 @@ export async function registerRoutes(
         amount = REWARDS_CONFIG.dailyReload.amount;
         updateFn = storage.updateLastDailyReload.bind(storage);
         break;
-      case "dailyBonus":
+      case "dailyBonus": {
         lastClaim = user.lastBonusClaim;
         cooldownMs = REWARDS_CONFIG.dailyBonus.cooldownMs;
         amount = REWARDS_CONFIG.dailyBonus.amount;
         updateFn = storage.updateLastBonusClaim.bind(storage);
+        
+        // Check volume requirement for daily bonus (first claim is free)
+        if (user.lastBonusClaim) {
+          const yesterdayStart = getStartOfYesterday();
+          const todayStart = getStartOfToday();
+          const yesterdayVolume = await storage.getDailyWagerVolume(user.id, yesterdayStart);
+          const todayVolume = await storage.getDailyWagerVolume(user.id, todayStart);
+          const yesterdayOnlyVolume = yesterdayVolume - todayVolume;
+          
+          if (yesterdayOnlyVolume < REQUIRED_DAILY_VOLUME) {
+            return res.status(400).json({ 
+              message: `Play volume requirement not met. You wagered $${yesterdayOnlyVolume.toFixed(2)} yesterday but need $${REQUIRED_DAILY_VOLUME}.`
+            });
+          }
+        }
         break;
+      }
       case "weeklyBonus":
         lastClaim = user.lastWeeklyBonus;
         cooldownMs = REWARDS_CONFIG.weeklyBonus.cooldownMs;
