@@ -19,7 +19,7 @@ import { ProvablyFairModal } from "@/components/ProvablyFairModal";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-import logoImg from "@assets/image_1768038219484.png";
+import logoImg from "@assets/Screenshot_2026-01-10_094338-removebg-preview_1768038772590.png";
 
 interface LayoutProps {
   children: ReactNode;
@@ -55,14 +55,14 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body">
       {/* Header */}
-      <header className="h-20 border-b border-border bg-card/50 backdrop-blur-md fixed top-0 w-full z-50 flex items-center px-4 lg:px-6 justify-between">
+      <header className="h-24 border-b border-border bg-card/50 backdrop-blur-md fixed top-0 w-full z-50 flex items-center px-4 lg:px-6 justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden text-muted-foreground hover:text-primary">
             <Menu className="h-6 w-6" />
           </Button>
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer group">
-              <img src={logoImg} alt="Lube.fun Logo" className="h-12 w-auto object-contain group-hover:scale-105 transition-transform" />
+              <img src={logoImg} alt="Lube.fun Logo" className="h-16 w-auto object-contain group-hover:scale-105 transition-transform" />
             </div>
           </Link>
         </div>
@@ -107,10 +107,10 @@ export function Layout({ children }: LayoutProps) {
         )}
       </AnimatePresence>
 
-      <div className="flex pt-20 min-h-screen">
+      <div className="flex pt-24 min-h-screen">
         {/* Sidebar */}
         <aside className={cn(
-          "fixed lg:sticky top-20 left-0 h-[calc(100vh-5rem)] w-64 bg-card border-r border-border z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
+          "fixed lg:sticky top-24 left-0 h-[calc(100vh-6rem)] w-64 bg-card border-r border-border z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="p-4 flex-1 overflow-y-auto">
