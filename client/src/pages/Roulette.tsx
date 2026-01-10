@@ -413,43 +413,109 @@ export default function Roulette() {
               <div className="absolute -inset-3 rounded-full animate-wheel-glow pointer-events-none" />
             )}
             
+            {/* Outer wooden rim */}
             <div 
-              className={cn(
-                "w-72 h-72 md:w-80 md:h-80 rounded-full border-4 border-amber-600 bg-gradient-to-br from-amber-900 to-amber-950 shadow-2xl relative overflow-hidden"
-              )}
+              className="w-72 h-72 md:w-80 md:h-80 rounded-full relative"
               style={{
-                transform: `rotate(${wheelRotation}deg)`,
-                transition: isSpinning ? `transform ${SPIN_DURATION}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)` : "none",
+                background: "linear-gradient(135deg, #8B5A2B 0%, #D2691E 25%, #CD853F 50%, #A0522D 75%, #8B4513 100%)",
+                boxShadow: "0 0 0 8px #654321, 0 0 0 12px #8B7355, inset 0 0 20px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.5)",
               }}
             >
-              {WHEEL_NUMBERS.map((num, i) => {
-                const angle = (i * 360) / WHEEL_NUMBERS.length;
-                const color = getNumberColor(num);
-                return (
-                  <div
-                    key={num}
-                    className="absolute w-full h-full"
-                    style={{ transform: `rotate(${angle}deg)` }}
-                  >
+              {/* Chrome ring accent */}
+              <div 
+                className="absolute inset-2 rounded-full"
+                style={{
+                  background: "linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 30%, #A8A8A8 50%, #D8D8D8 70%, #B0B0B0 100%)",
+                  boxShadow: "inset 0 2px 4px rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.3)",
+                }}
+              />
+              
+              {/* Spinning wheel section */}
+              <div 
+                className="absolute inset-3 rounded-full overflow-hidden"
+                style={{
+                  transform: `rotate(${wheelRotation}deg)`,
+                  transition: isSpinning ? `transform ${SPIN_DURATION}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)` : "none",
+                  background: "#1a1a1a",
+                }}
+              >
+                {/* Number pockets */}
+                {WHEEL_NUMBERS.map((num, i) => {
+                  const angle = (i * 360) / WHEEL_NUMBERS.length;
+                  const color = getNumberColor(num);
+                  return (
                     <div
-                      className={cn(
-                        "absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[45%] origin-bottom",
-                        color === "red" ? "bg-red-600" :
-                        color === "green" ? "bg-emerald-600" :
-                        "bg-slate-900"
-                      )}
-                      style={{ clipPath: "polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%)" }}
+                      key={num}
+                      className="absolute w-full h-full"
+                      style={{ transform: `rotate(${angle}deg)` }}
                     >
-                      <span className="absolute top-2 left-1/2 -translate-x-1/2 text-white text-[10px] font-bold">
-                        {num}
-                      </span>
+                      {/* Pocket wedge */}
+                      <div
+                        className={cn(
+                          "absolute top-0 left-1/2 -translate-x-1/2 w-7 h-[42%] origin-bottom"
+                        )}
+                        style={{ 
+                          clipPath: "polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%)",
+                          background: color === "red" 
+                            ? "linear-gradient(180deg, #DC2626 0%, #B91C1C 100%)" 
+                            : color === "green" 
+                              ? "linear-gradient(180deg, #059669 0%, #047857 100%)"
+                              : "linear-gradient(180deg, #1F2937 0%, #111827 100%)",
+                          boxShadow: "inset 0 0 2px rgba(0,0,0,0.5)",
+                        }}
+                      >
+                        {/* Chrome divider */}
+                        <div 
+                          className="absolute top-0 left-0 w-[2px] h-full"
+                          style={{
+                            background: "linear-gradient(180deg, #D4AF37 0%, #B8860B 50%, #D4AF37 100%)",
+                          }}
+                        />
+                        <span className="absolute top-3 left-1/2 -translate-x-1/2 text-white text-[9px] font-bold drop-shadow-sm">
+                          {num}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              <div className="absolute inset-[30%] rounded-full bg-gradient-to-br from-amber-700 to-amber-900 border-4 border-amber-600 shadow-inner" />
-              <div className="absolute inset-[42%] rounded-full bg-gradient-to-br from-amber-600 to-amber-800 shadow-lg flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  );
+                })}
+                
+                {/* Inner green felt ring */}
+                <div 
+                  className="absolute inset-[28%] rounded-full"
+                  style={{
+                    background: "linear-gradient(135deg, #166534 0%, #15803d 50%, #14532d 100%)",
+                    boxShadow: "inset 0 2px 8px rgba(0,0,0,0.4), 0 0 0 3px #B8860B",
+                  }}
+                />
+                
+                {/* Center hub */}
+                <div 
+                  className="absolute inset-[38%] rounded-full flex items-center justify-center"
+                  style={{
+                    background: "linear-gradient(135deg, #D4AF37 0%, #FFD700 25%, #B8860B 50%, #DAA520 75%, #D4AF37 100%)",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.4)",
+                  }}
+                >
+                  {/* Decorative spokes */}
+                  {[0, 72, 144, 216, 288].map((rot) => (
+                    <div 
+                      key={rot}
+                      className="absolute w-1 h-[90%] rounded-full"
+                      style={{
+                        background: "linear-gradient(180deg, #8B7355 0%, #654321 50%, #8B7355 100%)",
+                        transform: `rotate(${rot}deg)`,
+                      }}
+                    />
+                  ))}
+                  {/* Center jewel */}
+                  <div 
+                    className="w-6 h-6 rounded-full z-10"
+                    style={{
+                      background: "radial-gradient(circle at 30% 30%, #FFD700 0%, #B8860B 50%, #8B6914 100%)",
+                      boxShadow: "inset 0 2px 4px rgba(255,255,255,0.6), 0 2px 8px rgba(0,0,0,0.4)",
+                    }}
+                  />
+                </div>
               </div>
             </div>
             
