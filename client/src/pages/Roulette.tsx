@@ -42,9 +42,11 @@ export default function Roulette() {
   const [lastBets, setLastBets] = useState<PlacedBet[]>([]);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [lastWinningNumber, setLastWinningNumber] = useState<number | null>(null);
+  const [winPopup, setWinPopup] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false });
   
   const spinAnimatedRef = useRef(false);
   const spinSoundPlayedRef = useRef<number | null>(null);
+  const winCheckedRef = useRef<number | null>(null);
 
   const status = roundState?.status || "betting";
   const countdown = Math.ceil((roundState?.countdown || 0) / 1000);
@@ -93,7 +95,74 @@ export default function Roulette() {
     }
   }, [isResults, roundState?.roundId]);
 
-  // Removed: simulated winners and countdown tick sound (user preference)
+  // Calculate winnings based on bets and winning number
+  const calculateWinnings = (bets: PlacedBet[], winNum: number, winColor: string): number => {
+    let total = 0;
+    const isOdd = winNum > 0 && winNum % 2 === 1;
+    const isLow = winNum >= 1 && winNum <= 18;
+    const dozen = winNum === 0 ? 0 : Math.ceil(winNum / 12);
+    const column = winNum === 0 ? 0 : ((winNum - 1) % 3) + 1;
+
+    bets.forEach(bet => {
+      let payout = 0;
+      switch (bet.type) {
+        case "straight":
+          if (bet.number === winNum) payout = bet.amount * 35;
+          break;
+        case "red":
+          if (winColor === "red") payout = bet.amount;
+          break;
+        case "black":
+          if (winColor === "black") payout = bet.amount;
+          break;
+        case "odd":
+          if (winNum > 0 && isOdd) payout = bet.amount;
+          break;
+        case "even":
+          if (winNum > 0 && !isOdd) payout = bet.amount;
+          break;
+        case "1-18":
+          if (isLow) payout = bet.amount;
+          break;
+        case "19-36":
+          if (winNum >= 19 && winNum <= 36) payout = bet.amount;
+          break;
+        case "1st12":
+          if (dozen === 1) payout = bet.amount * 2;
+          break;
+        case "2nd12":
+          if (dozen === 2) payout = bet.amount * 2;
+          break;
+        case "3rd12":
+          if (dozen === 3) payout = bet.amount * 2;
+          break;
+        case "col1":
+          if (column === 1) payout = bet.amount * 2;
+          break;
+        case "col2":
+          if (column === 2) payout = bet.amount * 2;
+          break;
+        case "col3":
+          if (column === 3) payout = bet.amount * 2;
+          break;
+      }
+      total += payout;
+    });
+    return total;
+  };
+
+  // Show win popup when results come in
+  useEffect(() => {
+    if (isResults && roundState?.roundId && roundState?.winningNumber !== undefined && 
+        winCheckedRef.current !== roundState.roundId && pendingBets.length > 0) {
+      winCheckedRef.current = roundState.roundId;
+      const winnings = calculateWinnings(pendingBets, roundState.winningNumber, roundState.winningColor || "");
+      if (winnings > 0) {
+        setWinPopup({ amount: winnings, visible: true });
+        setTimeout(() => setWinPopup(prev => ({ ...prev, visible: false })), 1500);
+      }
+    }
+  }, [isResults, roundState?.roundId, roundState?.winningNumber]);
 
   // Sound: Spin when spinning starts
   useEffect(() => {
@@ -447,6 +516,24 @@ export default function Roulette() {
             {/* Pointer */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
               <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[16px] border-l-transparent border-r-transparent border-t-white drop-shadow-lg" />
+            </div>
+            
+            {/* Win Popup - subtle toast near wheel */}
+            <div 
+              className={cn(
+                "absolute -bottom-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none",
+                "transition-all duration-300 motion-reduce:transition-none",
+                winPopup.visible 
+                  ? "opacity-100 translate-y-0" 
+                  : "opacity-0 translate-y-2"
+              )}
+              data-testid="win-popup"
+            >
+              <div className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/90 to-yellow-500/90 backdrop-blur-sm shadow-lg shadow-amber-500/20 border border-amber-400/50">
+                <span className="text-sm font-bold text-white drop-shadow-sm">
+                  You won ${winPopup.amount.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
 
