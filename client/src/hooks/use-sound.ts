@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop" | "cardDeal";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -338,6 +338,39 @@ function playPlinkoDropSound() {
   noiseSource.stop(ctx.currentTime + 0.12);
 }
 
+function playCardDealSound() {
+  const ctx = getAudioContext();
+  
+  // Paper flick sound - short noise burst with high-pass filter
+  const bufferSize = ctx.sampleRate * 0.08;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.5;
+  }
+  
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = buffer;
+  
+  const filter = ctx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 2000;
+  filter.Q.value = 0.5;
+  
+  const gainNode = ctx.createGain();
+  
+  noiseSource.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+  
+  noiseSource.start(ctx.currentTime);
+  noiseSource.stop(ctx.currentTime + 0.08);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -389,6 +422,9 @@ export function useSound() {
           break;
         case "plinkoDrop":
           playPlinkoDropSound();
+          break;
+        case "cardDeal":
+          playCardDealSound();
           break;
       }
     } catch (e) {

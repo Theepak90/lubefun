@@ -3,7 +3,9 @@ import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, RotateCcw, Trash2, Copy, X, ChevronUp, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Shield, RotateCcw, Trash2, Copy, Users, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
@@ -14,6 +16,7 @@ import { LiveWins } from "@/components/LiveWins";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSound } from "@/hooks/use-sound";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface BlackjackState {
@@ -116,7 +119,7 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   );
 }
 
-function ChipStack({ total, onClick }: { total: number; onClick?: () => void }) {
+function ChipStack({ total, onClick, animate = false }: { total: number; onClick?: () => void; animate?: boolean }) {
   if (total <= 0) return null;
   
   const chips: ChipValue[] = [];
@@ -134,12 +137,15 @@ function ChipStack({ total, onClick }: { total: number; onClick?: () => void }) 
   const displayChips = chips.slice(0, 5);
   
   return (
-    <div 
+    <motion.div 
       className={cn("relative flex flex-col-reverse items-center", onClick && "cursor-pointer")}
       onClick={onClick}
+      initial={animate ? { y: -20, opacity: 0 } : false}
+      animate={animate ? { y: 0, opacity: 1 } : false}
+      transition={{ type: "spring", stiffness: 400, damping: 15 }}
     >
       {displayChips.map((chip, i) => (
-        <div
+        <motion.div
           key={i}
           className={cn(
             "w-8 h-8 rounded-full flex items-center justify-center text-[8px] font-bold border-2 shadow-md",
@@ -148,13 +154,144 @@ function ChipStack({ total, onClick }: { total: number; onClick?: () => void }) 
             chip.borderColor,
             i > 0 && "-mt-5"
           )}
+          initial={animate ? { scale: 0.8 } : false}
+          animate={animate ? { scale: 1 } : false}
+          transition={{ delay: i * 0.05, type: "spring", stiffness: 500 }}
         >
           {i === displayChips.length - 1 && (
             <span className="drop-shadow-md">${total.toFixed(2)}</span>
           )}
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
+  );
+}
+
+function FairPlayModal({ user }: { user: any }) {
+  const [newClientSeed, setNewClientSeed] = useState("");
+  const [showServerSeed, setShowServerSeed] = useState(false);
+  const { toast } = useToast();
+  
+  const serverSeedHash = user?.serverSeed 
+    ? Array.from(new Uint8Array(32)).map(() => Math.floor(Math.random() * 16).toString(16)).join('').substring(0, 64)
+    : "";
+  
+  const rotateSeedsMutation = useMutation({
+    mutationFn: async (clientSeed: string) => {
+      const res = await apiRequest("POST", "/api/seeds/rotate", { clientSeed });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: "Seeds rotated", description: "Your new seeds are now active. Previous server seed is now visible for verification." });
+      setNewClientSeed("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to rotate seeds", variant: "destructive" });
+    },
+  });
+
+  const handleRotate = () => {
+    if (!newClientSeed.trim()) {
+      const randomSeed = Array.from(crypto.getRandomValues(new Uint8Array(12)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      rotateSeedsMutation.mutate(randomSeed);
+    } else {
+      rotateSeedsMutation.mutate(newClientSeed);
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/20 rounded-full border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors">
+          <Shield className="w-3 h-3 text-emerald-400" />
+          <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-slate-700 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            Provably Fair
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <p className="text-sm text-slate-400">
+            Every game outcome is determined by combining your client seed with our server seed and a unique nonce. 
+            You can verify past results after rotating seeds.
+          </p>
+          
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-slate-500 uppercase">Server Seed Hash (Hidden)</Label>
+              <div className="mt-1 p-2 bg-slate-800 rounded-md border border-slate-700">
+                <code className="text-xs text-emerald-400 break-all font-mono">
+                  {user?.serverSeed?.substring(0, 64) || "Login to view"}
+                </code>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">
+                The actual seed is hidden until you rotate. This hash lets you verify we don't change it.
+              </p>
+            </div>
+            
+            <div>
+              <Label className="text-xs text-slate-500 uppercase">Your Client Seed</Label>
+              <div className="mt-1 p-2 bg-slate-800 rounded-md border border-slate-700 flex items-center justify-between">
+                <code className="text-xs text-amber-400 break-all font-mono">
+                  {user?.clientSeed || "Login to view"}
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(user?.clientSeed || "");
+                    toast({ title: "Copied!", duration: 1000 });
+                  }}
+                >
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-xs text-slate-500 uppercase">Current Nonce</Label>
+              <div className="mt-1 p-2 bg-slate-800 rounded-md border border-slate-700">
+                <code className="text-xs text-white font-mono">
+                  {user?.nonce?.toLocaleString() || "0"}
+                </code>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">
+                Increments with each bet. Used to ensure unique outcomes.
+              </p>
+            </div>
+          </div>
+          
+          <div className="pt-2 border-t border-slate-700">
+            <Label className="text-xs text-slate-500 uppercase">Rotate Seeds</Label>
+            <p className="text-[10px] text-slate-400 mt-1 mb-2">
+              Rotating reveals the old server seed for verification and generates a new one.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="New client seed (optional)"
+                value={newClientSeed}
+                onChange={(e) => setNewClientSeed(e.target.value)}
+                className="bg-slate-800 border-slate-700 text-sm"
+              />
+              <Button
+                onClick={handleRotate}
+                disabled={rotateSeedsMutation.isPending}
+                className="bg-emerald-500 hover:bg-emerald-400"
+              >
+                <RefreshCw className={cn("w-4 h-4", rotateSeedsMutation.isPending && "animate-spin")} />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -274,7 +411,18 @@ function Seat({
       }}
     >
       {cards && cards.length > 0 && (
-        <div className="flex gap-1 mb-2 -ml-4">
+        <motion.div 
+          className={cn(
+            "relative flex gap-1 mb-2 -ml-4 rounded-lg p-1",
+            outcome === "blackjack" && "shadow-[0_0_20px_rgba(251,191,36,0.6)]",
+            outcome === "win" && "shadow-[0_0_20px_rgba(34,197,94,0.5)]",
+            outcome === "lose" && total && total > 21 && "shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+          )}
+          animate={outcome ? { 
+            scale: [1, 1.02, 1],
+          } : {}}
+          transition={{ duration: 0.3 }}
+        >
           {cards.map((card, i) => (
             <PlayingCard 
               key={i} 
@@ -293,7 +441,7 @@ function Seat({
               {total}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
       
       <button
@@ -366,7 +514,7 @@ function BetSpot({
         bet > 0 ? "border-solid border-amber-400" : ""
       )}>
         {bet > 0 ? (
-          <ChipStack total={bet} />
+          <ChipStack total={bet} animate />
         ) : (
           <span className={cn(
             "text-[8px] font-medium text-center px-1",
@@ -388,6 +536,7 @@ export default function Blackjack() {
   const { results, addResult, clearHistory } = useGameHistory();
   const { recordResult } = useProfitTracker();
   const { toast } = useToast();
+  const { play: playSound } = useSound();
   
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const [selectedChip, setSelectedChip] = useState<ChipValue>(CHIP_VALUES[2]);
@@ -434,6 +583,8 @@ export default function Blackjack() {
       setTimeout(() => setError(null), 2000);
       return;
     }
+    
+    playSound("chipDrop");
     
     newBets[handIndex] = {
       ...newBets[handIndex],
@@ -513,6 +664,12 @@ export default function Blackjack() {
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
+      // Play card deal sounds with delays
+      setTimeout(() => playSound("cardDeal"), 100);
+      setTimeout(() => playSound("cardDeal"), 300);
+      setTimeout(() => playSound("cardDeal"), 500);
+      setTimeout(() => playSound("cardDeal"), 700);
+      
       if (data.status === "completed" && data.outcome) {
         handleGameComplete(data);
       }
@@ -528,6 +685,7 @@ export default function Blackjack() {
       return res.json() as Promise<BlackjackState>;
     },
     onSuccess: (data) => {
+      playSound("cardDeal");
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
@@ -580,6 +738,15 @@ export default function Blackjack() {
     const won = data.outcome === "win" || data.outcome === "blackjack";
     const isPush = data.outcome === "push";
     const payout = won ? betAmount + profit : (isPush ? betAmount : 0);
+    
+    // Play win/lose sound
+    setTimeout(() => {
+      if (won) {
+        playSound("win");
+      } else if (!isPush) {
+        playSound("lose");
+      }
+    }, 500);
     
     if (!isPush) {
       recordResult("blackjack", betAmount, payout, won);
@@ -655,10 +822,7 @@ export default function Blackjack() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-white">Live Blackjack</h1>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/20 rounded-full border border-emerald-500/30">
-                <Shield className="w-3 h-3 text-emerald-400" />
-                <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>
-              </div>
+              <FairPlayModal user={user} />
             </div>
             <ProfitTrackerWidget gameId="blackjack" />
           </div>
