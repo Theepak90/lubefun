@@ -76,18 +76,21 @@ export function Layout({ children }: LayoutProps) {
         {/* Center: Balance + Wallet - absolutely positioned for true centering */}
         {user && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 p-1 bg-[#0d1520] rounded-2xl border border-[#1e2a36] shadow-lg shadow-black/20">
               {/* Balance Pill */}
-              <div className="flex items-center gap-2 bg-[#1a2633] px-4 py-2 rounded-full border border-[#2a3a4a] cursor-pointer hover:bg-[#1e2a38] transition-colors">
-                <span className="font-mono font-bold text-white text-sm">${user.balance.toFixed(2)}</span>
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <div className="flex items-center gap-3 bg-gradient-to-b from-[#1a2633] to-[#151e28] px-5 py-2.5 rounded-xl border border-[#2a3a4a]/60 cursor-pointer hover:from-[#1e2a38] hover:to-[#1a252f] transition-all shadow-inner shadow-black/30">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-md shadow-amber-500/30">
+                  <span className="text-[10px] font-bold text-amber-900">$</span>
+                </div>
+                <span className="font-mono font-bold text-white text-sm tracking-wide">{user.balance.toFixed(2)}</span>
+                <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
               
               {/* Wallet Button */}
               <button 
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-full font-semibold text-white text-sm shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40"
+                className="flex items-center gap-2 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 px-5 py-2.5 rounded-xl font-semibold text-white text-sm shadow-md shadow-emerald-600/40 transition-all hover:shadow-lg hover:shadow-emerald-500/50 border border-emerald-400/30"
                 data-testid="button-wallet"
               >
                 <Wallet className="w-4 h-4" />
