@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
-import { Shield, RotateCcw } from "lucide-react";
+import { Shield, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { getRouletteColor, ROULETTE_CONFIG } from "@shared/config";
@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useRouletteSocket } from "@/hooks/use-roulette-socket";
+import { useSound } from "@/hooks/use-sound";
 
 type BetType = "red" | "black" | "odd" | "even" | "1-18" | "19-36" | "straight" | "1st12" | "2nd12" | "3rd12" | "col1" | "col2" | "col3";
 
@@ -68,6 +69,7 @@ export default function Roulette() {
   const { results, addResult, clearHistory } = useGameHistory();
   const { toast } = useToast();
   const { roundState, connected } = useRouletteSocket();
+  const { enabled: soundEnabled, toggle: toggleSound, play: playSound } = useSound();
   
   const [selectedChip, setSelectedChip] = useState<number>(1);
   const [pendingBets, setPendingBets] = useState<PlacedBet[]>([]);
@@ -78,6 +80,8 @@ export default function Roulette() {
   
   const spinAnimatedRef = useRef(false);
   const lastResultsRoundRef = useRef<number | null>(null);
+  const lastCountdownRef = useRef<number>(0);
+  const spinSoundPlayedRef = useRef<number | null>(null);
 
   const status = roundState?.status || "betting";
   const countdown = Math.ceil((roundState?.countdown || 0) / 1000);
@@ -140,6 +144,31 @@ export default function Roulette() {
     }
   }, [isResults, roundState?.roundId]);
 
+  // Sound: Tick during countdown (every second)
+  useEffect(() => {
+    if (isBettingOpen && countdown > 0 && countdown !== lastCountdownRef.current) {
+      if (countdown <= 5) {
+        playSound("tick");
+      }
+      lastCountdownRef.current = countdown;
+    }
+  }, [countdown, isBettingOpen, playSound]);
+
+  // Sound: Spin when spinning starts
+  useEffect(() => {
+    if (isSpinning && roundState?.roundId && spinSoundPlayedRef.current !== roundState.roundId) {
+      spinSoundPlayedRef.current = roundState.roundId;
+      playSound("spin");
+    }
+  }, [isSpinning, roundState?.roundId, playSound]);
+
+  // Sound: Result ding when results show
+  useEffect(() => {
+    if (isResults && roundState?.roundId) {
+      playSound("result");
+    }
+  }, [isResults, roundState?.roundId, playSound]);
+
   const placeBetMutation = useMutation({
     mutationFn: async (bet: { betType: string; amount: number; straightNumber?: number }) => {
       const res = await apiRequest("POST", "/api/games/roulette/live/bet", bet);
@@ -180,6 +209,8 @@ export default function Roulette() {
       toast({ title: "Insufficient balance", variant: "destructive" });
       return;
     }
+
+    playSound("bet");
 
     // Optimistically add to pending bets
     setPendingBets(prev => {
@@ -264,6 +295,21 @@ export default function Roulette() {
                 <Shield className="w-3 h-3 text-emerald-400" />
                 <span className="text-[10px] font-medium text-emerald-400">Provably Fair</span>
               </div>
+              
+              {/* Sound Toggle */}
+              <button
+                onClick={toggleSound}
+                className={cn(
+                  "p-2 rounded-full transition-all",
+                  soundEnabled 
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" 
+                    : "bg-[#1a2530] text-slate-500 border border-[#2a3a4a]"
+                )}
+                data-testid="button-sound-toggle"
+                title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
               
               {/* Countdown / Status */}
               <div className={cn(

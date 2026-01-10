@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -154,6 +154,54 @@ function playLandSound() {
   oscillator.stop(ctx.currentTime + 0.2);
 }
 
+function playSpinSound() {
+  const ctx = getAudioContext();
+  
+  // Create a whooshing spin sound that slows down
+  for (let i = 0; i < 20; i++) {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    // Increasing delay between ticks to simulate slowing
+    const delay = i * (0.05 + i * 0.015);
+    const startTime = ctx.currentTime + delay;
+    
+    oscillator.frequency.value = 400 + Math.random() * 200;
+    oscillator.type = "sine";
+    
+    const volume = 0.08 * (1 - i / 25);
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.04);
+    
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.04);
+  }
+}
+
+function playResultSound() {
+  const ctx = getAudioContext();
+  
+  // A distinctive "ding" for the result
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  oscillator.frequency.value = 880;
+  oscillator.type = "sine";
+  
+  gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.3);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -187,6 +235,12 @@ export function useSound() {
           break;
         case "land":
           playLandSound();
+          break;
+        case "spin":
+          playSpinSound();
+          break;
+        case "result":
+          playResultSound();
           break;
       }
     } catch (e) {
