@@ -1,12 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { BetControls } from "@/components/BetControls";
 import { useDiceGame } from "@/hooks/use-games";
-import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { motion, useAnimation } from "framer-motion";
-import { Dice5, Trophy } from "lucide-react";
+import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Dice() {
@@ -26,7 +25,6 @@ export default function Dice() {
       {
         onSuccess: (data: any) => {
           const result = data.result.roll;
-          // Animate the slider indicator to the result position
           controls.start({
             left: `${result}%`,
             transition: { type: "spring", stiffness: 300, damping: 20 }
@@ -37,113 +35,200 @@ export default function Dice() {
     );
   };
 
+  const sliderRef = { current: null as HTMLDivElement | null };
+
+  const updateSliderValue = (clientX: number, rect: DOMRect) => {
+    const x = clientX - rect.left;
+    const percentage = Math.max(2, Math.min(98, (x / rect.width) * 100));
+    setTarget(Math.round(percentage));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const bar = e.currentTarget;
+    bar.setPointerCapture(e.pointerId);
+    const rect = bar.getBoundingClientRect();
+    updateSliderValue(e.clientX, rect);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.buttons !== 1) return;
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    updateSliderValue(e.clientX, rect);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const bar = e.currentTarget;
+    bar.releasePointerCapture(e.pointerId);
+  };
+
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
-        {/* Controls Panel */}
-        <div className="w-full lg:w-auto lg:shrink-0 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="bg-card border-b border-border p-4 lg:hidden">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <Dice5 className="w-6 h-6 text-primary" /> Dice
-            </h2>
-          </div>
-          <BetControls 
-            onBet={handleBet} 
-            isPending={isPending} 
-            className="h-full rounded-b-2xl lg:rounded-2xl"
-          />
-        </div>
-
-        {/* Game Area */}
-        <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex flex-col justify-center items-center relative overflow-hidden min-h-[500px]">
-          {/* Background decoration */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none" />
-
-          {/* Stats Bar */}
-          <div className="w-full grid grid-cols-3 gap-4 mb-12 p-4 bg-secondary/30 rounded-xl border border-white/5 backdrop-blur-sm">
-            <div className="text-center">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Multiplier</div>
-               <div className="text-xl font-mono font-bold text-primary">{multiplier}x</div>
-            </div>
-            <div className="text-center border-x border-white/5">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Win Chance</div>
-               <div className="text-xl font-mono font-bold text-foreground">{winChance.toFixed(2)}%</div>
-            </div>
-            <div className="text-center">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Result</div>
-               <div className={cn("text-xl font-mono font-bold", lastResult ? (lastResult.won ? "text-primary text-glow" : "text-destructive") : "text-muted")}>
-                  {lastResult ? lastResult.result.toFixed(2) : "-"}
-               </div>
-            </div>
-          </div>
-
-          {/* Dice Slider */}
-          <div className="w-full max-w-2xl px-8 py-16 bg-secondary/20 rounded-3xl border border-white/5 relative">
-            
-            {/* Range Bar */}
-            <div className="relative h-4 bg-secondary rounded-full overflow-hidden mb-8 shadow-inner">
-               <div 
-                 className={cn("absolute h-full transition-all duration-300", condition === "above" ? "bg-primary right-0" : "bg-primary left-0")}
-                 style={{ width: `${winChance}%` }}
-               />
-            </div>
-
-            {/* Slider Component */}
-            <div className="relative">
-              <Slider
-                value={[target]}
-                min={2}
-                max={98}
-                step={1}
-                onValueChange={(val) => setTarget(val[0])}
-                className="w-full relative z-20 cursor-grab active:cursor-grabbing"
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex flex-col lg:flex-row gap-6">
+          
+          {/* Left Column: Bet Controls */}
+          <div className="w-full lg:w-80 shrink-0">
+            <Card className="bg-[#0f1923] border-[#1e2a36] rounded-2xl overflow-hidden shadow-xl">
+              <BetControls 
+                onBet={handleBet} 
+                isPending={isPending} 
+                className="rounded-2xl"
               />
+            </Card>
+          </div>
+
+          {/* Main Game Area */}
+          <Card className="flex-1 bg-[#0f1923] border-[#1e2a36] rounded-2xl p-6 lg:p-8 relative overflow-hidden shadow-xl">
+            
+            {/* Fair Play Badge */}
+            <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2633] rounded-full border border-[#2a3a4a]">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-medium text-emerald-400">Fair Play</span>
+            </div>
+
+            {/* Slider Section */}
+            <div className="mt-12 mb-8">
               
               {/* Result Indicator */}
-              <motion.div 
-                className="absolute top-[-40px] -translate-x-1/2 z-10 pointer-events-none"
-                initial={{ left: "50%" }}
-                animate={controls}
+              <div className="relative h-16 mb-2">
+                <motion.div 
+                  className="absolute -translate-x-1/2 z-10 pointer-events-none"
+                  initial={{ left: "50%" }}
+                  animate={controls}
+                >
+                  <div className={cn(
+                    "px-4 py-2 rounded-xl font-mono font-bold text-lg min-w-[80px] text-center shadow-lg transition-colors",
+                    lastResult 
+                      ? (lastResult.won 
+                        ? "bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400" 
+                        : "bg-red-500/20 border-2 border-red-500 text-red-400"
+                      ) 
+                      : "bg-[#1a2633] border-2 border-[#2a3a4a] text-slate-400"
+                  )}>
+                    {lastResult?.result.toFixed(2) ?? "50.00"}
+                  </div>
+                  <div className={cn(
+                    "w-3 h-3 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-r-2 border-b-2 transition-colors",
+                    lastResult 
+                      ? (lastResult.won 
+                        ? "bg-emerald-500/20 border-emerald-500" 
+                        : "bg-red-500/20 border-red-500"
+                      ) 
+                      : "bg-[#1a2633] border-[#2a3a4a]"
+                  )} />
+                </motion.div>
+              </div>
+
+              {/* Main Slider Bar */}
+              <div 
+                className="relative h-3 rounded-full cursor-pointer select-none touch-none"
+                style={{
+                  background: condition === "above"
+                    ? `linear-gradient(to right, #dc2626 0%, #dc2626 ${target}%, #10b981 ${target}%, #10b981 100%)`
+                    : `linear-gradient(to right, #10b981 0%, #10b981 ${target}%, #dc2626 ${target}%, #dc2626 100%)`
+                }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                data-testid="slider-bar"
               >
-                <div className={cn(
-                  "bg-card border-2 px-3 py-1 rounded-lg font-mono font-bold shadow-lg text-lg min-w-[60px] text-center",
-                  lastResult ? (lastResult.won ? "border-primary text-primary" : "border-destructive text-destructive") : "border-muted text-muted-foreground"
-                )}>
-                  {lastResult?.result.toFixed(2) || 50.00}
+                {/* Thumb */}
+                <div 
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform hover:scale-110 border-2 border-slate-200"
+                  style={{ left: `${target}%` }}
+                />
+              </div>
+
+              {/* Tick Marks */}
+              <div className="flex justify-between mt-3 px-1">
+                {[0, 25, 50, 75, 100].map((tick) => (
+                  <div key={tick} className="flex flex-col items-center">
+                    <div className="w-px h-2 bg-slate-600 mb-1" />
+                    <span className="text-xs font-mono text-slate-500">{tick}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Target Value Display */}
+              <div className="text-center mt-6">
+                <span className="text-4xl font-mono font-bold text-white">
+                  {target.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Bottom Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              
+              {/* Multiplier Card */}
+              <Card className="bg-[#1a2633] border-[#2a3a4a] rounded-xl p-4">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 block">
+                  Multiplier
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="text"
+                    value={`${multiplier}x`}
+                    readOnly
+                    className="bg-[#0f1923] border-[#2a3a4a] text-white font-mono text-lg h-11 rounded-lg"
+                    data-testid="input-multiplier"
+                  />
                 </div>
-                <div className={cn(
-                  "w-4 h-4 bg-card border-r-2 border-b-2 rotate-45 absolute bottom-[-8px] left-1/2 -translate-x-1/2",
-                  lastResult ? (lastResult.won ? "border-primary" : "border-destructive") : "border-muted"
-                )} />
-              </motion.div>
-            </div>
-            
-            <div className="flex justify-between mt-8">
-               <span className="font-mono font-bold text-muted-foreground">0</span>
-               <span className="font-mono font-bold text-muted-foreground">25</span>
-               <span className="font-mono font-bold text-muted-foreground">50</span>
-               <span className="font-mono font-bold text-muted-foreground">75</span>
-               <span className="font-mono font-bold text-muted-foreground">100</span>
-            </div>
-          </div>
+              </Card>
 
-          {/* Roll Over/Under Toggle */}
-          <div className="mt-8 flex bg-secondary rounded-xl p-1 shadow-inner">
-             <button 
-               className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", condition === "above" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-               onClick={() => setCondition("above")}
-             >
-               Roll Over
-             </button>
-             <button 
-               className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", condition === "below" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-               onClick={() => setCondition("below")}
-             >
-               Roll Under
-             </button>
-          </div>
+              {/* Roll Over/Under Toggle */}
+              <Card className="bg-[#1a2633] border-[#2a3a4a] rounded-xl p-4">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 block">
+                  Roll {condition === "above" ? "Over" : "Under"}
+                </label>
+                <div className="flex bg-[#0f1923] rounded-lg p-1 border border-[#2a3a4a]">
+                  <button 
+                    className={cn(
+                      "flex-1 py-2.5 rounded-md text-sm font-semibold transition-all",
+                      condition === "above" 
+                        ? "bg-emerald-500 text-white shadow-md" 
+                        : "text-slate-400 hover:text-white"
+                    )}
+                    onClick={() => setCondition("above")}
+                    data-testid="button-roll-over"
+                  >
+                    Over
+                  </button>
+                  <button 
+                    className={cn(
+                      "flex-1 py-2.5 rounded-md text-sm font-semibold transition-all",
+                      condition === "below" 
+                        ? "bg-emerald-500 text-white shadow-md" 
+                        : "text-slate-400 hover:text-white"
+                    )}
+                    onClick={() => setCondition("below")}
+                    data-testid="button-roll-under"
+                  >
+                    Under
+                  </button>
+                </div>
+              </Card>
 
-        </Card>
+              {/* Win Chance Card */}
+              <Card className="bg-[#1a2633] border-[#2a3a4a] rounded-xl p-4">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 block">
+                  Win Chance
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="text"
+                    value={`${winChance.toFixed(2)}%`}
+                    readOnly
+                    className="bg-[#0f1923] border-[#2a3a4a] text-white font-mono text-lg h-11 rounded-lg"
+                    data-testid="input-win-chance"
+                  />
+                </div>
+              </Card>
+            </div>
+
+          </Card>
+        </div>
       </div>
     </Layout>
   );
