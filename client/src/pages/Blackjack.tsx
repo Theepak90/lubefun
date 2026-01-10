@@ -414,72 +414,67 @@ function Seat({
       className="absolute flex flex-col items-center"
       style={{
         left: `calc(50% + ${x}%)`,
-        bottom: `${10 + y}%`,
+        bottom: `${8 + y}%`,
         transform: 'translateX(-50%)'
       }}
     >
-      {cards && cards.length > 0 && (
-        <motion.div 
-          className={cn(
-            "relative flex gap-1 mb-2 -ml-4 rounded-lg p-1",
-            outcome === "blackjack" && "shadow-[0_0_20px_rgba(251,191,36,0.6)]",
-            outcome === "win" && "shadow-[0_0_20px_rgba(34,197,94,0.5)]",
-            outcome === "lose" && total && total > 21 && "shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-          )}
-          animate={outcome ? { 
-            scale: [1, 1.02, 1],
-          } : {}}
-          transition={{ duration: 0.3 }}
-        >
-          {cards.map((card, i) => (
-            <PlayingCard 
-              key={i} 
-              cardIndex={card} 
-              delay={i * 0.15}
-              className={cn(i > 0 && "-ml-6")}
-            />
-          ))}
-          {total !== undefined && (
-            <div className={cn(
-              "absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold",
-              total > 21 ? "bg-red-500 text-white" :
-              total === 21 ? "bg-emerald-500 text-white" :
-              "bg-slate-800 text-white"
-            )}>
-              {total}
-            </div>
-          )}
-        </motion.div>
-      )}
-      
       <button
         onClick={onClick}
         disabled={isOccupied && !isPlayer}
         className={cn(
-          "w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all",
+          "w-20 h-12 rounded-[50%] border-2 flex items-center justify-center transition-all relative",
           isPlayer 
-            ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-400/50" 
+            ? "border-white/80 bg-white/10" 
             : isOccupied 
-              ? "border-slate-500 bg-slate-600/30 cursor-not-allowed"
-              : "border-amber-400/50 bg-transparent hover:border-amber-400 hover:bg-amber-500/10 cursor-pointer",
-          isActive && "ring-4 ring-amber-400 animate-pulse"
+              ? "border-white/40 bg-white/5 cursor-not-allowed"
+              : "border-white/30 bg-transparent hover:border-white/60 hover:bg-white/10 cursor-pointer",
+          isActive && "border-amber-400 ring-2 ring-amber-400/50 animate-pulse"
         )}
         data-testid={`seat-${index}`}
       >
-        {isPlayer && <Users className="w-6 h-6 text-emerald-400" />}
-        {isOccupied && !isPlayer && <Users className="w-5 h-5 text-slate-500" />}
+        {cards && cards.length > 0 && (
+          <motion.div 
+            className={cn(
+              "absolute -top-24 left-1/2 -translate-x-1/2 flex gap-1 rounded-lg p-1",
+              outcome === "blackjack" && "shadow-[0_0_20px_rgba(251,191,36,0.6)]",
+              outcome === "win" && "shadow-[0_0_20px_rgba(34,197,94,0.5)]",
+              outcome === "lose" && total && total > 21 && "shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+            )}
+            animate={outcome ? { scale: [1, 1.02, 1] } : {}}
+            transition={{ duration: 0.3 }}
+          >
+            {cards.map((card, i) => (
+              <PlayingCard 
+                key={i} 
+                cardIndex={card} 
+                delay={i * 0.15}
+                className={cn(i > 0 && "-ml-8")}
+              />
+            ))}
+            {total !== undefined && (
+              <div className={cn(
+                "absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold",
+                total > 21 ? "bg-red-500 text-white" :
+                total === 21 ? "bg-emerald-500 text-white" :
+                "bg-slate-800/90 text-white"
+              )}>
+                {total}
+              </div>
+            )}
+          </motion.div>
+        )}
       </button>
       
       <span className={cn(
-        "text-[10px] mt-1 font-medium",
-        isPlayer ? "text-emerald-400" : isOccupied ? "text-slate-500" : "text-amber-400/70"
+        "text-[9px] mt-1 font-medium",
+        isPlayer ? "text-white" : isOccupied ? "text-white/50" : "text-white/30"
       )}>
-        {isPlayer ? "You" : isOccupied ? username || "Player" : "Empty"}
+        {isPlayer ? "You" : isOccupied ? username || "Player" : ""}
       </span>
 
       {outcome && (
         <div className={cn(
-          "mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+          "mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase",
           outcome === "blackjack" ? "bg-amber-500 text-black" :
           outcome === "win" ? "bg-emerald-500 text-white" :
           outcome === "push" ? "bg-slate-500 text-white" :
@@ -862,13 +857,13 @@ export default function Blackjack() {
             <div 
               className="relative h-[500px] min-w-[600px] md:min-w-0"
               style={{
-                background: "radial-gradient(ellipse 120% 100% at 50% 0%, #1a3a5c 0%, #0f2a42 50%, #0a1929 100%)"
+                background: "radial-gradient(ellipse 120% 100% at 50% 0%, #1a2a3c 0%, #0f1a2a 50%, #0a1219 100%)"
               }}
             >
               <div 
                 className="absolute inset-x-0 bottom-0 h-[85%]"
                 style={{
-                  background: "linear-gradient(to top, #1a4a2e 0%, #1a5533 50%, #1a6038 100%)",
+                  background: "linear-gradient(to top, #0d2840 0%, #123352 50%, #1a4065 100%)",
                   clipPath: "ellipse(85% 100% at 50% 100%)",
                 }}
               />
@@ -877,20 +872,20 @@ export default function Blackjack() {
                 className="absolute inset-x-0 bottom-0 h-[85%] pointer-events-none"
                 style={{
                   clipPath: "ellipse(85% 100% at 50% 100%)",
-                  boxShadow: "inset 0 0 0 8px #8b7355, inset 0 0 0 12px #a08050, inset 0 0 20px rgba(0,0,0,0.5)",
+                  boxShadow: "inset 0 0 0 10px #b8963c, inset 0 0 0 14px #a0843a, inset 0 0 30px rgba(0,0,0,0.6)",
                 }}
               />
               
               <div 
-                className="absolute inset-x-[12px] bottom-0 h-[calc(85%-12px)]"
+                className="absolute inset-x-[14px] bottom-0 h-[calc(85%-14px)]"
                 style={{
-                  background: "linear-gradient(180deg, #1a5533 0%, #145229 100%)",
+                  background: "linear-gradient(180deg, #1a4065 0%, #123352 100%)",
                   clipPath: "ellipse(85% 100% at 50% 100%)",
                 }}
               >
-                <div className="absolute inset-0 opacity-15"
+                <div className="absolute inset-0 opacity-10"
                   style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
                   }}
                 />
               </div>
