@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bomb, Gem, Skull } from "lucide-react";
+import { Bomb, Gem, Skull, Shield, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { GAME_CONFIG } from "@shared/config";
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
@@ -95,7 +96,8 @@ export default function Mines() {
     for(let i=0; i<revealedCount; i++) {
         multiplier *= (25 - i) / (25 - mines - i);
     }
-    return multiplier;
+    // Apply house edge
+    return multiplier * GAME_CONFIG.RTP;
   };
 
   const calculatePotentialProfit = (bet: number, revealedCount: number, mines: number) => {
@@ -159,7 +161,20 @@ export default function Mines() {
         </div>
 
         {/* Game Grid */}
-        <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex items-center justify-center min-h-[500px]">
+        <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex items-center justify-center min-h-[500px] relative">
+          
+          {/* House Edge Note */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary/50 rounded-full border border-border">
+              <Info className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] font-medium text-amber-400">Edge: {GAME_CONFIG.HOUSE_EDGE_PERCENT}%</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary/50 rounded-full border border-border">
+              <Shield className="w-3 h-3 text-emerald-400" />
+              <span className="text-xs font-medium text-emerald-400">Fair Play</span>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-5 gap-3 sm:gap-4 w-full max-w-[500px] aspect-square">
             {Array.from({ length: 25 }).map((_, i) => {
               const isRevealed = gameState.revealed.includes(i);

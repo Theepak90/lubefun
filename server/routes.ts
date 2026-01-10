@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { GAME_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -126,13 +127,13 @@ export async function registerRoutes(
       const input = diceBetSchema.parse(req.body);
       if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
       
-      // Multiplier Calc
-      // Win chance: 
-      // if below 50: win range is 0-49.99 (50%). Multiplier = 99 / 50 = 1.98
-      // Edge is usually 1%. Stake is 99 / Chance.
+      // Multiplier Calc with configurable house edge
+      // RTP = 1 - HOUSE_EDGE (e.g., 98% RTP with 2% edge)
+      // Multiplier = (100 / winChance) * RTP
       
       const winChance = input.condition === "above" ? (100 - input.target) : input.target;
-      const multiplier = 99 / winChance; 
+      const baseMultiplier = 100 / winChance;
+      const multiplier = baseMultiplier * GAME_CONFIG.RTP; 
       
       // Deduct balance
       await storage.updateUserBalance(user.id, -input.betAmount);
@@ -179,7 +180,8 @@ export async function registerRoutes(
       const input = coinflipBetSchema.parse(req.body);
       if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
 
-      const multiplier = 1.98; // Standard 2x with edge
+      // Coinflip: 50% chance, 2x base payout with house edge
+      const multiplier = 2 * GAME_CONFIG.RTP; // e.g., 1.96 with 2% edge
       
       await storage.updateUserBalance(user.id, -input.betAmount);
       
@@ -311,8 +313,8 @@ export async function registerRoutes(
           multiplier *= (1 / chance);
         }
         
-        // Add 1% edge
-        multiplier = multiplier * 0.99; 
+        // Apply configurable house edge
+        multiplier = multiplier * GAME_CONFIG.RTP; 
         
         const updatedBet = await storage.updateBet(bet.id, {
           payoutMultiplier: multiplier,
