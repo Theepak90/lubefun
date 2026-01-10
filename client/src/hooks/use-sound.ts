@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -111,6 +111,29 @@ function playTickSound() {
   oscillator.stop(ctx.currentTime + 0.05);
 }
 
+function playFlipSound() {
+  const ctx = getAudioContext();
+  
+  for (let i = 0; i < 8; i++) {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    const startTime = ctx.currentTime + i * 0.12;
+    oscillator.frequency.value = 400 + Math.random() * 200;
+    oscillator.type = "sine";
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.04, startTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+    
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.08);
+  }
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -138,6 +161,9 @@ export function useSound() {
           break;
         case "tick":
           playTickSound();
+          break;
+        case "flip":
+          playFlipSound();
           break;
       }
     } catch (e) {

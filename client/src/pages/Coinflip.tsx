@@ -31,30 +31,29 @@ export default function Coinflip() {
     
     setFlipping(true);
     setResult(null);
-    playSound("bet");
+    playSound("flip");
     
-    setTimeout(() => {
-      playCoinflip(
-        { betAmount: val, side },
-        {
-          onSuccess: (data: any) => {
+    playCoinflip(
+      { betAmount: val, side },
+      {
+        onSuccess: (data: any) => {
+          setTimeout(() => {
             setResult(data.result.flip);
             setFlipping(false);
-            
             playSound(data.won ? "win" : "lose");
-            
-            addResult({
-              game: "coinflip",
-              betAmount: val,
-              won: data.won,
-              profit: data.profit,
-              detail: `Picked ${side}, got ${data.result.flip}`
-            });
-          },
-          onError: () => setFlipping(false)
-        }
-      );
-    }, 1000);
+          }, 1200);
+          
+          addResult({
+            game: "coinflip",
+            betAmount: val,
+            won: data.won,
+            profit: data.profit,
+            detail: `Picked ${side}, got ${data.result.flip}`
+          });
+        },
+        onError: () => setFlipping(false)
+      }
+    );
   };
 
   const setPercent = (percent: number) => {
