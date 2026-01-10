@@ -665,23 +665,17 @@ export default function Blackjack() {
   const { toast } = useToast();
   const { play: playSound } = useSound();
   
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [selectedChip, setSelectedChip] = useState<ChipValue>(CHIP_VALUES[2]);
-  const [multiHand, setMultiHand] = useState(false);
-  const [activeHandCount, setActiveHandCount] = useState(1);
   const [sideBetsEnabled, setSideBetsEnabled] = useState({ perfectPairs: false, twentyOnePlus3: false });
-  const [handBets, setHandBets] = useState<HandBet[]>([
-    { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-    { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-    { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-  ]);
-  const [lastBets, setLastBets] = useState<HandBet[]>([]);
+  const [seatBets, setSeatBets] = useState<Record<number, HandBet>>({});
+  const [lastSeatBets, setLastSeatBets] = useState<Record<number, HandBet>>({});
   const [gameState, setGameState] = useState<BlackjackState | null>(null);
-  const [activeHandIndex, setActiveHandIndex] = useState(0);
+  const [activeSeatIndex, setActiveSeatIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const totalBet = handBets.slice(0, activeHandCount).reduce((sum, h) => 
+  const totalBet = Object.values(seatBets).reduce((sum, h) => 
     sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0
   );
   
@@ -699,13 +693,14 @@ export default function Blackjack() {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying && selectedSeat !== null) {
-      const seatCount = isMobile ? 5 : 7;
-      if (selectedSeat >= seatCount) {
-        setSelectedSeat(Math.floor(seatCount / 2));
+    if (!isPlaying && selectedSeats.length > 0) {
+      const maxSeat = isMobile ? 7 : 10;
+      const validSeats = selectedSeats.filter(s => s < maxSeat);
+      if (validSeats.length !== selectedSeats.length) {
+        setSelectedSeats(validSeats);
       }
     }
-  }, [isMobile, isPlaying, selectedSeat]);
+  }, [isMobile, isPlaying, selectedSeats]);
 
   const seatCount = isMobile ? 7 : 10;
   const seatPositions = isMobile 
@@ -720,14 +715,16 @@ export default function Blackjack() {
   useEffect(() => {
     if (activeHand && activeHand.bet) {
       setGameState(activeHand);
-      setSelectedSeat(3);
+      if (selectedSeats.length === 0) {
+        setSelectedSeats([4]);
+      }
     }
   }, [activeHand]);
 
-  const addChipToBet = (handIndex: number, betType: keyof HandBet) => {
+  const addChipToBet = (seatIndex: number, betType: keyof HandBet) => {
     if (isPlaying) return;
     
-    const newBets = [...handBets];
+    const currentBet = seatBets[seatIndex] || { main: 0, perfectPairs: 0, twentyOnePlus3: 0 };
     const newTotal = totalBet + selectedChip.value;
     
     if (newTotal > (user?.balance || 0)) {
@@ -738,47 +735,43 @@ export default function Blackjack() {
     
     playSound("chipDrop");
     
-    newBets[handIndex] = {
-      ...newBets[handIndex],
-      [betType]: Math.round((newBets[handIndex][betType] + selectedChip.value) * 100) / 100
-    };
-    setHandBets(newBets);
+    setSeatBets(prev => ({
+      ...prev,
+      [seatIndex]: {
+        ...currentBet,
+        [betType]: Math.round((currentBet[betType] + selectedChip.value) * 100) / 100
+      }
+    }));
     setError(null);
   };
 
   const undoLastBet = () => {
-    const newBets = [...handBets];
-    for (let i = activeHandCount - 1; i >= 0; i--) {
-      if (newBets[i].twentyOnePlus3 > 0) {
-        newBets[i].twentyOnePlus3 = 0;
-        setHandBets(newBets);
+    const seatKeys = Object.keys(seatBets).map(Number).reverse();
+    for (const seatIdx of seatKeys) {
+      const bet = seatBets[seatIdx];
+      if (bet.twentyOnePlus3 > 0) {
+        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, twentyOnePlus3: 0 } }));
         return;
       }
-      if (newBets[i].perfectPairs > 0) {
-        newBets[i].perfectPairs = 0;
-        setHandBets(newBets);
+      if (bet.perfectPairs > 0) {
+        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, perfectPairs: 0 } }));
         return;
       }
-      if (newBets[i].main > 0) {
-        newBets[i].main = 0;
-        setHandBets(newBets);
+      if (bet.main > 0) {
+        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, main: 0 } }));
         return;
       }
     }
   };
 
   const clearBets = () => {
-    setHandBets([
-      { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-      { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-      { main: 0, perfectPairs: 0, twentyOnePlus3: 0 },
-    ]);
+    setSeatBets({});
     setError(null);
   };
 
   const repeatBet = () => {
-    if (lastBets.length === 0) return;
-    const repeatTotal = lastBets.slice(0, activeHandCount).reduce((sum, h) => 
+    if (Object.keys(lastSeatBets).length === 0) return;
+    const repeatTotal = Object.values(lastSeatBets).reduce((sum, h) => 
       sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0
     );
     if (repeatTotal > (user?.balance || 0)) {
@@ -786,16 +779,20 @@ export default function Blackjack() {
       setTimeout(() => setError(null), 2000);
       return;
     }
-    setHandBets([...lastBets]);
+    setSeatBets({ ...lastSeatBets });
+    setSelectedSeats(Object.keys(lastSeatBets).map(Number));
   };
 
   const doubleBet = () => {
-    const doubled = handBets.map(h => ({
-      main: h.main * 2,
-      perfectPairs: h.perfectPairs * 2,
-      twentyOnePlus3: h.twentyOnePlus3 * 2,
-    }));
-    const doubleTotal = doubled.slice(0, activeHandCount).reduce((sum, h) => 
+    const doubled: Record<number, HandBet> = {};
+    for (const [key, h] of Object.entries(seatBets)) {
+      doubled[Number(key)] = {
+        main: h.main * 2,
+        perfectPairs: h.perfectPairs * 2,
+        twentyOnePlus3: h.twentyOnePlus3 * 2,
+      };
+    }
+    const doubleTotal = Object.values(doubled).reduce((sum, h) => 
       sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0
     );
     if (doubleTotal > (user?.balance || 0)) {
@@ -803,7 +800,7 @@ export default function Blackjack() {
       setTimeout(() => setError(null), 2000);
       return;
     }
-    setHandBets(doubled);
+    setSeatBets(doubled);
   };
 
   const dealMutation = useMutation({
@@ -812,8 +809,9 @@ export default function Blackjack() {
       return res.json() as Promise<BlackjackState>;
     },
     onSuccess: (data) => {
-      setLastBets([...handBets]);
+      setLastSeatBets({ ...seatBets });
       setGameState(data);
+      setActiveSeatIndex(selectedSeats[0] ?? null);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
       // Play card deal sounds with delays
@@ -885,7 +883,8 @@ export default function Blackjack() {
                          data.outcome === "win" ? "Win" :
                          data.outcome === "push" ? "Push" : "Lose";
     
-    const betAmount = data.bet?.betAmount || handBets[0].main;
+    const activeBet = activeSeatIndex !== null ? seatBets[activeSeatIndex] : null;
+    const betAmount = data.bet?.betAmount || activeBet?.main || 0;
     const profit = data.bet?.profit || 0;
     const won = data.outcome === "win" || data.outcome === "blackjack";
     const isPush = data.outcome === "push";
@@ -928,9 +927,10 @@ export default function Blackjack() {
   };
 
   const handleDeal = () => {
-    const mainBet = handBets[0].main;
-    if (mainBet < 0.1 || mainBet > (user?.balance || 0)) return;
-    dealMutation.mutate(mainBet);
+    // Sum all main bets from selected seats
+    const totalMainBet = Object.values(seatBets).reduce((sum, b) => sum + b.main, 0);
+    if (totalMainBet < 0.1 || totalMainBet > (user?.balance || 0)) return;
+    dealMutation.mutate(totalMainBet);
   };
 
   const handleHit = () => {
@@ -955,8 +955,20 @@ export default function Blackjack() {
   };
 
   const handleSitDown = (seatIndex: number) => {
-    if (selectedSeat === seatIndex) return;
-    setSelectedSeat(seatIndex);
+    if (selectedSeats.includes(seatIndex)) {
+      // Deselect if clicking on already selected seat (only if no bet placed)
+      const seatBet = seatBets[seatIndex];
+      if (!seatBet || (seatBet.main === 0 && seatBet.perfectPairs === 0 && seatBet.twentyOnePlus3 === 0)) {
+        setSelectedSeats(prev => prev.filter(s => s !== seatIndex));
+        setSeatBets(prev => {
+          const newBets = { ...prev };
+          delete newBets[seatIndex];
+          return newBets;
+        });
+      }
+      return;
+    }
+    setSelectedSeats(prev => [...prev, seatIndex].sort((a, b) => a - b));
   };
 
   const isBusy = dealMutation.isPending || hitMutation.isPending || standMutation.isPending || doubleMutation.isPending;
@@ -1057,28 +1069,33 @@ export default function Blackjack() {
               </div>
 
               <div className="absolute inset-0">
-                {seatPositions.map((pos, idx) => (
-                  <SeatWithBets
-                    key={idx}
-                    seatIndex={idx}
-                    position={pos}
-                    isSelected={selectedSeat === idx}
-                    onSelect={() => !isPlaying && handleSitDown(idx)}
-                    cards={selectedSeat === idx && gameState?.playerCards ? gameState.playerCards : undefined}
-                    total={selectedSeat === idx && gameState?.playerCards ? playerTotal : undefined}
-                    isActive={selectedSeat === idx && isPlaying}
-                    outcome={selectedSeat === idx && isCompleted ? gameState?.outcome : undefined}
-                    mainBet={selectedSeat === idx ? handBets[0].main : 0}
-                    ppBet={selectedSeat === idx ? handBets[0].perfectPairs : 0}
-                    plus3Bet={selectedSeat === idx ? handBets[0].twentyOnePlus3 : 0}
-                    onPlaceMainBet={() => addChipToBet(0, 'main')}
-                    onPlacePPBet={() => addChipToBet(0, 'perfectPairs')}
-                    onPlacePlus3Bet={() => addChipToBet(0, 'twentyOnePlus3')}
-                    showPP={sideBetsEnabled.perfectPairs}
-                    showPlus3={sideBetsEnabled.twentyOnePlus3}
-                    isPlaying={isPlaying || isCompleted}
-                  />
-                ))}
+                {seatPositions.map((pos, idx) => {
+                  const isSelected = selectedSeats.includes(idx);
+                  const bet = seatBets[idx] || { main: 0, perfectPairs: 0, twentyOnePlus3: 0 };
+                  const isActiveSeat = activeSeatIndex === idx;
+                  return (
+                    <SeatWithBets
+                      key={idx}
+                      seatIndex={idx}
+                      position={pos}
+                      isSelected={isSelected}
+                      onSelect={() => !isPlaying && handleSitDown(idx)}
+                      cards={isActiveSeat && gameState?.playerCards ? gameState.playerCards : undefined}
+                      total={isActiveSeat && gameState?.playerCards ? playerTotal : undefined}
+                      isActive={isActiveSeat && isPlaying}
+                      outcome={isActiveSeat && isCompleted ? gameState?.outcome : undefined}
+                      mainBet={bet.main}
+                      ppBet={bet.perfectPairs}
+                      plus3Bet={bet.twentyOnePlus3}
+                      onPlaceMainBet={() => addChipToBet(idx, 'main')}
+                      onPlacePPBet={() => addChipToBet(idx, 'perfectPairs')}
+                      onPlacePlus3Bet={() => addChipToBet(idx, 'twentyOnePlus3')}
+                      showPP={isSelected && sideBetsEnabled.perfectPairs}
+                      showPlus3={isSelected && sideBetsEnabled.twentyOnePlus3}
+                      isPlaying={isPlaying || isCompleted}
+                    />
+                  );
+                })}
               </div>
 
               {error && (
@@ -1140,7 +1157,7 @@ export default function Blackjack() {
                           variant="outline"
                           size="sm"
                           onClick={repeatBet}
-                          disabled={lastBets.length === 0}
+                          disabled={Object.keys(lastSeatBets).length === 0}
                           className="border-slate-600 text-slate-300"
                           data-testid="button-repeat"
                         >
@@ -1166,7 +1183,13 @@ export default function Blackjack() {
                             onCheckedChange={(v) => {
                               setSideBetsEnabled(s => ({ ...s, perfectPairs: v }));
                               if (!v) {
-                                setHandBets(prev => prev.map(h => ({ ...h, perfectPairs: 0 })));
+                                setSeatBets(prev => {
+                                  const updated: Record<number, HandBet> = {};
+                                  for (const [key, bet] of Object.entries(prev)) {
+                                    updated[Number(key)] = { ...bet, perfectPairs: 0 };
+                                  }
+                                  return updated;
+                                });
                               }
                             }}
                           />
@@ -1179,7 +1202,13 @@ export default function Blackjack() {
                             onCheckedChange={(v) => {
                               setSideBetsEnabled(s => ({ ...s, twentyOnePlus3: v }));
                               if (!v) {
-                                setHandBets(prev => prev.map(h => ({ ...h, twentyOnePlus3: 0 })));
+                                setSeatBets(prev => {
+                                  const updated: Record<number, HandBet> = {};
+                                  for (const [key, bet] of Object.entries(prev)) {
+                                    updated[Number(key)] = { ...bet, twentyOnePlus3: 0 };
+                                  }
+                                  return updated;
+                                });
                               }
                             }}
                           />
@@ -1196,10 +1225,10 @@ export default function Blackjack() {
                           size="lg"
                           className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
                           onClick={handleDeal}
-                          disabled={!user || selectedSeat === null || handBets.slice(0, activeHandCount).every(h => h.main < 0.1) || totalBet > (user?.balance || 0) || isBusy}
+                          disabled={!user || selectedSeats.length === 0 || totalBet < 0.1 || totalBet > (user?.balance || 0) || isBusy}
                           data-testid="button-deal"
                         >
-                          {isBusy ? "Dealing..." : selectedSeat === null ? "Sit Down First" : totalBet === 0 ? "Place Bet" : "Deal"}
+                          {isBusy ? "Dealing..." : selectedSeats.length === 0 ? "Sit Down First" : totalBet === 0 ? "Place Bet" : "Deal"}
                         </Button>
                       </div>
                     </motion.div>
@@ -1238,7 +1267,7 @@ export default function Blackjack() {
                           variant="outline"
                           className="h-12 px-8 border-slate-500 text-white font-bold"
                           onClick={handleDouble}
-                          disabled={isBusy || (user?.balance || 0) < handBets[0].main}
+                          disabled={isBusy || (user?.balance || 0) < (activeSeatIndex !== null ? (seatBets[activeSeatIndex]?.main || 0) : 0)}
                           data-testid="button-double"
                         >
                           Double
