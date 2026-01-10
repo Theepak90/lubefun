@@ -1,0 +1,83 @@
+Redesign the Blackjack UI to match a real live blackjack table (like the reference images). The current layout looks like a flat green rectangle with awkward card placement — replace it completely with a proper semi-circle table scene and correct seating + dealing positions.
+
+1) Table Scene (must look like real live BJ)
+
+Build a semi-circle felt table with a darker top background and a curved gold rail at the bottom edge.
+
+Felt texture stays subtle (not noisy).
+
+Add 7 seat circles along the curved edge (bottom arc). Each seat has a circle outline + label (“Empty” or username).
+
+The current user’s seat should highlight with a clean glow and show “You”.
+
+Dealer area at top center with “DEALER” label and avatar circle.
+
+2) Correct Hand/Bet Positions (fix the “messy” card placement)
+
+For each seat, define fixed coordinates/anchors for:
+
+Main bet spot (in front of the seat)
+
+Side bet spots (small circles next to main bet)
+
+Player hand area (cards appear above the bet spot)
+
+Dealer hand area: cards appear under DEALER label, centered.
+
+Ensure cards never overlap incorrectly:
+
+Player cards fan slightly with offsets
+
+Dealer cards stack neatly with offsets
+
+Make sure the facedown dealer hole card is visible and aligned (blue back).
+
+3) Live-style Betting UI (chips on table, not random buttons)
+
+Add a chip selector row at the bottom of the table (Vegas-style chips) and allow placing chips by:
+
+Select chip → click a bet spot
+
+Add controls: Undo, Clear, Repeat, Double (for bets) in a compact row.
+
+Add “Place Bet” button that only works when a main bet exists and betting phase is open.
+
+Only show Hit/Stand/Double/Split buttons during the action phase, not always.
+
+4) Realistic Dealing Animation
+
+Add an animated “shoe” position near dealer.
+
+Deal one card at a time from dealer shoe to each active seat + dealer, with a smooth slide + slight rotation.
+
+The animation must land cards exactly on the seat hand anchors.
+
+5) Clean Layout + Remove Weird Empty Space
+
+Remove the huge empty center feel and fix proportions:
+
+Table should fill the main content area nicely
+
+Seats should be evenly spaced along the arc
+
+Keep header minimal: “Live Blackjack”, Fair Play, Profit button.
+
+6) Keep all existing logic
+
+Do NOT break blackjack rules/payouts/provably fair.
+
+This task is primarily a UI/positioning/animation refactor with correct seat/bet/hand anchoring.
+
+Deliverable
+
+Updated BlackjackTable component with:
+
+SVG/CSS curved table design (semi-circle)
+
+Seat layout on arc
+
+Correct card and chip placement anchors
+
+Dealing animation that targets anchors
+
+Result should visually match “live blackjack table” style, not a plain rectangle.

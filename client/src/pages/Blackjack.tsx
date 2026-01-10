@@ -299,30 +299,38 @@ function PlayingCard({
   cardIndex, 
   hidden = false,
   delay = 0,
-  className = ""
+  className = "",
+  fromShoe = true
 }: { 
   cardIndex: number; 
   hidden?: boolean;
   delay?: number;
   className?: string;
+  fromShoe?: boolean;
 }) {
   const cardVariants = {
-    initial: { 
-      x: 200, 
-      y: -100, 
-      rotateY: 180,
+    initial: fromShoe ? { 
+      x: 300, 
+      y: -200, 
+      rotate: -15,
+      scale: 0.8,
       opacity: 0 
+    } : {
+      opacity: 0,
+      y: -20
     },
     animate: { 
       x: 0, 
       y: 0, 
-      rotateY: 0,
+      rotate: 0,
+      scale: 1,
       opacity: 1,
       transition: {
         type: "spring",
-        stiffness: 200,
-        damping: 20,
-        delay
+        stiffness: 150,
+        damping: 18,
+        delay,
+        duration: 0.5
       }
     }
   };
@@ -862,23 +870,40 @@ export default function Blackjack() {
                 style={{
                   background: "linear-gradient(to top, #1a4a2e 0%, #1a5533 50%, #1a6038 100%)",
                   clipPath: "ellipse(85% 100% at 50% 100%)",
-                  border: "8px solid #8b7355",
-                  borderBottom: "none",
                 }}
               />
               
               <div 
-                className="absolute inset-x-[8px] bottom-0 h-[calc(85%-8px)]"
+                className="absolute inset-x-0 bottom-0 h-[85%] pointer-events-none"
+                style={{
+                  clipPath: "ellipse(85% 100% at 50% 100%)",
+                  boxShadow: "inset 0 0 0 8px #8b7355, inset 0 0 0 12px #a08050, inset 0 0 20px rgba(0,0,0,0.5)",
+                }}
+              />
+              
+              <div 
+                className="absolute inset-x-[12px] bottom-0 h-[calc(85%-12px)]"
                 style={{
                   background: "linear-gradient(180deg, #1a5533 0%, #145229 100%)",
                   clipPath: "ellipse(85% 100% at 50% 100%)",
                 }}
               >
-                <div className="absolute inset-0 opacity-20"
+                <div className="absolute inset-0 opacity-15"
                   style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
                   }}
                 />
+              </div>
+              
+              <div className="absolute top-3 right-8 flex items-center gap-2 z-10">
+                <div className="relative">
+                  <div className="w-10 h-14 bg-gradient-to-b from-red-600 to-red-800 rounded-sm border-2 border-red-500 shadow-lg flex items-center justify-center">
+                    <div className="absolute inset-1 rounded-sm bg-red-700/50 flex items-center justify-center">
+                      <div className="w-6 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-sm border border-white/30" />
+                    </div>
+                  </div>
+                  <span className="text-[8px] text-slate-400 text-center block mt-1">SHOE</span>
+                </div>
               </div>
 
               <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
