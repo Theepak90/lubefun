@@ -105,7 +105,7 @@ export default function DailySpin() {
     }
   }, [isMuted]);
   
-  const generateReelItems = useCallback((targetPrizeId: string): ReelItem[] => {
+  const generateReelItems = useCallback((targetPrizeId: string): { items: ReelItem[]; winnerIndex: number } => {
     const items: ReelItem[] = [];
     const allPrizes = [...WHEEL_PRIZES];
     
@@ -132,17 +132,24 @@ export default function DailySpin() {
       }
     }
     
-    // Add the winning prize at the end
-    const targetIndex = WHEEL_PRIZES.findIndex(p => p.id === targetPrizeId);
-    const targetPrize = WHEEL_PRIZES[targetIndex >= 0 ? targetIndex : 0];
-    items.push({
+    // Find the winning prize
+    const prizeDefIndex = WHEEL_PRIZES.findIndex(p => p.id === targetPrizeId);
+    const targetPrize = WHEEL_PRIZES[prizeDefIndex >= 0 ? prizeDefIndex : 0];
+    
+    // Insert winning prize near the end but not at the very last position
+    // This creates a natural "landing" feel with items visible after the winner
+    const insertPosition = items.length - Math.floor(Math.random() * 5) - 3;
+    const winnerIndex = Math.max(insertPosition, Math.floor(items.length * 0.8));
+    
+    // Replace the item at winnerIndex with the winning prize
+    items[winnerIndex] = {
       id: targetPrize.id,
       label: targetPrize.label,
       value: targetPrize.value,
       rarity: targetPrize.rarity,
-    });
+    };
     
-    return items;
+    return { items, winnerIndex };
   }, []);
   
   const spinMutation = useMutation({
@@ -150,14 +157,12 @@ export default function DailySpin() {
     onSuccess: async (response) => {
       const data = await response.json();
       
-      const items = generateReelItems(data.prizeId);
+      const { items, winnerIndex } = generateReelItems(data.prizeId);
       setReelItems(items);
       setReelOffset(0);
       
-      const animatedItem = items[items.length - 1];
-      if (import.meta.env.DEV) {
-        console.log(`[Lootbox] Backend prizeId=${data.prizeId}, Animated prizeId=${animatedItem.id}, Match=${data.prizeId === animatedItem.id}`);
-      }
+      const winnerItem = items[winnerIndex];
+      console.log(`[Lootbox] selectedPrizeId=${data.prizeId}, winnerIndex=${winnerIndex}, winnerLabel=${winnerItem.label}, totalItems=${items.length}`);
       
       setState("preparing");
       
@@ -165,8 +170,7 @@ export default function DailySpin() {
         setState("spinning");
         playSound("spin");
         
-        const targetPosition = items.length - 1;
-        setReelOffset(calculateReelOffset(targetPosition));
+        setReelOffset(calculateReelOffset(winnerIndex));
         
         setTimeout(() => {
           setState("revealing");
