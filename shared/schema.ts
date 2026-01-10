@@ -146,6 +146,13 @@ export const minesCashoutSchema = z.object({
   betId: z.number(),
 });
 
+export const plinkoBetSchema = z.object({
+  betAmount: z.number().min(0.1),
+  risk: z.enum(["low", "medium", "high"]),
+  rows: z.number().min(8).max(16),
+});
+
 export type DiceBetRequest = z.infer<typeof diceBetSchema>;
 export type CoinflipBetRequest = z.infer<typeof coinflipBetSchema>;
 export type MinesBetRequest = z.infer<typeof minesBetSchema>;
+export type PlinkoBetRequest = z.infer<typeof plinkoBetSchema>;

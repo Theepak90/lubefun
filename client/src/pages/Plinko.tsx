@@ -1,47 +1,152 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, Circle } from "lucide-react";
+import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { GAME_CONFIG } from "@shared/config";
+import { getPlinkoMultipliers, PlinkoRisk, PLINKO_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-const RISK_MULTIPLIERS = {
-  low: [1.5, 1.2, 1.1, 1.0, 0.5, 1.0, 1.1, 1.2, 1.5],
-  medium: [3, 1.5, 1.2, 0.8, 0.3, 0.8, 1.2, 1.5, 3],
-  high: [10, 3, 1.5, 0.5, 0.2, 0.5, 1.5, 3, 10]
-};
+interface PlinkoResponse {
+  bet: any;
+  path: number[];
+  binIndex: number;
+  multiplier: number;
+}
+
+interface BallPosition {
+  x: number;
+  y: number;
+  step: number;
+}
 
 export default function Plinko() {
   const { user } = useAuth();
-  const { results, clearHistory } = useGameHistory();
-  const [amount, setAmount] = useState<string>("10");
-  const [risk, setRisk] = useState<"low" | "medium" | "high">("medium");
-  const [rows, setRows] = useState<string>("12");
+  const { results, addResult, clearHistory } = useGameHistory();
+  const { toast } = useToast();
+  
+  const [amount, setAmount] = useState<string>("1");
+  const [risk, setRisk] = useState<PlinkoRisk>("medium");
+  const [rows, setRows] = useState<number>(12);
   const [dropping, setDropping] = useState(false);
+  const [ballPosition, setBallPosition] = useState<BallPosition | null>(null);
+  const [activePath, setActivePath] = useState<number[]>([]);
+  const [lastResult, setLastResult] = useState<{ binIndex: number; multiplier: number } | null>(null);
+  
+  const animationRef = useRef<NodeJS.Timeout | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
-  const multipliers = RISK_MULTIPLIERS[risk];
+  const multipliers = getPlinkoMultipliers(risk, rows);
+  const numBins = rows + 1;
+
+  const plinkoMutation = useMutation({
+    mutationFn: async (data: { betAmount: number; risk: string; rows: number }) => {
+      const res = await apiRequest("POST", "/api/games/plinko", data);
+      return res.json() as Promise<PlinkoResponse>;
+    },
+    onSuccess: (data) => {
+      setActivePath(data.path);
+      animateBall(data.path, data.binIndex, data.multiplier, data.bet);
+    },
+    onError: (error: any) => {
+      setDropping(false);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to place bet",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const animateBall = useCallback((path: number[], binIndex: number, multiplier: number, bet: any) => {
+    const pegSpacing = 32;
+    const rowHeight = 28;
+    const startX = 0;
+    
+    let step = 0;
+    setBallPosition({ x: startX, y: -20, step: -1 });
+
+    const animate = () => {
+      if (step <= path.length) {
+        let x = 0;
+        for (let i = 0; i < step; i++) {
+          x += path[i] === 1 ? pegSpacing / 2 : -pegSpacing / 2;
+        }
+        setBallPosition({ x, y: step * rowHeight, step });
+        step++;
+        animationRef.current = setTimeout(animate, 80);
+      } else {
+        setDropping(false);
+        setLastResult({ binIndex, multiplier });
+        
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+
+        addResult({
+          game: "plinko",
+          betAmount: bet.betAmount,
+          won: bet.won,
+          profit: bet.profit,
+          detail: `${risk} risk, ${rows} rows → ${multiplier}x`,
+        });
+
+        setTimeout(() => {
+          setBallPosition(null);
+          setActivePath([]);
+          setLastResult(null);
+        }, 1500);
+      }
+    };
+
+    animationRef.current = setTimeout(animate, 200);
+  }, [risk, rows, addResult]);
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        clearTimeout(animationRef.current);
+      }
+    };
+  }, []);
 
   const setPercent = (percent: number) => {
     if (!user) return;
     setAmount((user.balance * percent).toFixed(2));
   };
 
-  const halve = () => setAmount((prev) => (parseFloat(prev) / 2).toFixed(2));
+  const halve = () => setAmount((prev) => Math.max(0.1, parseFloat(prev) / 2).toFixed(2));
   const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
 
   const handleDrop = () => {
-    if (baseAmount < 0.1 || baseAmount > (user?.balance || 0)) return;
+    if (baseAmount < 0.1 || baseAmount > (user?.balance || 0) || dropping) return;
     setDropping(true);
-    setTimeout(() => setDropping(false), 2000);
+    setLastResult(null);
+    plinkoMutation.mutate({ betAmount: baseAmount, risk, rows });
   };
+
+  const getMultiplierColor = (mult: number) => {
+    if (mult >= 10) return "bg-emerald-500 text-white border-emerald-400";
+    if (mult >= 3) return "bg-emerald-500/60 text-white border-emerald-400/60";
+    if (mult >= 1.5) return "bg-amber-500/60 text-white border-amber-400/60";
+    if (mult >= 1) return "bg-slate-600 text-white border-slate-500";
+    return "bg-red-500/60 text-white border-red-400/60";
+  };
+
+  const pegRows = [];
+  for (let r = 0; r < rows; r++) {
+    const pegsInRow = r + 3;
+    pegRows.push(pegsInRow);
+  }
+
+  const boardWidth = (rows + 2) * 32;
+  const boardHeight = rows * 28 + 60;
 
   return (
     <Layout>
@@ -111,7 +216,7 @@ export default function Plinko() {
                   Risk Level
                 </Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(["low", "medium", "high"] as const).map((level) => (
+                  {PLINKO_CONFIG.RISKS.map((level) => (
                     <button
                       key={level}
                       onClick={() => setRisk(level)}
@@ -120,9 +225,9 @@ export default function Plinko() {
                       className={cn(
                         "py-2.5 rounded-lg font-semibold text-xs transition-all capitalize",
                         risk === level
-                          ? level === "low" ? "bg-emerald-500 text-white" :
-                            level === "medium" ? "bg-amber-500 text-white" :
-                            "bg-red-500 text-white"
+                          ? level === "low" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                            level === "medium" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" :
+                            "bg-red-500 text-white shadow-lg shadow-red-500/20"
                           : "bg-[#1a2530] text-slate-400 hover:text-white border border-[#2a3a4a]"
                       )}
                     >
@@ -137,28 +242,33 @@ export default function Plinko() {
                 <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                   Rows
                 </Label>
-                <Select value={rows} onValueChange={setRows} disabled={dropping}>
-                  <SelectTrigger className="bg-[#0d1419] border-[#1a2530] h-10">
+                <Select 
+                  value={String(rows)} 
+                  onValueChange={(v) => setRows(Number(v))} 
+                  disabled={dropping}
+                >
+                  <SelectTrigger className="bg-[#0d1419] border-[#1a2530] h-10" data-testid="select-rows">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[8, 10, 12, 14, 16].map((r) => (
+                    {Array.from({ length: PLINKO_CONFIG.MAX_ROWS - PLINKO_CONFIG.MIN_ROWS + 1 }, (_, i) => i + PLINKO_CONFIG.MIN_ROWS).map((r) => (
                       <SelectItem key={r} value={String(r)}>{r} rows</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Max Win */}
+              {/* Payout Range */}
               <div className="space-y-2 mb-5">
                 <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Max Win
+                  Payout Range
                 </Label>
                 <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5">
-                  <span className="font-mono font-semibold text-emerald-400 text-sm">
-                    +${(baseAmount * Math.max(...multipliers) - baseAmount).toFixed(2)}
-                  </span>
-                  <span className="text-slate-500 text-xs ml-2">({Math.max(...multipliers)}x)</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-red-400 font-mono">{Math.min(...multipliers).toFixed(2)}x</span>
+                    <span className="text-slate-500">to</span>
+                    <span className="text-emerald-400 font-mono">{Math.max(...multipliers).toFixed(2)}x</span>
+                  </div>
                 </div>
               </div>
 
@@ -175,7 +285,7 @@ export default function Plinko() {
             </div>
 
             {/* Right Column: Game Panel */}
-            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[480px]">
+            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[520px]">
               
               {/* Fair Play Badge */}
               <div className="absolute top-4 right-4">
@@ -186,54 +296,94 @@ export default function Plinko() {
               </div>
 
               {/* Plinko Board */}
-              <div className="relative">
-                {/* Pegs Grid */}
-                <div className="flex flex-col items-center gap-3">
-                  {Array.from({ length: 8 }).map((_, rowIdx) => (
-                    <div key={rowIdx} className="flex gap-4" style={{ paddingLeft: rowIdx % 2 === 0 ? 0 : 12 }}>
-                      {Array.from({ length: rowIdx % 2 === 0 ? 8 : 7 }).map((_, pegIdx) => (
+              <div 
+                className="relative"
+                style={{ 
+                  width: boardWidth, 
+                  height: boardHeight + 50,
+                }}
+              >
+                {/* Pegs */}
+                <div className="flex flex-col items-center pt-4">
+                  {pegRows.map((pegsInRow, rowIndex) => (
+                    <div 
+                      key={rowIndex} 
+                      className="flex justify-center gap-0"
+                      style={{ 
+                        marginBottom: 12,
+                        width: pegsInRow * 32,
+                      }}
+                    >
+                      {Array.from({ length: pegsInRow }).map((_, pegIndex) => (
                         <div 
-                          key={pegIdx}
-                          className="w-2.5 h-2.5 rounded-full bg-slate-600 shadow-sm"
+                          key={pegIndex}
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full transition-colors duration-100",
+                            activePath[rowIndex] !== undefined
+                              ? "bg-slate-500"
+                              : "bg-slate-600"
+                          )}
+                          style={{ margin: '0 10.75px' }}
                         />
                       ))}
                     </div>
                   ))}
                 </div>
 
-                {/* Drop Zone Indicator */}
-                {dropping && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 animate-bounce">
-                    <Circle className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  </div>
+                {/* Ball */}
+                {ballPosition && (
+                  <div
+                    className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-10 transition-all"
+                    style={{
+                      left: `calc(50% + ${ballPosition.x}px - 8px)`,
+                      top: ballPosition.y + 8,
+                      transitionDuration: '70ms',
+                      transitionTimingFunction: 'ease-out',
+                    }}
+                  />
                 )}
+
+                {/* Multiplier Bins */}
+                <div 
+                  className="flex justify-center gap-1 mt-2"
+                  style={{ width: boardWidth }}
+                >
+                  {multipliers.map((mult, i) => (
+                    <div 
+                      key={i}
+                      className={cn(
+                        "flex items-center justify-center text-[10px] font-bold rounded-md border transition-all",
+                        getMultiplierColor(mult),
+                        lastResult?.binIndex === i && "ring-2 ring-white ring-offset-1 ring-offset-[#0d1419] scale-110"
+                      )}
+                      style={{
+                        width: Math.max(28, (boardWidth - (numBins - 1) * 4) / numBins),
+                        height: 32,
+                      }}
+                      data-testid={`bin-${i}`}
+                    >
+                      {mult.toFixed(mult >= 10 ? 0 : 1)}x
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Multiplier Buckets */}
-              <div className="flex gap-1 mt-8">
-                {multipliers.map((mult, i) => (
-                  <div 
-                    key={i}
-                    className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold transition-all",
-                      mult >= 3 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
-                      mult >= 1 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                      "bg-red-500/20 text-red-400 border border-red-500/30"
-                    )}
-                  >
-                    {mult}x
+              {/* Result Display */}
+              {lastResult && (
+                <div className="mt-4 text-center animate-pulse">
+                  <div className={cn(
+                    "text-2xl font-bold font-mono",
+                    lastResult.multiplier >= 1 ? "text-emerald-400" : "text-red-400"
+                  )}>
+                    {lastResult.multiplier.toFixed(2)}x
                   </div>
-                ))}
-              </div>
+                  <div className="text-slate-500 text-xs mt-1">
+                    {lastResult.multiplier >= 1 ? "Win" : "Loss"}: {lastResult.multiplier >= 1 ? "+" : ""}{((baseAmount * lastResult.multiplier) - baseAmount).toFixed(2)}
+                  </div>
+                </div>
+              )}
 
-              {/* Instructions */}
-              <div className="mt-6 text-center">
-                <p className="text-slate-500 text-sm">
-                  Drop the ball and watch it bounce to a multiplier
-                </p>
-              </div>
-
-              {/* Bottom Stats Row */}
+              {/* Stats Row */}
               <div className="flex gap-6 mt-6">
                 <div className="text-center">
                   <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
@@ -251,6 +401,13 @@ export default function Plinko() {
                     Rows
                   </span>
                   <span className="font-mono font-semibold text-white">{rows}</span>
+                </div>
+                <div className="w-px bg-[#1a2530]" />
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                    House Edge
+                  </span>
+                  <span className="font-mono font-semibold text-white">2%</span>
                 </div>
               </div>
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 export interface GameResult {
   id: string;
   timestamp: number;
-  game: "dice" | "coinflip" | "mines";
+  game: "dice" | "coinflip" | "mines" | "plinko" | "blackjack" | "roulette";
   betAmount: number;
   won: boolean;
   profit: number;

@@ -69,3 +69,32 @@ export function getMines(serverSeed: string, clientSeed: string, nonce: number, 
   
   return positions.sort((a, b) => a - b);
 }
+
+// Plinko: Generate the path of the ball (array of 0s and 1s for left/right bounces)
+// Returns the path array and the final bin index
+export function getPlinkoPath(serverSeed: string, clientSeed: string, nonce: number, rows: number): { path: number[], binIndex: number } {
+  const hash = getResult(serverSeed, clientSeed, nonce);
+  
+  const path: number[] = [];
+  let currentHash = hash;
+  
+  for (let i = 0; i < rows; i++) {
+    // Re-hash if needed for more entropy
+    if (i > 0 && i % 32 === 0) {
+      currentHash = crypto.createHash('sha256').update(currentHash).digest('hex');
+    }
+    
+    // Take 2 characters (1 byte) per row
+    const byteIndex = (i % 32) * 2;
+    const byteValue = parseInt(currentHash.substring(byteIndex, byteIndex + 2), 16);
+    
+    // 0 = left, 1 = right (based on even/odd)
+    const direction = byteValue % 2;
+    path.push(direction);
+  }
+  
+  // Calculate final bin index: count of right moves
+  const binIndex = path.reduce((sum, dir) => sum + dir, 0);
+  
+  return { path, binIndex };
+}

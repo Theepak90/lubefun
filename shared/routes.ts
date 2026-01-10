@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -120,6 +120,22 @@ export const api = {
         input: minesCashoutSchema,
         responses: {
           200: z.custom<typeof bets.$inferSelect>(),
+          400: errorSchemas.gameError,
+        },
+      },
+    },
+    plinko: {
+      play: {
+        method: "POST" as const,
+        path: "/api/games/plinko",
+        input: plinkoBetSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            path: z.array(z.number()),
+            binIndex: z.number(),
+            multiplier: z.number(),
+          }),
           400: errorSchemas.gameError,
         },
       },

@@ -2,13 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
-import { GAME_CONFIG } from "@shared/config";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines } from "./fairness";
+import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath } from "./fairness";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -353,6 +353,72 @@ export async function registerRoutes(
     });
     
     res.json(updatedBet);
+  });
+
+  // PLINKO
+  app.post(api.games.plinko.play.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = plinkoBetSchema.parse(req.body);
+      if (user.balance < input.betAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Deduct balance
+      await storage.updateUserBalance(user.id, -input.betAmount);
+
+      // Get provably fair path
+      const { path, binIndex } = getPlinkoPath(user.serverSeed, user.clientSeed, user.nonce, input.rows);
+      await storage.incrementNonce(user.id);
+
+      // Get multiplier for the bin
+      const multipliers = getPlinkoMultipliers(input.risk as PlinkoRisk, input.rows);
+      const multiplier = multipliers[binIndex] || 1;
+
+      // Calculate payout
+      const payout = input.betAmount * multiplier;
+      const profit = payout - input.betAmount;
+      const won = profit > 0;
+
+      // Credit winnings
+      if (payout > 0) {
+        await storage.updateUserBalance(user.id, payout);
+      }
+
+      // Create bet record
+      const bet = await storage.createBet({
+        userId: user.id,
+        game: "plinko",
+        betAmount: input.betAmount,
+        payoutMultiplier: multiplier,
+        profit,
+        won,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: {
+          risk: input.risk,
+          rows: input.rows,
+          path,
+          binIndex,
+          multiplier,
+        },
+        active: false,
+      });
+
+      res.json({
+        bet,
+        path,
+        binIndex,
+        multiplier,
+      });
+    } catch (err) {
+      console.error("[Plinko] Error:", err);
+      res.status(400).json({ message: "Invalid bet" });
+    }
   });
 
   // === Rewards Routes ===
