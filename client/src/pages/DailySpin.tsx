@@ -107,11 +107,22 @@ export default function DailySpin() {
   
   const generateReelItems = useCallback((targetPrizeId: string): ReelItem[] => {
     const items: ReelItem[] = [];
-    const prizeCount = WHEEL_PRIZES.length;
+    const allPrizes = [...WHEEL_PRIZES];
     
+    // Fisher-Yates shuffle for randomizing prize order each cycle
+    const shuffle = <T,>(arr: T[]): T[] => {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+    
+    // Generate multiple cycles with shuffled order each time
     for (let cycle = 0; cycle < REEL.FULL_CYCLES; cycle++) {
-      for (let i = 0; i < prizeCount; i++) {
-        const prize = WHEEL_PRIZES[i];
+      const shuffled = shuffle(allPrizes);
+      for (const prize of shuffled) {
         items.push({
           id: prize.id,
           label: prize.label,
@@ -121,6 +132,7 @@ export default function DailySpin() {
       }
     }
     
+    // Add the winning prize at the end
     const targetIndex = WHEEL_PRIZES.findIndex(p => p.id === targetPrizeId);
     const targetPrize = WHEEL_PRIZES[targetIndex >= 0 ? targetIndex : 0];
     items.push({
