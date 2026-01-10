@@ -323,21 +323,21 @@ export default function DailySpin() {
         >
           {/* Layer 1: Reel track (z-10) */}
           <div 
-            className="absolute inset-0 overflow-hidden z-10"
+            className="absolute inset-0 overflow-hidden z-10 flex items-center"
             style={{
               maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
             }}
           >
             <motion.div
-              className="absolute top-1/2 -translate-y-1/2 flex"
+              className="flex items-center"
               animate={{ x: -reelOffset }}
               transition={{
                 duration: state === "spinning" ? 4 : 0,
                 ease: [0.25, 0.1, 0.25, 1],
               }}
               style={{ 
-                left: `calc(50% - ${REEL.ITEM_WIDTH / 2}px)`,
+                marginLeft: `calc(50% - ${REEL.ITEM_WIDTH / 2}px)`,
                 gap: `${REEL.ITEM_GAP}px`,
               }}
             >
