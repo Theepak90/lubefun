@@ -66,24 +66,47 @@ export default function Plinko() {
     },
   });
 
+  // Constants for board layout
+  const PEG_SPACING = 32;
+  const ROW_HEIGHT = 28;
+  const PEG_AREA_TOP = 16;
+  const BIN_HEIGHT = 28;
+  const BIN_MARGIN = 4;
+  
   const animateBall = useCallback((path: number[], binIndex: number, multiplier: number, bet: any) => {
-    const pegSpacing = 32;
-    const rowHeight = 28;
-    const startX = 0;
-    
     let step = 0;
-    setBallPosition({ x: startX, y: -20, step: -1 });
+    setBallPosition({ x: 0, y: -10, step: -1 });
 
     const animate = () => {
-      if (step <= path.length) {
+      if (step < path.length) {
+        // Ball is moving through peg rows
         let x = 0;
-        for (let i = 0; i < step; i++) {
-          x += path[i] === 1 ? pegSpacing / 2 : -pegSpacing / 2;
+        for (let i = 0; i <= step; i++) {
+          x += path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
         }
-        setBallPosition({ x, y: step * rowHeight, step });
+        const y = PEG_AREA_TOP + (step + 1) * ROW_HEIGHT;
+        setBallPosition({ x, y, step });
         step++;
-        animationRef.current = setTimeout(animate, 80);
-      } else {
+        animationRef.current = setTimeout(animate, 65);
+      } else if (step === path.length) {
+        // Final position - land in the bin
+        let x = 0;
+        for (let i = 0; i < path.length; i++) {
+          x += path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+        }
+        // Calculate final Y so ball CENTER lands in bin center
+        // Board height = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8
+        // Bins are positioned: bottom: 4px, height: BIN_HEIGHT
+        // So bin center from top = boardHeight - 4 - BIN_HEIGHT/2
+        // Ball is 16px (w-4 h-4), radius = 8
+        // Ball top = binCenterY - 8
+        const BALL_RADIUS = 8;
+        const currentBoardHeight = PEG_AREA_TOP + path.length * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
+        const binCenterY = currentBoardHeight - 4 - BIN_HEIGHT / 2;
+        const finalY = binCenterY - BALL_RADIUS;
+        setBallPosition({ x, y: finalY, step });
+        step++;
+        
         setDropping(false);
         setLastResult({ binIndex, multiplier });
         
@@ -97,15 +120,16 @@ export default function Plinko() {
           detail: `${risk} risk, ${rows} rows → ${multiplier}x`,
         });
 
-        setTimeout(() => {
+        // Clear after showing result
+        animationRef.current = setTimeout(() => {
           setBallPosition(null);
           setActivePath([]);
           setLastResult(null);
-        }, 1500);
+        }, 1200);
       }
     };
 
-    animationRef.current = setTimeout(animate, 200);
+    animationRef.current = setTimeout(animate, 150);
   }, [risk, rows, addResult]);
 
   useEffect(() => {
@@ -145,8 +169,10 @@ export default function Plinko() {
     pegRows.push(pegsInRow);
   }
 
-  const boardWidth = (rows + 2) * 32;
-  const boardHeight = rows * 28 + 60;
+  // Calculate board dimensions based on the widest row (bottom row)
+  const maxPegsInRow = rows + 2;
+  const boardWidth = maxPegsInRow * PEG_SPACING;
+  const boardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
 
   return (
     <Layout>
@@ -285,86 +311,110 @@ export default function Plinko() {
             </div>
 
             {/* Right Column: Game Panel */}
-            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[520px]">
+            <div className="flex-1 p-4 lg:p-6 relative flex flex-col items-center justify-center min-h-[480px]">
               
               {/* Fair Play Badge */}
-              <div className="absolute top-4 right-4">
+              <div className="absolute top-3 right-3">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
                   <Shield className="w-3 h-3 text-emerald-400" />
                   <span className="text-[10px] font-medium text-emerald-400">Fair Play</span>
                 </div>
               </div>
 
-              {/* Plinko Board */}
+              {/* Plinko Board - Responsive with CSS scaling */}
               <div 
-                className="relative"
+                className="relative mx-auto flex items-center justify-center"
                 style={{ 
-                  width: boardWidth, 
-                  height: boardHeight + 50,
+                  width: '100%',
+                  maxWidth: boardWidth + 24,
                 }}
               >
-                {/* Pegs */}
-                <div className="flex flex-col items-center pt-4">
-                  {pegRows.map((pegsInRow, rowIndex) => (
-                    <div 
-                      key={rowIndex} 
-                      className="flex justify-center gap-0"
-                      style={{ 
-                        marginBottom: 12,
-                        width: pegsInRow * 32,
-                      }}
-                    >
-                      {Array.from({ length: pegsInRow }).map((_, pegIndex) => (
-                        <div 
-                          key={pegIndex}
-                          className={cn(
-                            "w-2.5 h-2.5 rounded-full transition-colors duration-100",
-                            activePath[rowIndex] !== undefined
-                              ? "bg-slate-500"
-                              : "bg-slate-600"
-                          )}
-                          style={{ margin: '0 10.75px' }}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Ball */}
-                {ballPosition && (
-                  <div
-                    className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-10 transition-all"
-                    style={{
-                      left: `calc(50% + ${ballPosition.x}px - 8px)`,
-                      top: ballPosition.y + 8,
-                      transitionDuration: '70ms',
-                      transitionTimingFunction: 'ease-out',
-                    }}
-                  />
-                )}
-
-                {/* Multiplier Bins */}
+                {/* Scaled board container for responsiveness */}
                 <div 
-                  className="flex justify-center gap-1 mt-2"
-                  style={{ width: boardWidth }}
+                  className="relative bg-[#0a0e12] rounded-xl border border-[#1a2530]"
+                  style={{ 
+                    width: boardWidth,
+                    height: boardHeight,
+                    transformOrigin: 'top center',
+                  }}
                 >
-                  {multipliers.map((mult, i) => (
-                    <div 
-                      key={i}
-                      className={cn(
-                        "flex items-center justify-center text-[10px] font-bold rounded-md border transition-all",
-                        getMultiplierColor(mult),
-                        lastResult?.binIndex === i && "ring-2 ring-white ring-offset-1 ring-offset-[#0d1419] scale-110"
-                      )}
+                  {/* Pegs */}
+                  <div className="flex flex-col items-center" style={{ paddingTop: PEG_AREA_TOP }}>
+                    {pegRows.map((pegsInRow, rowIndex) => (
+                      <div 
+                        key={rowIndex} 
+                        className="flex justify-center"
+                        style={{ 
+                          marginBottom: ROW_HEIGHT - 10,
+                          width: pegsInRow * PEG_SPACING,
+                        }}
+                      >
+                        {Array.from({ length: pegsInRow }).map((_, pegIndex) => (
+                          <div 
+                            key={pegIndex}
+                            className={cn(
+                              "w-2.5 h-2.5 rounded-full transition-colors duration-100 shrink-0",
+                              activePath[rowIndex] !== undefined
+                                ? "bg-slate-400"
+                                : "bg-slate-600"
+                            )}
+                            style={{ margin: `0 ${(PEG_SPACING - 10) / 2}px` }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Ball */}
+                  {ballPosition && (
+                    <div
+                      className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-20 pointer-events-none"
                       style={{
-                        width: Math.max(28, (boardWidth - (numBins - 1) * 4) / numBins),
-                        height: 32,
+                        left: `calc(50% + ${ballPosition.x}px - 8px)`,
+                        top: ballPosition.y,
+                        transition: 'left 55ms ease-out, top 55ms ease-out',
                       }}
-                      data-testid={`bin-${i}`}
-                    >
-                      {mult.toFixed(mult >= 10 ? 0 : 1)}x
-                    </div>
-                  ))}
+                    />
+                  )}
+
+                  {/* Multiplier Bins - positioned to exactly match ball physics */}
+                  <div 
+                    className="absolute left-0 right-0"
+                    style={{
+                      bottom: 4,
+                      height: BIN_HEIGHT,
+                    }}
+                  >
+                    {multipliers.map((mult, i) => {
+                      // Ball physics: each step moves ±PEG_SPACING/2 (±16px)
+                      // But changing one left→right changes X by 32px
+                      // So final positions are spaced at PEG_SPACING (32px) intervals
+                      // For bin i with numBins total, center offset = (i - (numBins-1)/2) * PEG_SPACING
+                      const binSpacing = PEG_SPACING; // 32px between bin centers
+                      const binCenterOffset = (i - (numBins - 1) / 2) * binSpacing;
+                      const binWidth = binSpacing - 4; // 28px wide with 4px gaps
+                      
+                      return (
+                        <div 
+                          key={i}
+                          className={cn(
+                            "absolute flex items-center justify-center font-bold rounded border transition-all",
+                            getMultiplierColor(mult),
+                            lastResult?.binIndex === i && "ring-2 ring-white ring-offset-1 ring-offset-[#0a0e12] scale-110 z-10"
+                          )}
+                          style={{
+                            left: `calc(50% + ${binCenterOffset}px - ${binWidth / 2}px)`,
+                            width: binWidth,
+                            height: BIN_HEIGHT,
+                            fontSize: '8px',
+                          }}
+                          data-testid={`bin-${i}`}
+                        >
+                          {mult.toFixed(mult >= 10 ? 0 : 1)}x
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
