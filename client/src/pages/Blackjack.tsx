@@ -145,21 +145,34 @@ function Chip({ chip, selected, onClick, size = "md" }: {
 function ChipStack({ total, onClick, animate = false, showTotal = true }: { total: number; onClick?: () => void; animate?: boolean; showTotal?: boolean }) {
   if (total <= 0) return null;
   
+  // Create a consolidated chip representation (max 3 visible chips for cleaner look)
   const chips: ChipValue[] = [];
   let remaining = total;
   
   for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
     const chip = CHIP_VALUES[i];
-    while (remaining >= chip.value - 0.001) {
+    while (remaining >= chip.value - 0.001 && chips.length < 3) {
       chips.push(chip);
       remaining -= chip.value;
       remaining = Math.round(remaining * 100) / 100;
     }
   }
   
-  const maxVisible = 6;
-  const displayChips = chips.slice(0, maxVisible);
-  const extraCount = chips.length - maxVisible;
+  // If we still have remaining value, just show one chip representing the total
+  if (chips.length === 0 && total > 0) {
+    chips.push(CHIP_VALUES[0]); // Default to smallest chip
+  }
+  
+  // Get the dominant chip color based on total value
+  const getDominantChip = () => {
+    for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
+      if (total >= CHIP_VALUES[i].value) return CHIP_VALUES[i];
+    }
+    return CHIP_VALUES[0];
+  };
+  
+  const dominantChip = getDominantChip();
+  const dominantColors = CHIP_COLORS[dominantChip.value] || { bg: "#6b7280", ring: "#4b5563" };
   
   return (
     <motion.div 
@@ -169,18 +182,20 @@ function ChipStack({ total, onClick, animate = false, showTotal = true }: { tota
       animate={animate ? { y: 0, opacity: 1 } : false}
       transition={{ type: "spring", stiffness: 400, damping: 15 }}
     >
-      {displayChips.map((chip, i) => {
+      {/* Show max 3 chips with tight stacking */}
+      {chips.slice(0, 3).map((chip, i) => {
         const colors = CHIP_COLORS[chip.value] || { bg: "#6b7280", ring: "#4b5563" };
         return (
           <motion.div
             key={i}
             className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center text-[8px] font-bold shadow-lg relative",
-              i > 0 && "-mt-5"
+              "w-7 h-7 rounded-full flex items-center justify-center text-[8px] font-bold shadow-lg relative",
+              i > 0 && "-mt-6" // Tighter stacking - only 1px visible per chip
             )}
             style={{
               background: `radial-gradient(circle at 30% 30%, ${colors.bg}dd, ${colors.bg})`,
-              boxShadow: `0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 0 0 2px ${colors.ring}`
+              boxShadow: `0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 0 0 2px ${colors.ring}`,
+              zIndex: chips.length - i
             }}
             initial={animate ? { scale: 0.8 } : false}
             animate={animate ? { scale: 1 } : false}
@@ -190,20 +205,17 @@ function ChipStack({ total, onClick, animate = false, showTotal = true }: { tota
               className="absolute inset-1 rounded-full border border-dashed opacity-25"
               style={{ borderColor: chip.textColor.includes('white') ? 'white' : 'black' }}
             />
-            <span className={cn("drop-shadow-md z-10", chip.textColor)}>
-              {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
-            </span>
+            {i === 0 && (
+              <span className={cn("drop-shadow-md z-10", dominantChip.textColor)}>
+                {total >= 1 ? Math.floor(total) : total.toFixed(1)}
+              </span>
+            )}
           </motion.div>
         );
       })}
-      {extraCount > 0 && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-black text-[7px] font-bold flex items-center justify-center shadow-md">
-          +{extraCount}
-        </div>
-      )}
       {showTotal && (
-        <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
-          <span className="text-[10px] font-mono font-bold text-white bg-slate-900/80 px-1.5 py-0.5 rounded">
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
+          <span className="text-[9px] font-mono font-bold text-white bg-slate-900/80 px-1 py-0.5 rounded">
             ${total.toFixed(2)}
           </span>
         </div>
