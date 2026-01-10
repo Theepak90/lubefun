@@ -10,12 +10,14 @@ import { cn } from "@/lib/utils";
 import { GAME_CONFIG } from "@shared/config";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
 
 export default function Dice() {
   const { mutate: playDice, isPending } = useDiceGame();
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
+  const { play: playSound } = useSound();
   const [target, setTarget] = useState(50);
   const [condition, setCondition] = useState<"above" | "below">("above");
   const [lastResult, setLastResult] = useState<{ result: number, won: boolean } | null>(null);
@@ -34,6 +36,7 @@ export default function Dice() {
     const val = parseFloat(amount);
     if (isNaN(val) || val < 1) return;
     setLastResult(null);
+    playSound("bet");
     playDice(
       { betAmount: val, target, condition },
       {
@@ -44,6 +47,10 @@ export default function Dice() {
             transition: { type: "spring", stiffness: 300, damping: 20 }
           });
           setLastResult({ result, won: data.won });
+          
+          setTimeout(() => {
+            playSound(data.won ? "win" : "lose");
+          }, 300);
           
           addResult({
             game: "dice",

@@ -11,12 +11,14 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
+  const { play: playSound } = useSound();
   const [amount, setAmount] = useState<string>("10");
   const [minesCount, setMinesCount] = useState<string>("3");
   const [gameState, setGameState] = useState<{
@@ -51,6 +53,7 @@ export default function Mines() {
     const val = parseFloat(amount);
     if (isNaN(val) || val < 1) return;
     
+    playSound("bet");
     start.mutate({ betAmount: val, minesCount: parseInt(minesCount) }, {
       onSuccess: (data: any) => {
         setGameState({
@@ -76,6 +79,8 @@ export default function Mines() {
             mines: data.result.mines,
             explodedIndex: index
           }));
+          
+          playSound("lose");
           
           addResult({
             game: "mines",
@@ -107,6 +112,8 @@ export default function Mines() {
           mines: data.result.mines,
           isCashout: true
         }));
+        
+        playSound("win");
         
         addResult({
           game: "mines",

@@ -10,12 +10,14 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
+import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
 
 export default function Coinflip() {
   const { mutate: playCoinflip, isPending } = useCoinflipGame();
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
+  const { play: playSound } = useSound();
   const [side, setSide] = useState<"heads" | "tails">("heads");
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState<"heads" | "tails" | null>(null);
@@ -29,6 +31,7 @@ export default function Coinflip() {
     
     setFlipping(true);
     setResult(null);
+    playSound("bet");
     
     setTimeout(() => {
       playCoinflip(
@@ -37,6 +40,8 @@ export default function Coinflip() {
           onSuccess: (data: any) => {
             setResult(data.result.flip);
             setFlipping(false);
+            
+            playSound(data.won ? "win" : "lose");
             
             addResult({
               game: "coinflip",

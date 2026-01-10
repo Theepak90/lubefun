@@ -10,9 +10,12 @@ import {
   LogOut,
   History,
   ShieldCheck,
-  RotateCw
+  RotateCw,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useSound } from "@/hooks/use-sound";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/AuthModal";
 import { ProvablyFairModal } from "@/components/ProvablyFairModal";
@@ -37,6 +40,7 @@ export function Layout({ children }: LayoutProps) {
   
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -82,6 +86,20 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Right: User Icons or Auth Buttons */}
         <div className="flex items-center gap-1.5 flex-shrink-0 h-full">
+          {/* Sound Toggle */}
+          <button 
+            onClick={toggleSound}
+            title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+            className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center transition-all border",
+              soundEnabled 
+                ? "bg-[#1a2633] text-emerald-400 border-emerald-500/30 hover:border-emerald-500/50" 
+                : "bg-[#1a2633] text-slate-500 border-[#2a3a4a] hover:text-slate-300 hover:border-[#3a4a5a]"
+            )}
+          >
+            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          </button>
+          
           {user ? (
             <>
               <RewardsDropdown />
