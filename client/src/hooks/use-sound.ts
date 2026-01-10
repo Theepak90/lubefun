@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -302,6 +302,42 @@ function playBallLandSound() {
   clickOsc.stop(ctx.currentTime + 0.05);
 }
 
+function playPlinkoDropSound() {
+  const ctx = getAudioContext();
+  
+  // Subtle whoosh sound - white noise filtered with quick fade
+  const bufferSize = ctx.sampleRate * 0.12;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  // Generate noise
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.3;
+  }
+  
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = buffer;
+  
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 800;
+  filter.Q.value = 0.5;
+  
+  const gainNode = ctx.createGain();
+  
+  noiseSource.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  // Quick fade in and out for whoosh effect
+  gainNode.gain.setValueAtTime(0, ctx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.02);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+  
+  noiseSource.start(ctx.currentTime);
+  noiseSource.stop(ctx.currentTime + 0.12);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -350,6 +386,9 @@ export function useSound() {
           break;
         case "ballLand":
           playBallLandSound();
+          break;
+        case "plinkoDrop":
+          playPlinkoDropSound();
           break;
       }
     } catch (e) {

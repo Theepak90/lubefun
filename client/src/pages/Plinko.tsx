@@ -15,6 +15,7 @@ import { LiveWins } from "@/components/LiveWins";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSound } from "@/hooks/use-sound";
 
 interface PlinkoResponse {
   bet: any;
@@ -53,6 +54,7 @@ export default function Plinko() {
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
   const { toast } = useToast();
+  const { play: playSound } = useSound();
   
   const [amount, setAmount] = useState<string>("1");
   const [risk, setRisk] = useState<PlinkoRisk>("medium");
@@ -65,6 +67,12 @@ export default function Plinko() {
   const dropTimestamps = useRef<number[]>([]);
   const autoDropIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  
+  // Sound throttling - limit concurrent tick sounds
+  const lastTickSoundTime = useRef<number>(0);
+  const tickSoundCount = useRef<number>(0);
+  const TICK_SOUND_INTERVAL = 60; // Min ms between tick sounds
+  const MAX_TICK_SOUNDS_PER_SECOND = 8; // Limit concurrent sounds
 
   const baseAmount = parseFloat(amount || "0");
   const multipliers = getPlinkoMultipliers(risk, rows);
@@ -143,6 +151,22 @@ export default function Plinko() {
     return true;
   }, [activeBallCount, pendingDrops]);
 
+  // Throttled tick sound - prevents sound spam with many balls
+  const playTickSoundThrottled = useCallback(() => {
+    const now = Date.now();
+    // Reset counter every second
+    if (now - lastTickSoundTime.current > 1000) {
+      tickSoundCount.current = 0;
+    }
+    // Check throttle limits
+    if (now - lastTickSoundTime.current < TICK_SOUND_INTERVAL) return;
+    if (tickSoundCount.current >= MAX_TICK_SOUNDS_PER_SECOND) return;
+    
+    lastTickSoundTime.current = now;
+    tickSoundCount.current++;
+    playSound("ballTick");
+  }, [playSound, TICK_SOUND_INTERVAL, MAX_TICK_SOUNDS_PER_SECOND]);
+
   // Drop a single ball
   const dropBall = useCallback(() => {
     if (!user || baseAmount < 0.1 || baseAmount > user.balance) return false;
@@ -159,8 +183,12 @@ export default function Plinko() {
     dropTimestamps.current.push(Date.now());
     setPendingDrops(prev => prev + 1);
     plinkoMutation.mutate({ betAmount: baseAmount, risk, rows, ballId });
+    
+    // Play drop sound
+    playSound("plinkoDrop");
+    
     return true;
-  }, [user, baseAmount, risk, rows, canDropBall, plinkoMutation, toast]);
+  }, [user, baseAmount, risk, rows, canDropBall, plinkoMutation, toast, playSound]);
 
   // Drop multiple balls
   const dropMultiple = useCallback((count: number) => {
@@ -240,6 +268,9 @@ export default function Plinko() {
     return { x, y };
   }, []);
 
+  // Track sounds to play (processed after state update to avoid issues)
+  const pendingSoundsRef = useRef<{ type: 'tick' | 'land' | 'win' | 'lose' }[]>([]);
+
   // Animation loop for all balls with physics
   useEffect(() => {
     // Match boardHeight calculation exactly for proper ball/bin alignment
@@ -248,6 +279,9 @@ export default function Plinko() {
     const finalY = binCenterY - BALL_RADIUS;
 
     const animate = (time: number) => {
+      // Clear pending sounds
+      pendingSoundsRef.current = [];
+      
       setBalls(prev => {
         const now = Date.now();
         return prev
@@ -296,6 +330,14 @@ export default function Plinko() {
                   profit: ball.bet.profit,
                   detail: `${risk} risk, ${rows} rows → ${ball.multiplier}x`,
                 });
+                
+                // Queue land sound and win/lose sound
+                pendingSoundsRef.current.push({ type: 'land' });
+                if (ball.bet.won) {
+                  pendingSoundsRef.current.push({ type: 'win' });
+                } else {
+                  pendingSoundsRef.current.push({ type: 'lose' });
+                }
               }
               
               return { 
@@ -314,6 +356,11 @@ export default function Plinko() {
             if (targetStep >= ball.step) {
               const newStep = Math.min(targetStep, ball.path.length - 1);
               const target = getTargetPosition(ball.path, newStep);
+              
+              // Play tick sound when ball moves to new step (hits peg)
+              if (newStep > ball.step && newStep >= 0) {
+                pendingSoundsRef.current.push({ type: 'tick' });
+              }
               
               // Calculate progress within current step for smooth interpolation
               let stepStartTime = 0;
@@ -356,6 +403,19 @@ export default function Plinko() {
           .filter(ball => ball.status !== 'done');
       });
       
+      // Process pending sounds after state update (throttled for ticks)
+      for (const sound of pendingSoundsRef.current) {
+        if (sound.type === 'tick') {
+          playTickSoundThrottled();
+        } else if (sound.type === 'land') {
+          playSound("ballLand");
+        } else if (sound.type === 'win') {
+          playSound("win");
+        } else if (sound.type === 'lose') {
+          playSound("lose");
+        }
+      }
+      
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
@@ -368,7 +428,7 @@ export default function Plinko() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [balls.length, rows, risk, addResult, getTargetPosition]);
+  }, [balls.length, rows, risk, addResult, getTargetPosition, playTickSoundThrottled, playSound]);
 
   // Cleanup on unmount
   useEffect(() => {
