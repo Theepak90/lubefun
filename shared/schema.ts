@@ -166,6 +166,45 @@ export const blackjackActionSchema = z.object({
   betId: z.number(),
 });
 
+// Roulette Live Round Tables
+export const rouletteRounds = pgTable("roulette_rounds", {
+  id: serial("id").primaryKey(),
+  status: text("status").notNull().default("betting"), // betting, spinning, results
+  bettingEndsAt: timestamp("betting_ends_at").notNull(),
+  winningNumber: integer("winning_number"),
+  winningColor: text("winning_color"),
+  serverSeed: text("server_seed").notNull(),
+  serverSeedHash: text("server_seed_hash").notNull(),
+  clientSeed: text("client_seed").notNull(),
+  nonce: integer("nonce").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const rouletteBets = pgTable("roulette_bets", {
+  id: serial("id").primaryKey(),
+  roundId: integer("round_id").notNull(),
+  userId: integer("user_id").notNull(),
+  betType: text("bet_type").notNull(), // straight, red, black, odd, even, 1-18, 19-36, 1st12, 2nd12, 3rd12, col1, col2, col3
+  straightNumber: integer("straight_number"), // 0-36 for straight bets
+  amount: doublePrecision("amount").notNull(),
+  payout: doublePrecision("payout"),
+  won: boolean("won"),
+  resolved: boolean("resolved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type RouletteRound = typeof rouletteRounds.$inferSelect;
+export type RouletteBet = typeof rouletteBets.$inferSelect;
+
+export const liveRouletteBetSchema = z.object({
+  betType: z.enum(["straight", "red", "black", "odd", "even", "1-18", "19-36", "1st12", "2nd12", "3rd12", "col1", "col2", "col3"]),
+  straightNumber: z.number().min(0).max(36).optional(),
+  amount: z.number().min(0.1),
+});
+
+export type LiveRouletteBetRequest = z.infer<typeof liveRouletteBetSchema>;
+
 export type DiceBetRequest = z.infer<typeof diceBetSchema>;
 export type CoinflipBetRequest = z.infer<typeof coinflipBetSchema>;
 export type MinesBetRequest = z.infer<typeof minesBetSchema>;

@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, bets, type User, type InsertUser, type Bet, type InsertBet } from "@shared/schema";
+import { users, bets, rouletteRounds, rouletteBets, type User, type InsertUser, type Bet, type InsertBet, type RouletteRound, type RouletteBet } from "@shared/schema";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -31,6 +31,19 @@ export interface IStorage {
   
   getDailyWagerVolume(userId: number, sinceDate: Date): Promise<number>;
   getWagerVolumeSince(userId: number, sinceDate: Date): Promise<number>;
+  
+  // Roulette Round Methods
+  createRouletteRound(round: Partial<RouletteRound>): Promise<RouletteRound>;
+  getCurrentRouletteRound(): Promise<RouletteRound | undefined>;
+  updateRouletteRound(id: number, updates: Partial<RouletteRound>): Promise<RouletteRound>;
+  getRecentRouletteRounds(limit?: number): Promise<RouletteRound[]>;
+  
+  // Roulette Bet Methods
+  createRouletteBet(bet: Partial<RouletteBet>): Promise<RouletteBet>;
+  getRouletteBetsByRound(roundId: number): Promise<RouletteBet[]>;
+  getUserRouletteBetsForRound(userId: number, roundId: number): Promise<RouletteBet[]>;
+  updateRouletteBet(id: number, updates: Partial<RouletteBet>): Promise<RouletteBet>;
+  resolveRouletteBets(roundId: number, winningNumber: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -204,6 +217,116 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+  
+  // Roulette Round Methods
+  async createRouletteRound(round: Partial<RouletteRound>): Promise<RouletteRound> {
+    const [newRound] = await db.insert(rouletteRounds).values(round as any).returning();
+    return newRound;
+  }
+  
+  async getCurrentRouletteRound(): Promise<RouletteRound | undefined> {
+    const [round] = await db.select().from(rouletteRounds)
+      .where(eq(rouletteRounds.status, "betting"))
+      .orderBy(desc(rouletteRounds.createdAt))
+      .limit(1);
+    return round;
+  }
+  
+  async updateRouletteRound(id: number, updates: Partial<RouletteRound>): Promise<RouletteRound> {
+    const [updated] = await db.update(rouletteRounds)
+      .set(updates)
+      .where(eq(rouletteRounds.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async getRecentRouletteRounds(limit = 12): Promise<RouletteRound[]> {
+    return db.select().from(rouletteRounds)
+      .where(eq(rouletteRounds.status, "results"))
+      .orderBy(desc(rouletteRounds.resolvedAt))
+      .limit(limit);
+  }
+  
+  // Roulette Bet Methods
+  async createRouletteBet(bet: Partial<RouletteBet>): Promise<RouletteBet> {
+    const [newBet] = await db.insert(rouletteBets).values(bet as any).returning();
+    return newBet;
+  }
+  
+  async getRouletteBetsByRound(roundId: number): Promise<RouletteBet[]> {
+    return db.select().from(rouletteBets)
+      .where(eq(rouletteBets.roundId, roundId));
+  }
+  
+  async getUserRouletteBetsForRound(userId: number, roundId: number): Promise<RouletteBet[]> {
+    return db.select().from(rouletteBets)
+      .where(and(
+        eq(rouletteBets.userId, userId),
+        eq(rouletteBets.roundId, roundId)
+      ));
+  }
+  
+  async updateRouletteBet(id: number, updates: Partial<RouletteBet>): Promise<RouletteBet> {
+    const [updated] = await db.update(rouletteBets)
+      .set(updates)
+      .where(eq(rouletteBets.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async resolveRouletteBets(roundId: number, winningNumber: number): Promise<void> {
+    const allBets = await this.getRouletteBetsByRound(roundId);
+    
+    for (const bet of allBets) {
+      const { won, multiplier } = this.checkRouletteBetWin(bet.betType, bet.straightNumber, winningNumber);
+      const payout = won ? bet.amount * multiplier : 0;
+      
+      await this.updateRouletteBet(bet.id, {
+        won,
+        payout,
+        resolved: true,
+      });
+      
+      if (payout > 0) {
+        await this.updateUserBalance(bet.userId, payout);
+      }
+    }
+  }
+  
+  private checkRouletteBetWin(betType: string, straightNumber: number | null, winningNumber: number): { won: boolean; multiplier: number } {
+    const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+    
+    switch (betType) {
+      case "straight":
+        return { won: winningNumber === straightNumber, multiplier: 36 };
+      case "red":
+        return { won: RED_NUMBERS.includes(winningNumber), multiplier: 2 };
+      case "black":
+        return { won: winningNumber > 0 && !RED_NUMBERS.includes(winningNumber), multiplier: 2 };
+      case "odd":
+        return { won: winningNumber > 0 && winningNumber % 2 === 1, multiplier: 2 };
+      case "even":
+        return { won: winningNumber > 0 && winningNumber % 2 === 0, multiplier: 2 };
+      case "1-18":
+        return { won: winningNumber >= 1 && winningNumber <= 18, multiplier: 2 };
+      case "19-36":
+        return { won: winningNumber >= 19 && winningNumber <= 36, multiplier: 2 };
+      case "1st12":
+        return { won: winningNumber >= 1 && winningNumber <= 12, multiplier: 3 };
+      case "2nd12":
+        return { won: winningNumber >= 13 && winningNumber <= 24, multiplier: 3 };
+      case "3rd12":
+        return { won: winningNumber >= 25 && winningNumber <= 36, multiplier: 3 };
+      case "col1":
+        return { won: winningNumber > 0 && winningNumber % 3 === 1, multiplier: 3 };
+      case "col2":
+        return { won: winningNumber > 0 && winningNumber % 3 === 2, multiplier: 3 };
+      case "col3":
+        return { won: winningNumber > 0 && winningNumber % 3 === 0, multiplier: 3 };
+      default:
+        return { won: false, multiplier: 0 };
+    }
   }
 }
 

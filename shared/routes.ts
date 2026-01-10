@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -154,6 +154,43 @@ export const api = {
             payout: z.number(),
           }),
           400: errorSchemas.gameError,
+        },
+      },
+      live: {
+        current: {
+          method: "GET" as const,
+          path: "/api/games/roulette/live/current",
+          responses: {
+            200: z.object({
+              roundId: z.number(),
+              status: z.enum(["betting", "spinning", "results"]),
+              countdown: z.number(),
+              bettingEndsAt: z.number(),
+              winningNumber: z.number().optional(),
+              winningColor: z.string().optional(),
+              recentNumbers: z.array(z.object({ number: z.number(), color: z.string() })),
+            }),
+          },
+        },
+        placeBet: {
+          method: "POST" as const,
+          path: "/api/games/roulette/live/bet",
+          input: liveRouletteBetSchema,
+          responses: {
+            200: z.object({
+              success: z.boolean(),
+              betId: z.number().optional(),
+              message: z.string().optional(),
+            }),
+            400: errorSchemas.gameError,
+          },
+        },
+        myBets: {
+          method: "GET" as const,
+          path: "/api/games/roulette/live/my-bets",
+          responses: {
+            200: z.array(z.custom<typeof rouletteBets.$inferSelect>()),
+          },
         },
       },
     },

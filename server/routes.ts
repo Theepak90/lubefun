@@ -1,19 +1,41 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber, getShuffledDeck, calculateHandTotal, getCardValue } from "./fairness";
+import { rouletteOrchestrator } from "./rouletteOrchestrator";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // === WebSocket Server Setup for Live Roulette ===
+  const wss = new WebSocketServer({ server: httpServer, path: "/ws/roulette" });
+  
+  wss.on("connection", (ws) => {
+    console.log("[WebSocket] Client connected to roulette");
+    
+    // Send current round state on connection
+    const currentState = rouletteOrchestrator.getCurrentRoundState();
+    if (currentState) {
+      ws.send(JSON.stringify({ type: "round_state", round: currentState }));
+    }
+    
+    ws.on("close", () => {
+      console.log("[WebSocket] Client disconnected from roulette");
+    });
+  });
+
+  // Initialize the roulette orchestrator
+  rouletteOrchestrator.initialize(wss);
   
   // === Auth Setup ===
   app.use(session({
@@ -490,6 +512,62 @@ export async function registerRoutes(
       console.error("[Roulette] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
     }
+  });
+
+  // LIVE ROULETTE ENDPOINTS
+  
+  // Get current round state
+  app.get(api.games.roulette.live.current.path, async (req, res) => {
+    const roundState = rouletteOrchestrator.getCurrentRoundState();
+    if (!roundState) {
+      return res.status(503).json({ message: "Roulette not ready" });
+    }
+    res.json(roundState);
+  });
+  
+  // Place a bet on current round
+  app.post(api.games.roulette.live.placeBet.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = liveRouletteBetSchema.parse(req.body);
+      
+      // Validate straight bet has a number
+      if (input.betType === "straight" && input.straightNumber === undefined) {
+        return res.status(400).json({ success: false, message: "Straight bet requires a number" });
+      }
+      
+      const result = await rouletteOrchestrator.placeBet(
+        user.id,
+        input.betType,
+        input.amount,
+        input.straightNumber
+      );
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      res.json(result);
+    } catch (err) {
+      console.error("[Live Roulette] Error:", err);
+      res.status(400).json({ success: false, message: "Failed to place bet" });
+    }
+  });
+  
+  // Get user's bets for current round
+  app.get(api.games.roulette.live.myBets.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const roundState = rouletteOrchestrator.getCurrentRoundState();
+    if (!roundState) {
+      return res.json([]);
+    }
+    
+    const bets = await storage.getUserRouletteBetsForRound(req.user!.id, roundState.roundId);
+    res.json(bets);
   });
 
   // BLACKJACK
