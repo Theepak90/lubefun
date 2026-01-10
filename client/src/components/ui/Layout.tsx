@@ -10,7 +10,8 @@ import {
   User as UserIcon, 
   LogOut,
   History,
-  ShieldCheck
+  ShieldCheck,
+  RotateCw
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ export function Layout({ children }: LayoutProps) {
     { icon: Dice5, label: "Dice", href: "/dice" },
     { icon: Coins, label: "Coinflip", href: "/coinflip" },
     { icon: Bomb, label: "Mines", href: "/mines" },
+    { icon: RotateCw, label: "Daily Spin", href: "/daily-spin" },
   ];
 
   return (
