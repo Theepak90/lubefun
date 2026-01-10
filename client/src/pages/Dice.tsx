@@ -5,7 +5,7 @@ import { useDiceGame } from "@/hooks/use-games";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { motion, useAnimation } from "framer-motion";
-import { Shield, Info } from "lucide-react";
+import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GAME_CONFIG } from "@shared/config";
 
@@ -97,11 +97,7 @@ export default function Dice() {
           <Card className="flex-1 bg-[#0f1923] border-[#1e2a36] rounded-2xl p-5 lg:p-6 relative shadow-xl min-h-[480px] flex flex-col justify-center">
             
             {/* Fair Play Badge */}
-            <div className="absolute top-3 right-3 flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2633] rounded-full border border-[#2a3a4a]">
-                <Info className="w-3 h-3 text-amber-400" />
-                <span className="text-[10px] font-medium text-amber-400">Edge: {GAME_CONFIG.HOUSE_EDGE_PERCENT}%</span>
-              </div>
+            <div className="absolute top-3 right-3">
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2633] rounded-full border border-[#2a3a4a]">
                 <Shield className="w-3 h-3 text-emerald-400" />
                 <span className="text-xs font-medium text-emerald-400">Fair Play</span>

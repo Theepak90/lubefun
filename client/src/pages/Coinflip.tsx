@@ -4,9 +4,8 @@ import { BetControls } from "@/components/BetControls";
 import { useCoinflipGame } from "@/hooks/use-games";
 import { Card } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coins, Shield, Info } from "lucide-react";
+import { Coins, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GAME_CONFIG } from "@shared/config";
 
 export default function Coinflip() {
   const { mutate: playCoinflip, isPending } = useCoinflipGame();
@@ -53,12 +52,8 @@ export default function Coinflip() {
         {/* Game Area */}
         <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex flex-col justify-center items-center relative overflow-hidden min-h-[500px]">
           
-          {/* House Edge Note */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary/50 rounded-full border border-border">
-              <Info className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] font-medium text-amber-400">Edge: {GAME_CONFIG.HOUSE_EDGE_PERCENT}%</span>
-            </div>
+          {/* Fair Play Badge */}
+          <div className="absolute top-4 right-4">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary/50 rounded-full border border-border">
               <Shield className="w-3 h-3 text-emerald-400" />
               <span className="text-xs font-medium text-emerald-400">Fair Play</span>
