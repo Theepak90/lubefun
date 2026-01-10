@@ -25,6 +25,38 @@ interface PlacedBet {
 const WHEEL_NUMBERS = ROULETTE_CONFIG.WHEEL_ORDER;
 const CHIP_DENOMINATIONS = [0.20, 1, 2, 10, 50, 200, 1000, 4000];
 
+const RANDOM_NAMES = [
+  "sergio", "maria", "james", "alex", "sofia", "marco", "lisa", "diego",
+  "emma", "carlos", "olivia", "lucas", "mia", "noah", "ava", "leo",
+  "luna", "max", "zoe", "felix", "ruby", "oscar", "ivy", "jack",
+  "bella", "sam", "nina", "theo", "jade", "kai"
+];
+
+interface SimulatedWinner {
+  name: string;
+  amount: number;
+}
+
+function generateSimulatedWinners(): SimulatedWinner[] {
+  const count = 6 + Math.floor(Math.random() * 7); // 6-12 winners
+  const winners: SimulatedWinner[] = [];
+  const usedNames = new Set<string>();
+  
+  for (let i = 0; i < count; i++) {
+    let name: string;
+    do {
+      name = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+    } while (usedNames.has(name) && usedNames.size < RANDOM_NAMES.length);
+    usedNames.add(name);
+    
+    // Random amounts between $2 and $500
+    const amount = Math.round((2 + Math.random() * 498) * 100) / 100;
+    winners.push({ name, amount });
+  }
+  
+  return winners;
+}
+
 const TABLE_ROWS = [
   [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
   [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
@@ -42,8 +74,10 @@ export default function Roulette() {
   const [lastBets, setLastBets] = useState<PlacedBet[]>([]);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [lastWinningNumber, setLastWinningNumber] = useState<number | null>(null);
+  const [simulatedWinners, setSimulatedWinners] = useState<SimulatedWinner[]>([]);
   
   const spinAnimatedRef = useRef(false);
+  const lastResultsRoundRef = useRef<number | null>(null);
 
   const status = roundState?.status || "betting";
   const countdown = Math.ceil((roundState?.countdown || 0) / 1000);
@@ -89,6 +123,20 @@ export default function Roulette() {
         detail: `${roundState.winningNumber} ${roundState.winningColor}`,
       });
       setLastBets(pendingBets);
+    }
+  }, [isResults, roundState?.roundId]);
+
+  // Generate simulated winners for results phase
+  useEffect(() => {
+    if (isResults && roundState?.roundId && lastResultsRoundRef.current !== roundState.roundId) {
+      lastResultsRoundRef.current = roundState.roundId;
+      setSimulatedWinners(generateSimulatedWinners());
+    }
+    if (!isResults) {
+      // Clear winners when leaving results phase
+      if (simulatedWinners.length > 0) {
+        setSimulatedWinners([]);
+      }
     }
   }, [isResults, roundState?.roundId]);
 
@@ -336,6 +384,37 @@ export default function Roulette() {
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Balance:</span>
                   <span className="text-white font-mono font-semibold">${user?.balance?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+
+              {/* Simulated Winners Panel - Results phase only */}
+              <div 
+                className={cn(
+                  "w-full mt-4 p-3 bg-[#1a2530]/80 rounded-lg border border-[#2a3a4a] transition-all duration-500",
+                  isResults && simulatedWinners.length > 0 
+                    ? "opacity-100 translate-y-0" 
+                    : "opacity-0 translate-y-2 pointer-events-none"
+                )}
+                data-testid="panel-simulated-winners"
+              >
+                <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-2 text-center">
+                  Simulated wins (demo)
+                </div>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {simulatedWinners.map((winner, i) => (
+                    <div 
+                      key={i} 
+                      className="flex justify-between text-xs text-slate-400"
+                      style={{ 
+                        animationDelay: `${i * 50}ms`,
+                        animation: isResults ? 'fadeIn 0.3s ease-out forwards' : 'none',
+                        opacity: 0,
+                      }}
+                    >
+                      <span className="text-slate-300 capitalize">{winner.name}</span>
+                      <span className="text-emerald-400 font-mono">+${winner.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
