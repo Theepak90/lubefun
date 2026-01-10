@@ -10,13 +10,14 @@ import {
   User as UserIcon, 
   LogOut,
   History,
-  ShieldCheck,
-  Gift
+  ShieldCheck
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/AuthModal";
 import { ProvablyFairModal } from "@/components/ProvablyFairModal";
+import { DailyBonusDropdown } from "@/components/DailyBonusDropdown";
+import { DailySpinDropdown } from "@/components/DailySpinDropdown";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -51,7 +52,6 @@ export function Layout({ children }: LayoutProps) {
     { icon: Dice5, label: "Dice", href: "/dice" },
     { icon: Coins, label: "Coinflip", href: "/coinflip" },
     { icon: Bomb, label: "Mines", href: "/mines" },
-    { icon: Gift, label: "Daily Rewards", href: "/rewards" },
   ];
 
   return (
@@ -69,9 +69,11 @@ export function Layout({ children }: LayoutProps) {
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {user ? (
             <>
+              <DailyBonusDropdown />
+              <DailySpinDropdown />
               <div className="hidden sm:flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg border border-white/5">
                 <span className="text-sm font-medium text-muted-foreground">Balance:</span>
                 <span className="font-mono font-bold text-primary text-glow">${user.balance.toFixed(2)}</span>
