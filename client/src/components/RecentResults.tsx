@@ -1,11 +1,11 @@
 import { GameResult } from "@/hooks/use-game-history";
 import { cn } from "@/lib/utils";
-import { Dices, Coins, Bomb, Trash2 } from "lucide-react";
+import { Dices, Coins, Bomb, Trash2, Spade, CircleDot, Triangle } from "lucide-react";
 
 interface RecentResultsProps {
   results: GameResult[];
   onClear?: () => void;
-  filterGame?: "dice" | "coinflip" | "mines";
+  filterGame?: "dice" | "coinflip" | "mines" | "blackjack" | "roulette" | "plinko";
 }
 
 function formatTime(timestamp: number): string {
@@ -21,6 +21,9 @@ function getGameIcon(game: string) {
     case "dice": return <Dices className="w-3.5 h-3.5" />;
     case "coinflip": return <Coins className="w-3.5 h-3.5" />;
     case "mines": return <Bomb className="w-3.5 h-3.5" />;
+    case "blackjack": return <Spade className="w-3.5 h-3.5" />;
+    case "roulette": return <CircleDot className="w-3.5 h-3.5" />;
+    case "plinko": return <Triangle className="w-3.5 h-3.5" />;
     default: return null;
   }
 }
@@ -30,6 +33,9 @@ function getGameLabel(game: string) {
     case "dice": return "Dice";
     case "coinflip": return "Coinflip";
     case "mines": return "Mines";
+    case "blackjack": return "Blackjack";
+    case "roulette": return "Roulette";
+    case "plinko": return "Plinko";
     default: return game;
   }
 }
