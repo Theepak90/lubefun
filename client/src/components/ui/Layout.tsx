@@ -29,7 +29,7 @@ import { WalletDropdown } from "@/components/WalletDropdown";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-import logoImg from "@assets/Screenshot_2026-01-10_094338-removebg-preview_1768038772590.png";
+import logoImg from "@assets/image_(2)_1768086160376.jpg";
 
 interface LayoutProps {
   children: ReactNode;
