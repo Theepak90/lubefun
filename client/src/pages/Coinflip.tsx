@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { useCoinflipGame } from "@/hooks/use-games";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 
+const FLIP_DURATION = 1.4;
+const FLIP_ROTATIONS = 6;
+
 export default function Coinflip() {
   const { mutate: playCoinflip, isPending } = useCoinflipGame();
   const { user } = useAuth();
@@ -23,13 +26,18 @@ export default function Coinflip() {
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState<"heads" | "tails" | null>(null);
   const [amount, setAmount] = useState<string>("10");
+  const [targetRotation, setTargetRotation] = useState(0);
+  const isAnimatingRef = useRef(false);
 
   const multiplier = (2 * GAME_CONFIG.RTP).toFixed(4);
 
   const handleBet = () => {
+    if (isAnimatingRef.current) return;
+    
     const val = parseFloat(amount);
     if (isNaN(val) || val < 1) return;
     
+    isAnimatingRef.current = true;
     setFlipping(true);
     setResult(null);
     playSound("flip");
@@ -38,21 +46,34 @@ export default function Coinflip() {
       { betAmount: val, side },
       {
         onSuccess: (data: any) => {
-          setTimeout(() => {
-            setResult(data.result.flip);
-            setFlipping(false);
-            playSound(data.won ? "win" : "lose");
-          }, 1200);
+          const flipResult = data.result.flip as "heads" | "tails";
+          const baseRotations = FLIP_ROTATIONS * 360;
+          const finalRotation = flipResult === "tails" ? baseRotations + 180 : baseRotations;
+          setTargetRotation(finalRotation);
           
           addResult({
             game: "coinflip",
             betAmount: val,
             won: data.won,
             profit: data.profit,
-            detail: `Picked ${side}, got ${data.result.flip}`
+            detail: `Picked ${side}, got ${flipResult}`
           });
+          
+          setTimeout(() => {
+            playSound("land");
+          }, FLIP_DURATION * 1000 - 100);
+          
+          setTimeout(() => {
+            setResult(flipResult);
+            setFlipping(false);
+            isAnimatingRef.current = false;
+            playSound(data.won ? "win" : "lose");
+          }, FLIP_DURATION * 1000 + 100);
         },
-        onError: () => setFlipping(false)
+        onError: () => {
+          setFlipping(false);
+          isAnimatingRef.current = false;
+        }
       }
     );
   };
@@ -194,7 +215,7 @@ export default function Coinflip() {
               </div>
 
               {/* The Coin - Larger with premium lighting */}
-              <div className="relative w-48 h-48 perspective-[1200px]">
+              <div className="relative w-48 h-48" style={{ perspective: "1200px" }}>
                 {/* Ambient glow */}
                 <div className={cn(
                   "absolute inset-0 rounded-full blur-2xl transition-colors duration-500",
@@ -202,43 +223,58 @@ export default function Coinflip() {
                   result === side ? "bg-emerald-500/30" : "bg-red-500/30"
                 )} />
                 
+                {/* Bounce container */}
                 <motion.div
-                  className="w-full h-full relative"
+                  className="w-full h-full"
                   animate={{ 
-                    rotateY: flipping ? 1800 : (result === "tails" ? 180 : 0) 
+                    y: flipping ? [0, -120, -80, -40, 0] : 0,
+                    scale: flipping ? [1, 0.9, 0.95, 0.98, 1] : 1
                   }}
                   transition={{ 
-                    duration: flipping ? 1.2 : 0.5, 
-                    ease: "circOut" 
+                    duration: FLIP_DURATION,
+                    ease: [0.22, 1, 0.36, 1],
+                    times: [0, 0.3, 0.6, 0.85, 1]
                   }}
-                  style={{ transformStyle: "preserve-3d" }}
                 >
-                  {/* Front (Heads) */}
-                  <div 
-                    className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
-                    style={{ 
-                      backfaceVisibility: "hidden",
-                      background: "linear-gradient(145deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%)"
+                  {/* Rotation container - rotates on X axis for realistic flip */}
+                  <motion.div
+                    className="w-full h-full relative"
+                    animate={{ 
+                      rotateX: flipping ? targetRotation : (result === "tails" ? 180 : 0)
                     }}
+                    transition={{ 
+                      duration: FLIP_DURATION,
+                      ease: [0.22, 1, 0.36, 1]
+                    }}
+                    style={{ transformStyle: "preserve-3d" }}
                   >
-                    <div className="w-36 h-36 rounded-full border-2 border-yellow-600/40 flex items-center justify-center bg-gradient-to-br from-yellow-400/20 to-transparent">
-                      <span className="text-3xl font-bold text-yellow-900/80 tracking-wide">HEADS</span>
+                    {/* Front (Heads) */}
+                    <div 
+                      className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                      style={{ 
+                        backfaceVisibility: "hidden",
+                        background: "linear-gradient(145deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%)"
+                      }}
+                    >
+                      <div className="w-36 h-36 rounded-full border-2 border-yellow-600/40 flex items-center justify-center bg-gradient-to-br from-yellow-400/20 to-transparent">
+                        <span className="text-3xl font-bold text-yellow-900/80 tracking-wide">HEADS</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Back (Tails) */}
-                  <div 
-                    className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
-                    style={{ 
-                      backfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                      background: "linear-gradient(145deg, #cbd5e1 0%, #94a3b8 50%, #64748b 100%)"
-                    }}
-                  >
-                    <div className="w-36 h-36 rounded-full border-2 border-slate-500/40 flex items-center justify-center bg-gradient-to-br from-slate-300/20 to-transparent">
-                      <span className="text-3xl font-bold text-slate-700/80 tracking-wide">TAILS</span>
+                    {/* Back (Tails) */}
+                    <div 
+                      className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                      style={{ 
+                        backfaceVisibility: "hidden",
+                        transform: "rotateX(180deg)",
+                        background: "linear-gradient(145deg, #cbd5e1 0%, #94a3b8 50%, #64748b 100%)"
+                      }}
+                    >
+                      <div className="w-36 h-36 rounded-full border-2 border-slate-500/40 flex items-center justify-center bg-gradient-to-br from-slate-300/20 to-transparent">
+                        <span className="text-3xl font-bold text-slate-700/80 tracking-wide">TAILS</span>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </motion.div>
               </div>
 

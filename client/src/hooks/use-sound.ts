@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -114,24 +114,44 @@ function playTickSound() {
 function playFlipSound() {
   const ctx = getAudioContext();
   
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
     
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
     
-    const startTime = ctx.currentTime + i * 0.12;
-    oscillator.frequency.value = 400 + Math.random() * 200;
+    const startTime = ctx.currentTime + i * 0.08;
+    oscillator.frequency.value = 300 + Math.random() * 150 + (i * 20);
     oscillator.type = "sine";
     
     gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(0.04, startTime + 0.02);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+    gainNode.gain.linearRampToValueAtTime(0.03, startTime + 0.015);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.06);
     
     oscillator.start(startTime);
-    oscillator.stop(startTime + 0.08);
+    oscillator.stop(startTime + 0.06);
   }
+}
+
+function playLandSound() {
+  const ctx = getAudioContext();
+  
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15);
+  oscillator.type = "sine";
+  
+  gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.2);
 }
 
 export function useSound() {
@@ -164,6 +184,9 @@ export function useSound() {
           break;
         case "flip":
           playFlipSound();
+          break;
+        case "land":
+          playLandSound();
           break;
       }
     } catch (e) {
