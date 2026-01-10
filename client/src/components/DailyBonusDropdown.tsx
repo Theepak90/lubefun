@@ -1,11 +1,22 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Gift, Clock, Sparkles, RotateCw, ChevronDown } from "lucide-react";
-import { DAILY_BONUS_AMOUNT } from "@shared/schema";
+import { Gift, Clock, Sparkles, RotateCw, ChevronDown, TrendingUp, CheckCircle2, AlertCircle } from "lucide-react";
+import { DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME } from "@shared/schema";
+
+interface BonusStatus {
+  canClaim: boolean;
+  nextClaimTime: string | null;
+  bonusAmount: number;
+  requiredVolume: number;
+  todayVolume: number;
+  volumeRequirementMet: boolean;
+  volumeProgress: number;
+}
 
 function formatTimeRemaining(isoString: string | null): string {
   if (!isoString) return "";
@@ -24,7 +35,7 @@ export function DailyBonusDropdown() {
   const [timeRemaining, setTimeRemaining] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   
-  const { data: status, refetch } = useQuery<{ canClaim: boolean; nextClaimTime: string | null; bonusAmount: number }>({
+  const { data: status, refetch } = useQuery<BonusStatus>({
     queryKey: ["/api/rewards/bonus/status"],
   });
   
@@ -39,10 +50,15 @@ export function DailyBonusDropdown() {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       refetch();
     },
-    onError: () => {
+    onError: async (error: any) => {
+      let message = "Could not claim bonus";
+      try {
+        const data = await error.response?.json();
+        if (data?.message) message = data.message;
+      } catch {}
       toast({
-        title: "Error",
-        description: "Could not claim bonus",
+        title: "Cannot Claim",
+        description: message,
         variant: "destructive",
       });
     },
@@ -57,6 +73,10 @@ export function DailyBonusDropdown() {
     
     return () => clearInterval(interval);
   }, [status?.nextClaimTime]);
+  
+  const volumeProgress = status?.volumeProgress || 0;
+  const todayVolume = status?.todayVolume || 0;
+  const requiredVolume = status?.requiredVolume || REQUIRED_DAILY_VOLUME;
   
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -75,7 +95,7 @@ export function DailyBonusDropdown() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="end">
+      <PopoverContent className="w-80 p-0" align="end">
         <div className="p-4 border-b border-border bg-primary/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -92,6 +112,38 @@ export function DailyBonusDropdown() {
           <div className="text-center mb-4">
             <div className="text-3xl font-bold text-primary mb-1">${DAILY_BONUS_AMOUNT}</div>
             <p className="text-xs text-muted-foreground">Play credits</p>
+          </div>
+          
+          <div className="mb-4 p-3 rounded-lg bg-secondary/30 border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                Today's Play Volume
+              </div>
+              {volumeProgress >= 100 ? (
+                <CheckCircle2 className="w-4 h-4 text-primary" />
+              ) : (
+                <span className="text-xs text-muted-foreground">{Math.round(volumeProgress)}%</span>
+              )}
+            </div>
+            
+            <Progress value={volumeProgress} className="h-2 mb-2" />
+            
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                ${todayVolume.toFixed(2)} wagered
+              </span>
+              <span className="text-muted-foreground">
+                ${requiredVolume} required
+              </span>
+            </div>
+            
+            {volumeProgress < 100 && (
+              <p className="mt-2 text-xs text-muted-foreground flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-500" />
+                Wager ${(requiredVolume - todayVolume).toFixed(2)} more today to unlock tomorrow's bonus
+              </p>
+            )}
           </div>
           
           {status?.canClaim ? (
@@ -117,6 +169,12 @@ export function DailyBonusDropdown() {
               <span className="font-mono text-lg font-bold text-foreground">{timeRemaining}</span>
             </div>
           )}
+        </div>
+        
+        <div className="px-4 pb-3">
+          <p className="text-[10px] text-muted-foreground text-center">
+            Play-money demo only. Volume requirement ensures fair engagement.
+          </p>
         </div>
       </PopoverContent>
     </Popover>

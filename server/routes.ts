@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME } from "@shared/schema";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -380,15 +380,42 @@ export async function registerRoutes(
     return 0; // Fallback
   }
   
+  function getStartOfToday(): Date {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }
+  
+  function getStartOfYesterday(): Date {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    return yesterday;
+  }
+  
   app.get(api.rewards.bonusStatus.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = await storage.getUser(req.user!.id);
     if (!user) return res.sendStatus(401);
     
+    const todayStart = getStartOfToday();
+    const yesterdayStart = getStartOfYesterday();
+    
+    const todayVolume = await storage.getDailyWagerVolume(user.id, todayStart);
+    const yesterdayVolume = await storage.getDailyWagerVolume(user.id, yesterdayStart);
+    const yesterdayOnlyVolume = yesterdayVolume - todayVolume;
+    
+    const timeBasedCanClaim = canClaimBonus(user.lastBonusClaim);
+    const volumeRequirementMet = !user.lastBonusClaim || yesterdayOnlyVolume >= REQUIRED_DAILY_VOLUME;
+    
     res.json({
-      canClaim: canClaimBonus(user.lastBonusClaim),
+      canClaim: timeBasedCanClaim && volumeRequirementMet,
       nextClaimTime: getNextClaimTime(user.lastBonusClaim),
       bonusAmount: DAILY_BONUS_AMOUNT,
+      requiredVolume: REQUIRED_DAILY_VOLUME,
+      todayVolume,
+      volumeRequirementMet,
+      volumeProgress: Math.min(100, (todayVolume / REQUIRED_DAILY_VOLUME) * 100),
     });
   });
   
@@ -399,6 +426,18 @@ export async function registerRoutes(
     
     if (!canClaimBonus(user.lastBonusClaim)) {
       return res.status(400).json({ message: "Bonus already claimed today" });
+    }
+    
+    const todayStart = getStartOfToday();
+    const yesterdayStart = getStartOfYesterday();
+    const yesterdayVolume = await storage.getDailyWagerVolume(user.id, yesterdayStart);
+    const todayVolume = await storage.getDailyWagerVolume(user.id, todayStart);
+    const yesterdayOnlyVolume = yesterdayVolume - todayVolume;
+    
+    if (user.lastBonusClaim && yesterdayOnlyVolume < REQUIRED_DAILY_VOLUME) {
+      return res.status(400).json({ 
+        message: `Play volume requirement not met. You wagered $${yesterdayOnlyVolume.toFixed(2)} yesterday but need $${REQUIRED_DAILY_VOLUME}.`
+      });
     }
     
     await storage.updateLastBonusClaim(user.id);

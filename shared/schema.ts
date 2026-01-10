@@ -28,6 +28,7 @@ export const WHEEL_PRIZES = [
 ] as const;
 
 export const DAILY_BONUS_AMOUNT = 10; // $10 daily bonus
+export const REQUIRED_DAILY_VOLUME = 50; // Must wager $50 to unlock next day's bonus
 
 export const bets = pgTable("bets", {
   id: serial("id").primaryKey(),

@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { users, bets, type User, type InsertUser, type Bet, type InsertBet } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -23,6 +23,8 @@ export interface IStorage {
   
   updateLastBonusClaim(id: number): Promise<User>;
   updateLastWheelSpin(id: number): Promise<User>;
+  
+  getDailyWagerVolume(userId: number, sinceDate: Date): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,6 +129,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+  
+  async getDailyWagerVolume(userId: number, sinceDate: Date): Promise<number> {
+    const result = await db.select({
+      total: sql<number>`COALESCE(SUM(${bets.betAmount}), 0)`
+    })
+    .from(bets)
+    .where(and(
+      eq(bets.userId, userId),
+      gte(bets.createdAt, sinceDate)
+    ));
+    
+    return Number(result[0]?.total || 0);
   }
 }
 
