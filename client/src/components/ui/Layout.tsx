@@ -19,7 +19,7 @@ import { ProvablyFairModal } from "@/components/ProvablyFairModal";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-import logoImg from "@assets/image_1768038114191.png";
+import logoImg from "@assets/image_1768038219484.png";
 
 interface LayoutProps {
   children: ReactNode;
