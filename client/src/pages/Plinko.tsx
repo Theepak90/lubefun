@@ -350,8 +350,10 @@ export default function Plinko() {
                   detail: `${risk} risk, ${rows} rows → ${ball.multiplier}x`,
                 });
                 
-                // Queue land sound and win sound (no lose sound to reduce noise)
-                pendingSoundsRef.current.push({ type: 'land' });
+                // Queue sounds - skip land sound for low multipliers (0.3x, 0.6x etc)
+                if (ball.multiplier >= 1) {
+                  pendingSoundsRef.current.push({ type: 'land' });
+                }
                 if (ball.bet.won) {
                   pendingSoundsRef.current.push({ type: 'win' });
                 }
