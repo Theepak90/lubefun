@@ -165,110 +165,147 @@ export default function Coinflip() {
                 </div>
               </div>
 
-              {/* Side Selection */}
-              <div className="mb-10 flex gap-6">
-                <button 
-                  onClick={() => setSide("heads")}
-                  className={cn(
-                    "w-28 h-28 rounded-full border-4 flex items-center justify-center transition-all duration-300 relative overflow-hidden",
-                    side === "heads" 
-                      ? "border-emerald-500 bg-emerald-500/10 scale-110 shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)]" 
-                      : "border-[#2a3a4a] bg-[#1a2530] hover:border-emerald-500/50"
-                  )}
-                >
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 flex items-center justify-center shadow-inner">
-                    <span className="text-yellow-900 font-bold text-xl">H</span>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => setSide("tails")}
-                  className={cn(
-                    "w-28 h-28 rounded-full border-4 flex items-center justify-center transition-all duration-300 relative overflow-hidden",
-                    side === "tails" 
-                      ? "border-emerald-500 bg-emerald-500/10 scale-110 shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)]" 
-                      : "border-[#2a3a4a] bg-[#1a2530] hover:border-emerald-500/50"
-                  )}
-                >
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center shadow-inner">
-                    <span className="text-gray-800 font-bold text-xl">T</span>
-                  </div>
-                </button>
+              {/* Side Selection Pills */}
+              <div className="mb-8">
+                <div className="flex bg-[#0d1419] p-1 rounded-full border border-[#1a2530]">
+                  <button 
+                    onClick={() => setSide("heads")}
+                    className={cn(
+                      "px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 relative",
+                      side === "heads" 
+                        ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-yellow-950 shadow-[0_0_20px_-3px_rgba(245,158,11,0.5)]" 
+                        : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    Heads
+                  </button>
+                  <button 
+                    onClick={() => setSide("tails")}
+                    className={cn(
+                      "px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 relative",
+                      side === "tails" 
+                        ? "bg-gradient-to-r from-slate-400 to-slate-500 text-slate-900 shadow-[0_0_20px_-3px_rgba(148,163,184,0.5)]" 
+                        : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    Tails
+                  </button>
+                </div>
               </div>
 
-              {/* The Coin */}
-              <div className="relative w-40 h-40 perspective-[1000px]">
+              {/* The Coin - Larger with premium lighting */}
+              <div className="relative w-48 h-48 perspective-[1200px]">
+                {/* Ambient glow */}
+                <div className={cn(
+                  "absolute inset-0 rounded-full blur-2xl transition-colors duration-500",
+                  result === null ? "bg-yellow-500/20" :
+                  result === side ? "bg-emerald-500/30" : "bg-red-500/30"
+                )} />
+                
                 <motion.div
-                  className="w-full h-full relative preserve-3d"
+                  className="w-full h-full relative"
                   animate={{ 
                     rotateY: flipping ? 1800 : (result === "tails" ? 180 : 0) 
                   }}
                   transition={{ 
-                    duration: flipping ? 2 : 0.5, 
+                    duration: flipping ? 1.2 : 0.5, 
                     ease: "circOut" 
                   }}
                   style={{ transformStyle: "preserve-3d" }}
                 >
                   {/* Front (Heads) */}
-                  <div className="absolute inset-0 backface-hidden rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 shadow-xl border-4 border-yellow-200 flex items-center justify-center">
-                    <div className="w-32 h-32 rounded-full border-2 border-yellow-700/30 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-yellow-900">HEADS</span>
+                  <div 
+                    className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                    style={{ 
+                      backfaceVisibility: "hidden",
+                      background: "linear-gradient(145deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%)"
+                    }}
+                  >
+                    <div className="w-36 h-36 rounded-full border-2 border-yellow-600/40 flex items-center justify-center bg-gradient-to-br from-yellow-400/20 to-transparent">
+                      <span className="text-3xl font-bold text-yellow-900/80 tracking-wide">HEADS</span>
                     </div>
                   </div>
 
                   {/* Back (Tails) */}
-                  <div className="absolute inset-0 backface-hidden rounded-full bg-gradient-to-br from-gray-300 to-gray-500 shadow-xl border-4 border-gray-200 flex items-center justify-center" style={{ transform: "rotateY(180deg)" }}>
-                    <div className="w-32 h-32 rounded-full border-2 border-gray-700/30 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-gray-800">TAILS</span>
+                  <div 
+                    className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                    style={{ 
+                      backfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)",
+                      background: "linear-gradient(145deg, #cbd5e1 0%, #94a3b8 50%, #64748b 100%)"
+                    }}
+                  >
+                    <div className="w-36 h-36 rounded-full border-2 border-slate-500/40 flex items-center justify-center bg-gradient-to-br from-slate-300/20 to-transparent">
+                      <span className="text-3xl font-bold text-slate-700/80 tracking-wide">TAILS</span>
                     </div>
                   </div>
                 </motion.div>
               </div>
 
-              {/* Result Message */}
-              <div className="h-12 mt-8 flex items-center justify-center">
-                <AnimatePresence>
-                  {result && !flipping && (
+              {/* Compact Result Area */}
+              <div className="h-20 mt-6 flex flex-col items-center justify-center">
+                <AnimatePresence mode="wait">
+                  {result && !flipping ? (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn(
-                        "text-xl font-bold px-6 py-2 rounded-full",
-                        result === side 
-                          ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30" 
-                          : "text-red-400 bg-red-500/10 border border-red-500/30"
-                      )}
+                      key="result"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="flex flex-col items-center gap-2"
                     >
-                      {result === side ? "YOU WON!" : "YOU LOST"}
+                      <span className={cn(
+                        "text-2xl font-bold",
+                        result === side ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {result === side ? "WIN" : "LOSS"}
+                      </span>
+                      <span className={cn(
+                        "text-lg font-mono font-semibold",
+                        result === side ? "text-emerald-400/80" : "text-red-400/80"
+                      )}>
+                        {result === side 
+                          ? `+$${((parseFloat(amount || "0") * parseFloat(multiplier)) - parseFloat(amount || "0")).toFixed(2)}` 
+                          : `-$${parseFloat(amount || "0").toFixed(2)}`}
+                      </span>
                     </motion.div>
+                  ) : flipping ? (
+                    <motion.span
+                      key="flipping"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-slate-400 text-sm font-medium"
+                    >
+                      Flipping...
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="ready"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-slate-500 text-sm"
+                    >
+                      Pick a side and place your bet
+                    </motion.span>
                   )}
                 </AnimatePresence>
               </div>
 
               {/* Bottom Stats Row */}
-              <div className="grid grid-cols-2 gap-3 mt-6 w-full max-w-sm">
-                <div className="bg-[#111921] border border-[#1a2530] rounded-lg p-3">
-                  <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">
+              <div className="flex gap-6 mt-4">
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
                     Multiplier
-                  </label>
-                  <Input 
-                    type="text"
-                    value={`${multiplier}x`}
-                    readOnly
-                    className="bg-[#0d1419] border-[#1a2530] text-white font-mono text-sm h-8 rounded-md"
-                  />
+                  </span>
+                  <span className="text-white font-mono font-semibold">{multiplier}x</span>
                 </div>
-
-                <div className="bg-[#111921] border border-[#1a2530] rounded-lg p-3">
-                  <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">
+                <div className="w-px bg-[#1a2530]" />
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
                     Win Chance
-                  </label>
-                  <Input 
-                    type="text"
-                    value="50.00%"
-                    readOnly
-                    className="bg-[#0d1419] border-[#1a2530] text-white font-mono text-sm h-8 rounded-md"
-                  />
+                  </span>
+                  <span className="text-white font-mono font-semibold">50.00%</span>
                 </div>
               </div>
 
