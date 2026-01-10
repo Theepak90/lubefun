@@ -36,6 +36,8 @@ export default function Mines() {
     profit: 0,
     multiplier: 1.0
   });
+  const [isShaking, setIsShaking] = useState(false);
+  const [showWinPulse, setShowWinPulse] = useState(false);
 
   const calculateMultiplier = (revealedCount: number, mines: number) => {
     let multiplier = 1;
@@ -81,6 +83,8 @@ export default function Mines() {
           }));
           
           playSound("lose");
+          setIsShaking(true);
+          setTimeout(() => setIsShaking(false), 500);
           
           addResult({
             game: "mines",
@@ -90,6 +94,8 @@ export default function Mines() {
             detail: `Hit mine after ${data.result.revealed.length - 1} gems`
           });
         } else {
+          playSound("tick");
+          
           setGameState(prev => ({
             ...prev,
             revealed: [...prev.revealed, index],
@@ -114,6 +120,8 @@ export default function Mines() {
         }));
         
         playSound("win");
+        setShowWinPulse(true);
+        setTimeout(() => setShowWinPulse(false), 600);
         
         addResult({
           game: "mines",
@@ -276,7 +284,24 @@ export default function Mines() {
               </div>
 
               {/* Game Grid */}
-              <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[400px]">
+              <motion.div 
+                className={cn(
+                  "grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[400px] relative",
+                  showWinPulse && "ring-2 ring-emerald-500/50 rounded-xl"
+                )}
+                animate={isShaking ? { 
+                  x: [0, -8, 8, -6, 6, -4, 4, 0],
+                  transition: { duration: 0.5 }
+                } : {}}
+              >
+                {showWinPulse && (
+                  <motion.div 
+                    className="absolute inset-0 bg-emerald-500/10 rounded-xl pointer-events-none"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: [0, 0.5, 0], scale: [0.95, 1.02, 1] }}
+                    transition={{ duration: 0.6 }}
+                  />
+                )}
                 {Array.from({ length: 25 }).map((_, i) => {
                   const isRevealed = gameState.revealed.includes(i);
                   const isMine = !gameState.active && gameState.mines?.includes(i);
@@ -339,7 +364,7 @@ export default function Mines() {
                     </motion.button>
                   );
                 })}
-              </div>
+              </motion.div>
 
               {/* Bottom Stats Row */}
               <div className="grid grid-cols-2 gap-3 mt-6 w-full max-w-[400px]">

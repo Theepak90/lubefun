@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose";
+type SoundType = "bet" | "win" | "lose" | "tick";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -93,6 +93,24 @@ function playLoseSound() {
   oscillator.stop(ctx.currentTime + 0.15);
 }
 
+function playTickSound() {
+  const ctx = getAudioContext();
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  oscillator.frequency.value = 1200;
+  oscillator.type = "sine";
+  
+  gainNode.gain.setValueAtTime(0.06, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.05);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -117,6 +135,9 @@ export function useSound() {
           break;
         case "lose":
           playLoseSound();
+          break;
+        case "tick":
+          playTickSound();
           break;
       }
     } catch (e) {
