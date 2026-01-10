@@ -16,7 +16,7 @@ export interface RoundState {
 
 type RoundStatus = "betting" | "spinning" | "results";
 
-const BETTING_DURATION = 8000; // 8 seconds
+const BETTING_DURATION = 10000; // 10 seconds
 const SPINNING_DURATION = 4000; // 4 seconds for animation
 const RESULTS_DURATION = 3000; // 3 seconds to show results
 
