@@ -64,6 +64,7 @@ export default function DailySpin() {
   const [wonPrize, setWonPrize] = useState<{ id: string; label: string; value: number } | null>(null);
   const [reelOffset, setReelOffset] = useState(0);
   const [reelItems, setReelItems] = useState<ReelItem[]>([]);
+  const [spinDuration, setSpinDuration] = useState(5);
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("lootbox-muted") !== "false";
@@ -105,9 +106,12 @@ export default function DailySpin() {
     }
   }, [isMuted]);
   
-  const generateReelItems = useCallback((targetPrizeId: string): { items: ReelItem[]; winnerIndex: number } => {
+  const generateReelItems = useCallback((targetPrizeId: string): { items: ReelItem[]; winnerIndex: number; spinDuration: number } => {
     const REEL_SIZE = 60;
-    const STOP_INDEX = 50; // Winner lands here, leaving items visible after
+    // Randomize stop index between 48-54 for variety
+    const STOP_INDEX = 48 + Math.floor(Math.random() * 7);
+    // Randomize spin duration between 4.8s-6.2s
+    const spinDuration = 4.8 + Math.random() * 1.4;
     
     // Group prizes by rarity for visual variety
     const prizesByRarity: Record<Rarity, typeof WHEEL_PRIZES[number][]> = {
@@ -162,7 +166,7 @@ export default function DailySpin() {
       rarity: winningPrize.rarity,
     };
     
-    return { items, winnerIndex: STOP_INDEX };
+    return { items, winnerIndex: STOP_INDEX, spinDuration };
   }, []);
   
   const spinMutation = useMutation({
@@ -170,12 +174,13 @@ export default function DailySpin() {
     onSuccess: async (response) => {
       const data = await response.json();
       
-      const { items, winnerIndex } = generateReelItems(data.prizeId);
+      const { items, winnerIndex, spinDuration: duration } = generateReelItems(data.prizeId);
       setReelItems(items);
       setReelOffset(0);
+      setSpinDuration(duration);
       
       const winnerItem = items[winnerIndex];
-      console.log(`[Lootbox] selectedPrizeId=${data.prizeId}, winnerIndex=${winnerIndex}, winnerLabel=${winnerItem.label}, totalItems=${items.length}`);
+      console.log(`[Lootbox] selectedPrizeId=${data.prizeId}, winnerIndex=${winnerIndex}, winnerLabel=${winnerItem.label}, totalItems=${items.length}, duration=${duration.toFixed(2)}s`);
       
       setState("preparing");
       
@@ -185,6 +190,7 @@ export default function DailySpin() {
         
         setReelOffset(calculateReelOffset(winnerIndex));
         
+        // Wait for spin animation to complete before revealing
         setTimeout(() => {
           setState("revealing");
           playSound("win");
@@ -207,7 +213,7 @@ export default function DailySpin() {
           setTimeout(() => {
             setState("cooldown");
           }, 3000);
-        }, 4000);
+        }, duration * 1000);
       }, 500);
     },
     onError: () => {
@@ -362,7 +368,7 @@ export default function DailySpin() {
               className="flex items-center"
               animate={{ x: -reelOffset }}
               transition={{
-                duration: state === "spinning" ? 4 : 0,
+                duration: state === "spinning" ? spinDuration : 0,
                 ease: [0.25, 0.1, 0.25, 1],
               }}
               style={{ 
