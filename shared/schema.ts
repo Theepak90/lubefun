@@ -12,6 +12,10 @@ export const users = pgTable("users", {
   nonce: integer("nonce").default(0).notNull(),
   lastBonusClaim: timestamp("last_bonus_claim"),
   lastWheelSpin: timestamp("last_wheel_spin"),
+  lastDailyReload: timestamp("last_daily_reload"),
+  lastWeeklyBonus: timestamp("last_weekly_bonus"),
+  lastMonthlyBonus: timestamp("last_monthly_bonus"),
+  lastRakebackClaim: timestamp("last_rakeback_claim"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -29,6 +33,40 @@ export const WHEEL_PRIZES = [
 
 export const DAILY_BONUS_AMOUNT = 10; // $10 daily bonus
 export const REQUIRED_DAILY_VOLUME = 50; // Must wager $50 to unlock next day's bonus
+
+// Rewards Configuration
+export const REWARDS_CONFIG = {
+  dailyReload: {
+    amount: 5,
+    cooldownMs: 24 * 60 * 60 * 1000, // 24 hours
+    label: "Daily Reload",
+    description: "Free credits every day",
+  },
+  dailyBonus: {
+    amount: 10,
+    cooldownMs: 24 * 60 * 60 * 1000, // 24 hours
+    label: "Daily Bonus",
+    description: "Login bonus with play volume requirement",
+  },
+  weeklyBonus: {
+    amount: 50,
+    cooldownMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+    label: "Weekly Bonus",
+    description: "Claim once per week",
+  },
+  monthlyBonus: {
+    amount: 200,
+    cooldownMs: 30 * 24 * 60 * 60 * 1000, // 30 days
+    label: "Monthly Bonus",
+    description: "Big monthly reward",
+  },
+  rakeback: {
+    percentage: 0.05, // 5% of wagered amount
+    cooldownMs: 24 * 60 * 60 * 1000, // Can claim once per day
+    label: "Rakeback",
+    description: "5% back on your wagers",
+  },
+} as const;
 
 export const bets = pgTable("bets", {
   id: serial("id").primaryKey(),

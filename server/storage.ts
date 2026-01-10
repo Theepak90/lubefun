@@ -23,8 +23,13 @@ export interface IStorage {
   
   updateLastBonusClaim(id: number): Promise<User>;
   updateLastWheelSpin(id: number): Promise<User>;
+  updateLastDailyReload(id: number): Promise<User>;
+  updateLastWeeklyBonus(id: number): Promise<User>;
+  updateLastMonthlyBonus(id: number): Promise<User>;
+  updateLastRakebackClaim(id: number): Promise<User>;
   
   getDailyWagerVolume(userId: number, sinceDate: Date): Promise<number>;
+  getWagerVolumeSince(userId: number, sinceDate: Date): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -142,6 +147,51 @@ export class DatabaseStorage implements IStorage {
     ));
     
     return Number(result[0]?.total || 0);
+  }
+  
+  async getWagerVolumeSince(userId: number, sinceDate: Date): Promise<number> {
+    const result = await db.select({
+      total: sql<number>`COALESCE(SUM(${bets.betAmount}), 0)`
+    })
+    .from(bets)
+    .where(and(
+      eq(bets.userId, userId),
+      gte(bets.createdAt, sinceDate)
+    ));
+    
+    return Number(result[0]?.total || 0);
+  }
+  
+  async updateLastDailyReload(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastDailyReload: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async updateLastWeeklyBonus(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastWeeklyBonus: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async updateLastMonthlyBonus(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastMonthlyBonus: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async updateLastRakebackClaim(id: number): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ lastRakebackClaim: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 }
 
