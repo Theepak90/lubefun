@@ -14,7 +14,6 @@ import {
   Calendar, 
   CalendarDays, 
   Percent,
-  Trophy,
   ArrowRight,
   RotateCw
 } from "lucide-react";
@@ -131,11 +130,11 @@ export function RewardsDropdown() {
         <div className="p-4 border-b border-border bg-gradient-to-r from-primary/20 to-primary/5">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-lg bg-primary/30 flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-primary" />
+              <Gift className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground">$20,000 WEEKLY RAFFLE</h3>
-              <p className="text-xs text-muted-foreground">Every bet counts as an entry</p>
+              <h3 className="font-bold text-foreground">Daily Rewards</h3>
+              <p className="text-xs text-muted-foreground">Claim your bonuses below</p>
             </div>
           </div>
         </div>

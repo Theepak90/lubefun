@@ -15,7 +15,6 @@ import {
   Calendar, 
   CalendarDays, 
   Percent,
-  Trophy,
   RotateCw,
   Coins,
   ArrowLeft
@@ -142,19 +141,6 @@ export default function Rewards() {
           </Link>
         </div>
         
-        <Card className="border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-primary/30 flex items-center justify-center">
-                <Trophy className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">$20,000 WEEKLY RAFFLE</h2>
-                <p className="text-muted-foreground">Every bet you make counts as an entry into our weekly raffle!</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {rewardKeys.map((key) => {

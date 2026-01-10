@@ -1,13 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Sparkles, RotateCw, Zap, Trophy, Star } from "lucide-react";
+import { Clock, Package, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WHEEL_PRIZES } from "@shared/schema";
+
+type SpinState = "idle" | "preparing" | "spinning" | "revealing" | "cooldown";
+
+interface ReelItem {
+  label: string;
+  value: number;
+  originalIndex: number;
+}
 
 function formatTimeRemaining(isoString: string | null): string {
   if (!isoString) return "";
@@ -21,73 +29,159 @@ function formatTimeRemaining(isoString: string | null): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-const neonColors = [
-  { bg: "#00ff88", glow: "0 0 20px #00ff88, 0 0 40px #00ff8866" },
-  { bg: "#ff00ff", glow: "0 0 20px #ff00ff, 0 0 40px #ff00ff66" },
-  { bg: "#ffff00", glow: "0 0 20px #ffff00, 0 0 40px #ffff0066" },
-  { bg: "#00ffff", glow: "0 0 20px #00ffff, 0 0 40px #00ffff66" },
-  { bg: "#ff3366", glow: "0 0 20px #ff3366, 0 0 40px #ff336666" },
-  { bg: "#9933ff", glow: "0 0 20px #9933ff, 0 0 40px #9933ff66" },
-  { bg: "#ff9900", glow: "0 0 20px #ff9900, 0 0 40px #ff990066" },
-  { bg: "#33ccff", glow: "0 0 20px #33ccff, 0 0 40px #33ccff66" },
-];
+const prizeColors: Record<number, { bg: string; border: string }> = {
+  0: { bg: "bg-gray-700", border: "border-gray-500" },
+  1: { bg: "bg-emerald-600", border: "border-emerald-400" },
+  2: { bg: "bg-blue-600", border: "border-blue-400" },
+  3: { bg: "bg-purple-600", border: "border-purple-400" },
+  4: { bg: "bg-pink-600", border: "border-pink-400" },
+  5: { bg: "bg-amber-500", border: "border-amber-300" },
+  6: { bg: "bg-red-600", border: "border-red-400" },
+  7: { bg: "bg-cyan-600", border: "border-cyan-400" },
+};
+
+function getPrizeRarity(value: number): { label: string; color: string } {
+  if (value >= 500) return { label: "LEGENDARY", color: "text-amber-400" };
+  if (value >= 100) return { label: "EPIC", color: "text-purple-400" };
+  if (value >= 10) return { label: "RARE", color: "text-blue-400" };
+  if (value >= 1) return { label: "UNCOMMON", color: "text-emerald-400" };
+  return { label: "COMMON", color: "text-gray-400" };
+}
+
+const ITEM_WIDTH = 120;
+const VISIBLE_ITEMS = 7;
+const FULL_CYCLES = 6;
+
+const SPIN_SOUND_DATA = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAcAQJ7Z3ax1AAAATW1zz/TJnF4LAABY2vXWsmUUBVeYz+W4axEKVZjP5bhrEQpVl87kunIOEFKVz+jGfScRR5TS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/";
+const WIN_SOUND_DATA = "data:audio/wav;base64,UklGRl9XAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYhWAACBhYaGhYWEg4KBgH+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wA=";
 
 export default function DailySpin() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0);
+  const [state, setState] = useState<SpinState>("idle");
   const [timeRemaining, setTimeRemaining] = useState("");
-  const [showResult, setShowResult] = useState<{ label: string; value: number; index: number } | null>(null);
-  const [glowPulse, setGlowPulse] = useState(false);
+  const [wonPrize, setWonPrize] = useState<{ label: string; value: number; index: number } | null>(null);
+  const [reelOffset, setReelOffset] = useState(0);
+  const [reelItems, setReelItems] = useState<ReelItem[]>([]);
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("lootbox-muted") !== "false";
+    }
+    return true;
+  });
+  
+  const spinSoundRef = useRef<HTMLAudioElement | null>(null);
+  const winSoundRef = useRef<HTMLAudioElement | null>(null);
+  
+  useEffect(() => {
+    spinSoundRef.current = new Audio(SPIN_SOUND_DATA);
+    spinSoundRef.current.volume = 0.3;
+    winSoundRef.current = new Audio(WIN_SOUND_DATA);
+    winSoundRef.current.volume = 0.3;
+    
+    return () => {
+      spinSoundRef.current = null;
+      winSoundRef.current = null;
+    };
+  }, []);
   
   const { data: status, refetch } = useQuery<{ canSpin: boolean; nextSpinTime: string | null }>({
     queryKey: ["/api/rewards/wheel/status"],
     enabled: !!user,
   });
   
+  useEffect(() => {
+    localStorage.setItem("lootbox-muted", isMuted ? "true" : "false");
+  }, [isMuted]);
+  
+  const playSound = useCallback((type: "spin" | "win") => {
+    if (isMuted) return;
+    
+    const audio = type === "spin" ? spinSoundRef.current : winSoundRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    }
+  }, [isMuted]);
+  
+  const generateReelItems = useCallback((targetIndex: number): ReelItem[] => {
+    const items: ReelItem[] = [];
+    const prizeCount = WHEEL_PRIZES.length;
+    
+    for (let cycle = 0; cycle < FULL_CYCLES; cycle++) {
+      for (let i = 0; i < prizeCount; i++) {
+        const prize = WHEEL_PRIZES[i];
+        items.push({
+          label: prize.label,
+          value: prize.value,
+          originalIndex: i,
+        });
+      }
+    }
+    
+    const targetPrize = WHEEL_PRIZES[targetIndex];
+    items.push({
+      label: targetPrize.label,
+      value: targetPrize.value,
+      originalIndex: targetIndex,
+    });
+    
+    return items;
+  }, []);
+  
   const spinMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/rewards/wheel/spin"),
     onSuccess: async (response) => {
       const data = await response.json();
       
-      const segmentAngle = 360 / WHEEL_PRIZES.length;
-      const prizeRotation = data.prizeIndex * segmentAngle;
-      const targetRotation = rotation + 360 * 6 + (360 - prizeRotation - segmentAngle / 2);
+      const items = generateReelItems(data.prizeIndex);
+      setReelItems(items);
+      setReelOffset(0);
       
-      setRotation(targetRotation);
+      setState("preparing");
       
       setTimeout(() => {
-        setIsSpinning(false);
-        setGlowPulse(true);
-        setShowResult({ label: data.prizeLabel, value: data.prizeValue, index: data.prizeIndex });
-        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-        refetch();
+        setState("spinning");
+        playSound("spin");
         
-        const isBigPrize = data.prizeValue >= 1;
+        const targetPosition = items.length - 1;
+        const targetOffset = targetPosition * ITEM_WIDTH;
+        setReelOffset(targetOffset);
         
-        toast({
-          title: isBigPrize ? "JACKPOT!" : "You Won!",
-          description: `${data.prizeLabel} play credits added to your balance!`,
-        });
-        
-        setTimeout(() => setGlowPulse(false), 3000);
-      }, 5000);
+        setTimeout(() => {
+          setState("revealing");
+          playSound("win");
+          setWonPrize({ label: data.prizeLabel, value: data.prizeValue, index: data.prizeIndex });
+          
+          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+          refetch();
+          
+          const isBigPrize = data.prizeValue >= 1;
+          
+          toast({
+            title: isBigPrize ? "JACKPOT!" : "You Won!",
+            description: `${data.prizeLabel} play credits added to your balance!`,
+          });
+          
+          setTimeout(() => {
+            setState("cooldown");
+          }, 3000);
+        }, 4000);
+      }, 500);
     },
     onError: () => {
-      setIsSpinning(false);
+      setState("idle");
       toast({
         title: "Error",
-        description: "Could not spin wheel",
+        description: "Could not open lootbox",
         variant: "destructive",
       });
     },
   });
   
-  const handleSpin = () => {
-    if (isSpinning || !status?.canSpin) return;
-    setIsSpinning(true);
-    setShowResult(null);
+  const handleOpen = () => {
+    if (state !== "idle" || !status?.canSpin) return;
+    setWonPrize(null);
     spinMutation.mutate();
   };
   
@@ -98,352 +192,346 @@ export default function DailySpin() {
     }
     
     const updateTimer = () => {
-      setTimeRemaining(formatTimeRemaining(status.nextSpinTime));
+      const time = formatTimeRemaining(status.nextSpinTime);
+      setTimeRemaining(time);
+      if (!time && state === "cooldown") {
+        setState("idle");
+        refetch();
+      }
     };
     
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     
     return () => clearInterval(interval);
-  }, [status?.nextSpinTime]);
+  }, [status?.nextSpinTime, state, refetch]);
+  
+  useEffect(() => {
+    if (status && !status.canSpin && state === "idle") {
+      setState("cooldown");
+    } else if (status?.canSpin && state === "cooldown") {
+      setState("idle");
+    }
+  }, [status, state]);
   
   if (!user) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto text-center py-16">
-          <RotateCw className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h1 className="text-2xl font-bold mb-2">Daily Spin</h1>
-          <p className="text-muted-foreground mb-6">Please log in to spin the wheel</p>
+          <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="text-2xl font-bold mb-2">Daily Lootbox</h1>
+          <p className="text-muted-foreground mb-6">Please log in to open your daily lootbox</p>
         </div>
       </Layout>
     );
   }
   
+  const crateState = state === "idle" || state === "cooldown" ? "closed" : 
+                     state === "preparing" || state === "spinning" ? "opening" : "opened";
+  
+  const defaultReelItems: ReelItem[] = WHEEL_PRIZES.map((prize, i) => ({
+    label: prize.label,
+    value: prize.value,
+    originalIndex: i,
+  }));
+  
+  const displayItems = reelItems.length > 0 ? reelItems : defaultReelItems;
+  
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Zap className="w-8 h-8 text-yellow-400" style={{ filter: "drop-shadow(0 0 10px #facc15)" }} />
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
             <h1 
-              className="text-4xl md:text-5xl font-black tracking-tight"
+              className="text-3xl md:text-4xl font-black tracking-tight"
               style={{ 
                 background: "linear-gradient(135deg, #00ff88 0%, #00ffff 50%, #ff00ff 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 0 20px rgba(0, 255, 136, 0.5))"
               }}
             >
-              DAILY SPIN
+              DAILY LOOTBOX
             </h1>
-            <Zap className="w-8 h-8 text-yellow-400" style={{ filter: "drop-shadow(0 0 10px #facc15)" }} />
-          </div>
-          <p className="text-muted-foreground">
-            Spin once every 24 hours for a chance to win big!
-            <span className="ml-2 text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">Play Money</span>
-          </p>
-        </div>
-        
-        <div 
-          className="relative mx-auto max-w-lg p-8 rounded-3xl"
-          style={{
-            background: "linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(20,20,30,0.9) 100%)",
-            border: "2px solid rgba(0,255,136,0.3)",
-            boxShadow: glowPulse 
-              ? "0 0 60px rgba(0,255,136,0.6), 0 0 120px rgba(0,255,255,0.3), inset 0 0 60px rgba(0,255,136,0.1)"
-              : "0 0 30px rgba(0,255,136,0.2), inset 0 0 30px rgba(0,0,0,0.5)"
-          }}
-        >
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-black border border-primary/50">
-            <span className="text-xs font-bold text-primary uppercase tracking-wider">Lootbox Spinner</span>
+            <p className="text-muted-foreground text-sm">
+              Open once every 24 hours
+              <span className="ml-2 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Play Money</span>
+            </p>
           </div>
           
-          <div className="flex flex-col items-center">
-            <div className="relative w-72 h-72 md:w-80 md:h-80 mb-8">
-              <div 
-                className="absolute -inset-4 rounded-full opacity-50"
-                style={{
-                  background: "conic-gradient(from 0deg, #00ff88, #00ffff, #ff00ff, #ffff00, #00ff88)",
-                  filter: "blur(20px)",
-                  animation: isSpinning ? "spin 2s linear infinite" : undefined
-                }}
-              />
-              
-              <div 
-                className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20"
-                style={{ filter: "drop-shadow(0 0 10px #00ff88)" }}
-              >
-                <div 
-                  className="w-0 h-0"
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMuted(!isMuted)}
+            className="text-muted-foreground hover:text-foreground"
+            data-testid="button-toggle-sound"
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </Button>
+        </div>
+        
+        <div className="flex justify-center gap-4 mb-8">
+          {["closed", "opening", "opened"].map((cState) => (
+            <div 
+              key={cState}
+              className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl transition-all duration-500 ${
+                crateState === cState 
+                  ? "bg-primary/20 border-2 border-primary shadow-lg shadow-primary/30 scale-110" 
+                  : "bg-secondary/30 border border-border opacity-50"
+              }`}
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Package 
+                  className={`w-8 h-8 md:w-10 md:h-10 transition-all duration-300 ${
+                    crateState === cState ? "text-primary" : "text-muted-foreground"
+                  } ${cState === "opening" && crateState === "opening" ? "animate-pulse" : ""}`}
                   style={{
-                    borderLeft: "16px solid transparent",
-                    borderRight: "16px solid transparent",
-                    borderTop: "28px solid #00ff88"
+                    transform: cState === "opened" ? "rotateX(20deg)" : "none",
                   }}
                 />
               </div>
-              
-              <motion.div 
-                className="relative w-full h-full rounded-full overflow-hidden"
-                style={{
-                  border: "4px solid #333",
-                  boxShadow: "0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5)"
-                }}
-                animate={{ rotate: rotation }}
-                transition={{ 
-                  duration: isSpinning ? 5 : 0, 
-                  ease: [0.2, 0.8, 0.2, 1]
-                }}
-              >
-                <svg viewBox="0 0 100 100" className="w-full h-full">
-                  <defs>
-                    {neonColors.map((color, i) => (
-                      <filter key={i} id={`glow-${i}`}>
-                        <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-                        <feMerge>
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    ))}
-                  </defs>
-                  
-                  {WHEEL_PRIZES.map((prize, i) => {
-                    const angle = (360 / WHEEL_PRIZES.length);
-                    const startAngle = i * angle - 90;
-                    const endAngle = startAngle + angle;
-                    
-                    const startRad = (startAngle * Math.PI) / 180;
-                    const endRad = (endAngle * Math.PI) / 180;
-                    
-                    const x1 = 50 + 50 * Math.cos(startRad);
-                    const y1 = 50 + 50 * Math.sin(startRad);
-                    const x2 = 50 + 50 * Math.cos(endRad);
-                    const y2 = 50 + 50 * Math.sin(endRad);
-                    
-                    const largeArc = angle > 180 ? 1 : 0;
-                    
-                    const textAngle = startAngle + angle / 2;
-                    const textRad = (textAngle * Math.PI) / 180;
-                    const textX = 50 + 32 * Math.cos(textRad);
-                    const textY = 50 + 32 * Math.sin(textRad);
-                    
-                    const color = neonColors[i % neonColors.length];
-                    const isBigPrize = prize.value >= 1;
-                    
-                    return (
-                      <g key={i}>
-                        <path
-                          d={`M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                          fill={i % 2 === 0 ? "#1a1a2e" : "#16213e"}
-                          stroke={color.bg}
-                          strokeWidth="0.5"
-                        />
-                        {isBigPrize && (
-                          <path
-                            d={`M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                            fill={`${color.bg}22`}
-                          />
-                        )}
-                        <text
-                          x={textX}
-                          y={textY}
-                          fill={color.bg}
-                          fontSize={isBigPrize ? "5" : "4.5"}
-                          fontWeight="bold"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          transform={`rotate(${textAngle + 90}, ${textX}, ${textY})`}
-                          style={{ 
-                            filter: `drop-shadow(0 0 3px ${color.bg})`,
-                            textShadow: color.glow
-                          }}
-                        >
-                          {prize.label}
-                        </text>
-                        {isBigPrize && (
-                          <g transform={`translate(${50 + 44 * Math.cos(textRad)}, ${50 + 44 * Math.sin(textRad)})`}>
-                            <text
-                              fill="#ffff00"
-                              fontSize="3"
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                              style={{ filter: "drop-shadow(0 0 2px #ffff00)" }}
-                            >
-                              ★
-                            </text>
-                          </g>
-                        )}
-                      </g>
-                    );
-                  })}
-                  
-                  <circle 
-                    cx="50" 
-                    cy="50" 
-                    r="10" 
-                    fill="#0a0a0f"
-                    stroke="#00ff88"
-                    strokeWidth="1"
-                    style={{ filter: "drop-shadow(0 0 10px #00ff88)" }}
-                  />
-                  <text
-                    x="50"
-                    y="50"
-                    fill="#00ff88"
-                    fontSize="4"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                  >
-                    SPIN
-                  </text>
-                </svg>
-              </motion.div>
-              
-              <div className="absolute inset-0 pointer-events-none">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full"
-                    style={{
-                      top: `${50 + 48 * Math.sin((i * Math.PI * 2) / 8)}%`,
-                      left: `${50 + 48 * Math.cos((i * Math.PI * 2) / 8)}%`,
-                      transform: "translate(-50%, -50%)",
-                      background: isSpinning || glowPulse ? neonColors[i].bg : "#333",
-                      boxShadow: isSpinning || glowPulse ? neonColors[i].glow : "none",
-                      transition: "all 0.3s ease"
-                    }}
-                  />
-                ))}
+              <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {cState}
               </div>
             </div>
-            
-            <AnimatePresence>
-              {showResult && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  className="mb-6 text-center"
-                >
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    {showResult.value >= 1 && <Trophy className="w-6 h-6 text-yellow-400" style={{ filter: "drop-shadow(0 0 5px #facc15)" }} />}
-                    <span className="text-sm text-muted-foreground uppercase tracking-wider">You Won</span>
-                    {showResult.value >= 1 && <Trophy className="w-6 h-6 text-yellow-400" style={{ filter: "drop-shadow(0 0 5px #facc15)" }} />}
-                  </div>
-                  <p 
-                    className="text-4xl font-black"
-                    style={{
-                      color: neonColors[showResult.index % neonColors.length].bg,
-                      textShadow: neonColors[showResult.index % neonColors.length].glow
-                    }}
+          ))}
+        </div>
+        
+        <div 
+          className="relative mx-auto max-w-2xl rounded-2xl overflow-hidden mb-8"
+          style={{
+            background: "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(20,20,30,0.95) 100%)",
+            border: "2px solid rgba(0,255,136,0.3)",
+            boxShadow: state === "revealing" 
+              ? "0 0 60px rgba(0,255,136,0.6), 0 0 120px rgba(0,255,255,0.3)"
+              : "0 0 30px rgba(0,255,136,0.2)"
+          }}
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-primary via-primary/50 to-primary z-20 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-12 border-l-transparent border-r-transparent border-t-primary" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-12 border-l-transparent border-r-transparent border-b-primary" />
+          </div>
+          
+          <div 
+            className="relative h-32 md:h-40 overflow-hidden"
+            style={{
+              maskImage: "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
+            }}
+          >
+            <motion.div
+              className="flex absolute top-1/2 -translate-y-1/2"
+              animate={{ x: -reelOffset }}
+              transition={{
+                duration: state === "spinning" ? 4 : 0,
+                ease: [0.25, 0.1, 0.25, 1],
+              }}
+              style={{ left: `calc(50% - ${ITEM_WIDTH / 2}px)` }}
+            >
+              {displayItems.map((prize, i) => {
+                const colors = prizeColors[prize.originalIndex % 8];
+                const rarity = getPrizeRarity(prize.value);
+                
+                return (
+                  <div 
+                    key={i}
+                    className={`flex-shrink-0 h-24 md:h-32 mx-1 rounded-lg ${colors.bg} ${colors.border} border-2 flex flex-col items-center justify-center transition-all`}
+                    style={{ width: ITEM_WIDTH }}
                   >
-                    {showResult.label}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            {status?.canSpin ? (
-              <Button 
-                size="lg"
-                className="w-full max-w-xs font-black text-lg py-6 relative overflow-hidden group"
-                style={{
-                  background: "linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)",
-                  boxShadow: "0 0 30px rgba(0,255,136,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
-                  border: "none"
-                }}
-                onClick={handleSpin}
-                disabled={isSpinning}
-                data-testid="button-spin-wheel"
-              >
-                <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
-                {isSpinning ? (
-                  <>
-                    <RotateCw className="w-5 h-5 mr-2 animate-spin" />
-                    SPINNING...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    SPIN NOW
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div 
-                className="w-full max-w-xs text-center py-4 px-6 rounded-xl"
-                style={{
-                  background: "rgba(0,0,0,0.5)",
-                  border: "1px solid rgba(255,255,255,0.1)"
-                }}
-              >
-                <div className="flex items-center justify-center gap-2 text-muted-foreground mb-2">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm uppercase tracking-wider">Next spin in</span>
-                </div>
-                <span 
-                  className="font-mono text-3xl font-bold"
-                  style={{
-                    color: "#00ffff",
-                    textShadow: "0 0 10px #00ffff, 0 0 20px #00ffff66"
-                  }}
-                >
-                  {timeRemaining}
-                </span>
-              </div>
-            )}
+                    <span className={`text-[10px] font-bold uppercase ${rarity.color}`}>
+                      {rarity.label}
+                    </span>
+                    <span className="text-xl md:text-2xl font-black text-white drop-shadow-lg">
+                      {prize.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </motion.div>
           </div>
         </div>
         
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {WHEEL_PRIZES.map((prize, i) => {
-            const color = neonColors[i % neonColors.length];
-            const isBigPrize = prize.value >= 1;
-            
-            return (
-              <div 
-                key={i}
-                className="p-3 rounded-lg text-center relative overflow-hidden"
+        <AnimatePresence>
+          {state === "revealing" && wonPrize && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+              onClick={() => setState("cooldown")}
+            >
+              <motion.div
+                initial={{ rotateY: -90 }}
+                animate={{ rotateY: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div 
+                  className="w-64 md:w-80 p-8 rounded-2xl text-center"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(0,255,136,0.2) 0%, rgba(0,0,0,0.9) 50%, rgba(0,255,255,0.2) 100%)",
+                    border: "3px solid #00ff88",
+                    boxShadow: "0 0 60px rgba(0,255,136,0.5), 0 0 120px rgba(0,255,136,0.3), inset 0 0 60px rgba(0,255,136,0.1)"
+                  }}
+                >
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 rounded-2xl"
+                    style={{
+                      background: "radial-gradient(circle at center, rgba(0,255,136,0.3) 0%, transparent 70%)",
+                    }}
+                  />
+                  
+                  <div className="absolute -inset-4 pointer-events-none">
+                    {[...Array(12)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                        animate={{ 
+                          opacity: [0, 1, 0],
+                          scale: [0, 1, 0],
+                          x: Math.cos(i * 30 * Math.PI / 180) * 100,
+                          y: Math.sin(i * 30 * Math.PI / 180) * 100,
+                        }}
+                        transition={{ 
+                          duration: 1.5, 
+                          delay: i * 0.1,
+                          repeat: Infinity,
+                          repeatDelay: 1
+                        }}
+                        className="absolute top-1/2 left-1/2 w-2 h-2 rounded-full bg-primary"
+                        style={{ filter: "blur(1px)" }}
+                      />
+                    ))}
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <span className={`text-sm font-bold uppercase tracking-widest ${getPrizeRarity(wonPrize.value).color}`}>
+                      {getPrizeRarity(wonPrize.value).label}
+                    </span>
+                    <h2 className="text-lg text-muted-foreground mt-2 mb-1">YOU WON</h2>
+                    <motion.p 
+                      className="text-5xl md:text-6xl font-black"
+                      style={{
+                        color: "#00ff88",
+                        textShadow: "0 0 20px #00ff88, 0 0 40px #00ff8866"
+                      }}
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                    >
+                      {wonPrize.label}
+                    </motion.p>
+                    <p className="text-sm text-muted-foreground mt-3">Play Credits</p>
+                    
+                    <Button 
+                      className="mt-6"
+                      onClick={() => setState("cooldown")}
+                      data-testid="button-close-reveal"
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <div className="text-center">
+          {state === "idle" && status?.canSpin ? (
+            <Button 
+              size="lg"
+              className="w-full max-w-sm font-black text-xl py-8 relative overflow-hidden group"
+              style={{
+                background: "linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)",
+                boxShadow: "0 0 40px rgba(0,255,136,0.5), inset 0 2px 0 rgba(255,255,255,0.2)",
+              }}
+              onClick={handleOpen}
+              data-testid="button-open-lootbox"
+            >
+              <motion.span 
+                className="absolute inset-0 bg-white/20"
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+              />
+              <Sparkles className="w-6 h-6 mr-3" />
+              OPEN LOOTBOX
+            </Button>
+          ) : state === "preparing" || state === "spinning" ? (
+            <div className="py-8">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                className="inline-block"
+              >
+                <Package className="w-8 h-8 text-primary" />
+              </motion.div>
+              <p className="text-lg font-bold text-primary mt-2 animate-pulse">
+                {state === "preparing" ? "Preparing..." : "Opening..."}
+              </p>
+            </div>
+          ) : (
+            <div 
+              className="max-w-sm mx-auto text-center py-6 px-8 rounded-xl"
+              style={{
+                background: "rgba(0,0,0,0.5)",
+                border: "1px solid rgba(255,255,255,0.1)"
+              }}
+            >
+              <div className="flex items-center justify-center gap-2 text-muted-foreground mb-2">
+                <Clock className="w-4 h-4" />
+                <span className="text-sm uppercase tracking-wider">Next lootbox in</span>
+              </div>
+              <span 
+                className="font-mono text-3xl font-bold"
                 style={{
-                  background: isBigPrize ? `${color.bg}15` : "rgba(0,0,0,0.3)",
-                  border: `1px solid ${isBigPrize ? color.bg : "rgba(255,255,255,0.1)"}`
+                  color: "#00ffff",
+                  textShadow: "0 0 10px #00ffff"
                 }}
               >
-                {isBigPrize && (
-                  <Star 
-                    className="absolute top-1 right-1 w-3 h-3" 
-                    style={{ color: color.bg, filter: `drop-shadow(0 0 3px ${color.bg})` }}
-                  />
-                )}
+                {timeRemaining || "00:00:00"}
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-10">
+          <h3 className="text-center text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+            Possible Rewards
+          </h3>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+            {WHEEL_PRIZES.map((prize, i) => {
+              const colors = prizeColors[i % 8];
+              const rarity = getPrizeRarity(prize.value);
+              
+              return (
                 <div 
-                  className="font-bold text-lg"
-                  style={{ color: color.bg }}
+                  key={i}
+                  className={`p-2 rounded-lg text-center ${colors.bg} ${colors.border} border opacity-80 hover:opacity-100 transition-opacity`}
                 >
-                  {prize.label}
+                  <span className={`text-[8px] font-bold uppercase ${rarity.color}`}>
+                    {rarity.label}
+                  </span>
+                  <div className="text-sm font-bold text-white">
+                    {prize.label}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {isBigPrize ? "JACKPOT" : "Prize"}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
         
         <div className="mt-8 p-4 rounded-lg bg-muted/30 border border-border text-center">
           <p className="text-sm text-muted-foreground">
-            This is a play-money demo. No real currency is involved.
+            This is a play-money demo. No real currency is involved. All outcomes are determined by weighted randomness with no manipulation.
           </p>
         </div>
       </div>
-      
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </Layout>
   );
 }
