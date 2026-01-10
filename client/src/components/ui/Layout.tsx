@@ -61,9 +61,9 @@ export function Layout({ children }: LayoutProps) {
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer group">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="font-display font-bold text-primary-foreground text-xl">S</span>
+                <span className="font-display font-bold text-primary-foreground text-xl">L</span>
               </div>
-              <span className="font-display font-bold text-xl tracking-tight hidden sm:block group-hover:text-primary transition-colors">STAKE<span className="text-primary">CLONE</span></span>
+              <span className="font-display font-bold text-xl tracking-tight hidden sm:block group-hover:text-primary transition-colors">LUBE<span className="text-primary">.FUN</span></span>
             </div>
           </Link>
         </div>
