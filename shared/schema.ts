@@ -20,11 +20,10 @@ export const users = pgTable("users", {
 });
 
 // Lootbox prizes with stable IDs and weights (higher weight = more common)
-// Common prizes (~99.5% total): $0.05 - $2.00
+// Common prizes (~99.5% total): $0.10 - $2.00
 // Big wins (~0.5% total): $5.00 - $100.00
 export const WHEEL_PRIZES = [
   // Common tier - high probability
-  { id: "cent_5", label: "$0.05", value: 0.05, weight: 15, rarity: "common" as const },
   { id: "cent_10", label: "$0.10", value: 0.10, weight: 14, rarity: "common" as const },
   { id: "cent_20", label: "$0.20", value: 0.20, weight: 13, rarity: "common" as const },
   { id: "cent_25", label: "$0.25", value: 0.25, weight: 12, rarity: "common" as const },
