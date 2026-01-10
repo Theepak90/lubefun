@@ -21,14 +21,14 @@ export const users = pgTable("users", {
 
 // Lootbox prizes with stable IDs and weights (higher weight = more common)
 export const WHEEL_PRIZES = [
-  { id: "penny_1", label: "1¢", value: 0.01, weight: 35 },
-  { id: "penny_2", label: "2¢", value: 0.02, weight: 25 },
-  { id: "penny_3", label: "3¢", value: 0.03, weight: 20 },
-  { id: "penny_5", label: "5¢", value: 0.05, weight: 12 },
-  { id: "dollar_5", label: "$5", value: 5, weight: 5 },
-  { id: "dollar_50", label: "$50", value: 50, weight: 2 },
-  { id: "dollar_500", label: "$500", value: 500, weight: 0.8 },
-  { id: "dollar_1000", label: "$1000", value: 1000, weight: 0.2 },
+  { id: "penny_1", label: "1¢", value: 0.01, weight: 40, rarity: "common" as const },
+  { id: "penny_2", label: "2¢", value: 0.02, weight: 30, rarity: "common" as const },
+  { id: "penny_3", label: "3¢", value: 0.03, weight: 20, rarity: "common" as const },
+  { id: "penny_5", label: "5¢", value: 0.05, weight: 9.5, rarity: "common" as const },
+  { id: "dollar_5", label: "$5", value: 5, weight: 0.4, rarity: "uncommon" as const },
+  { id: "dollar_50", label: "$50", value: 50, weight: 0.08, rarity: "rare" as const },
+  { id: "dollar_500", label: "$500", value: 500, weight: 0.015, rarity: "epic" as const },
+  { id: "dollar_1000", label: "$1000", value: 1000, weight: 0.005, rarity: "legendary" as const },
 ] as const;
 
 export type PrizeId = typeof WHEEL_PRIZES[number]["id"];

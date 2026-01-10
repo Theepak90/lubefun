@@ -15,7 +15,7 @@ interface ReelItem {
   id: string;
   label: string;
   value: number;
-  originalIndex: number;
+  rarity: Rarity;
 }
 
 function formatTimeRemaining(isoString: string | null): string {
@@ -30,27 +30,18 @@ function formatTimeRemaining(isoString: string | null): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-const prizeColors: Record<number, { bg: string; border: string }> = {
-  0: { bg: "bg-gray-700", border: "border-gray-500" },
-  1: { bg: "bg-emerald-600", border: "border-emerald-400" },
-  2: { bg: "bg-blue-600", border: "border-blue-400" },
-  3: { bg: "bg-purple-600", border: "border-purple-400" },
-  4: { bg: "bg-pink-600", border: "border-pink-400" },
-  5: { bg: "bg-amber-500", border: "border-amber-300" },
-  6: { bg: "bg-red-600", border: "border-red-400" },
-  7: { bg: "bg-cyan-600", border: "border-cyan-400" },
+type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+const rarityStyles: Record<Rarity, { bg: string; border: string; label: string; labelColor: string }> = {
+  common: { bg: "bg-gray-700", border: "border-gray-500", label: "COMMON", labelColor: "text-gray-400" },
+  uncommon: { bg: "bg-emerald-700", border: "border-emerald-500", label: "UNCOMMON", labelColor: "text-emerald-400" },
+  rare: { bg: "bg-blue-700", border: "border-blue-500", label: "RARE", labelColor: "text-blue-400" },
+  epic: { bg: "bg-purple-700", border: "border-purple-500", label: "EPIC", labelColor: "text-purple-400" },
+  legendary: { bg: "bg-amber-600", border: "border-amber-400", label: "LEGENDARY", labelColor: "text-amber-400" },
 };
 
-function getPrizeRarity(value: number): { label: string; color: string } {
-  if (value >= 500) return { label: "LEGENDARY", color: "text-amber-400" };
-  if (value >= 100) return { label: "EPIC", color: "text-purple-400" };
-  if (value >= 10) return { label: "RARE", color: "text-blue-400" };
-  if (value >= 1) return { label: "UNCOMMON", color: "text-emerald-400" };
-  return { label: "COMMON", color: "text-gray-400" };
-}
-
-const ITEM_WIDTH = 120;
-const VISIBLE_ITEMS = 7;
+const ITEM_WIDTH = 180;
+const ITEM_GAP = 8;
 const FULL_CYCLES = 6;
 
 const SPIN_SOUND_DATA = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAcAQJ7Z3ax1AAAATW1zz/TJnF4LAABY2vXWsmUUBVeYz+W4axEKVZjP5bhrEQpVl87kunIOEFKVz+jGfScRR5TS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/";
@@ -116,7 +107,7 @@ export default function DailySpin() {
           id: prize.id,
           label: prize.label,
           value: prize.value,
-          originalIndex: i,
+          rarity: prize.rarity,
         });
       }
     }
@@ -127,7 +118,7 @@ export default function DailySpin() {
       id: targetPrize.id,
       label: targetPrize.label,
       value: targetPrize.value,
-      originalIndex: targetIndex >= 0 ? targetIndex : 0,
+      rarity: targetPrize.rarity,
     });
     
     return items;
@@ -154,7 +145,7 @@ export default function DailySpin() {
         playSound("spin");
         
         const targetPosition = items.length - 1;
-        const targetOffset = targetPosition * ITEM_WIDTH;
+        const targetOffset = targetPosition * (ITEM_WIDTH + ITEM_GAP);
         setReelOffset(targetOffset);
         
         setTimeout(() => {
@@ -242,11 +233,11 @@ export default function DailySpin() {
   const crateState = state === "idle" || state === "cooldown" ? "closed" : 
                      state === "preparing" || state === "spinning" ? "opening" : "opened";
   
-  const defaultReelItems: ReelItem[] = WHEEL_PRIZES.map((prize, i) => ({
+  const defaultReelItems: ReelItem[] = WHEEL_PRIZES.map((prize) => ({
     id: prize.id,
     label: prize.label,
     value: prize.value,
-    originalIndex: i,
+    rarity: prize.rarity,
   }));
   
   const displayItems = reelItems.length > 0 ? reelItems : defaultReelItems;
@@ -311,7 +302,7 @@ export default function DailySpin() {
         </div>
         
         <div 
-          className="relative mx-auto max-w-2xl rounded-2xl overflow-hidden mb-8"
+          className="relative mx-auto w-full max-w-[900px] rounded-2xl overflow-hidden mb-8"
           style={{
             background: "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(20,20,30,0.95) 100%)",
             border: "2px solid rgba(0,255,136,0.3)",
@@ -321,40 +312,44 @@ export default function DailySpin() {
           }}
         >
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-primary via-primary/50 to-primary z-20 pointer-events-none">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-12 border-l-transparent border-r-transparent border-t-primary" />
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-12 border-l-transparent border-r-transparent border-b-primary" />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-[12px] border-l-transparent border-r-transparent border-t-primary" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-[12px] border-l-transparent border-r-transparent border-b-primary" />
           </div>
           
           <div 
-            className="relative h-32 md:h-40 overflow-hidden"
+            className="relative h-36 md:h-44 overflow-hidden"
             style={{
-              maskImage: "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
-              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)",
+              maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
             }}
           >
             <motion.div
-              className="flex absolute top-1/2 -translate-y-1/2"
+              className="absolute top-1/2 -translate-y-1/2 flex"
               animate={{ x: -reelOffset }}
               transition={{
                 duration: state === "spinning" ? 4 : 0,
                 ease: [0.25, 0.1, 0.25, 1],
               }}
-              style={{ left: `calc(50% - ${ITEM_WIDTH / 2}px)` }}
+              style={{ 
+                left: `calc(50% - ${ITEM_WIDTH / 2}px)`,
+                gap: `${ITEM_GAP}px`,
+                paddingLeft: ITEM_WIDTH,
+                paddingRight: ITEM_WIDTH,
+              }}
             >
               {displayItems.map((prize, i) => {
-                const colors = prizeColors[prize.originalIndex % 8];
-                const rarity = getPrizeRarity(prize.value);
+                const styles = rarityStyles[prize.rarity];
                 
                 return (
                   <div 
                     key={i}
-                    className={`flex-shrink-0 h-24 md:h-32 mx-1 rounded-lg ${colors.bg} ${colors.border} border-2 flex flex-col items-center justify-center transition-all`}
+                    className={`flex-shrink-0 h-28 md:h-36 rounded-lg ${styles.bg} ${styles.border} border-2 flex flex-col items-center justify-center`}
                     style={{ width: ITEM_WIDTH }}
                   >
-                    <span className={`text-[10px] font-bold uppercase ${rarity.color}`}>
-                      {rarity.label}
+                    <span className={`text-xs font-bold uppercase tracking-wide ${styles.labelColor}`}>
+                      {styles.label}
                     </span>
-                    <span className="text-xl md:text-2xl font-black text-white drop-shadow-lg">
+                    <span className="text-2xl md:text-3xl font-black text-white drop-shadow-lg mt-1">
                       {prize.label}
                     </span>
                   </div>
@@ -424,8 +419,8 @@ export default function DailySpin() {
                   </div>
                   
                   <div className="relative z-10">
-                    <span className={`text-sm font-bold uppercase tracking-widest ${getPrizeRarity(wonPrize.value).color}`}>
-                      {getPrizeRarity(wonPrize.value).label}
+                    <span className={`text-sm font-bold uppercase tracking-widest ${rarityStyles[WHEEL_PRIZES.find(p => p.id === wonPrize.id)?.rarity ?? "common"].labelColor}`}>
+                      {rarityStyles[WHEEL_PRIZES.find(p => p.id === wonPrize.id)?.rarity ?? "common"].label}
                     </span>
                     <h2 className="text-lg text-muted-foreground mt-2 mb-1">YOU WON</h2>
                     <motion.p 
@@ -518,25 +513,69 @@ export default function DailySpin() {
           <h3 className="text-center text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
             Possible Rewards
           </h3>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
             {WHEEL_PRIZES.map((prize, i) => {
-              const colors = prizeColors[i % 8];
-              const rarity = getPrizeRarity(prize.value);
+              const styles = rarityStyles[prize.rarity];
               
               return (
                 <div 
                   key={i}
-                  className={`p-2 rounded-lg text-center ${colors.bg} ${colors.border} border opacity-80 hover:opacity-100 transition-opacity`}
+                  className={`p-3 rounded-lg text-center ${styles.bg} ${styles.border} border-2 opacity-80 hover:opacity-100 transition-opacity`}
                 >
-                  <span className={`text-[8px] font-bold uppercase ${rarity.color}`}>
-                    {rarity.label}
+                  <span className={`text-[10px] font-bold uppercase ${styles.labelColor}`}>
+                    {styles.label}
                   </span>
-                  <div className="text-sm font-bold text-white">
+                  <div className="text-lg font-bold text-white mt-1">
                     {prize.label}
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+        
+        <div className="mt-8">
+          <h3 className="text-center text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+            Drop Rates
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
+            {[
+              { rarity: "common" as Rarity, chance: "99.5%", prizes: "1¢ - 5¢" },
+              { rarity: "uncommon" as Rarity, chance: "0.4%", prizes: "$5" },
+              { rarity: "rare" as Rarity, chance: "0.08%", prizes: "$50" },
+              { rarity: "epic" as Rarity, chance: "0.015%", prizes: "$500" },
+            ].map((tier) => {
+              const styles = rarityStyles[tier.rarity];
+              return (
+                <div 
+                  key={tier.rarity}
+                  className={`p-3 rounded-lg text-center ${styles.bg} ${styles.border} border`}
+                >
+                  <span className={`text-xs font-bold uppercase ${styles.labelColor}`}>
+                    {styles.label}
+                  </span>
+                  <div className="text-lg font-bold text-white mt-1">
+                    {tier.chance}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {tier.prizes}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-center mt-3">
+            <div className={`p-3 rounded-lg text-center ${rarityStyles.legendary.bg} ${rarityStyles.legendary.border} border w-48`}>
+              <span className={`text-xs font-bold uppercase ${rarityStyles.legendary.labelColor}`}>
+                LEGENDARY
+              </span>
+              <div className="text-lg font-bold text-white mt-1">
+                0.005%
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                $1000
+              </div>
+            </div>
           </div>
         </div>
         
