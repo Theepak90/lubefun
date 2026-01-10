@@ -40,9 +40,18 @@ const rarityStyles: Record<Rarity, { bg: string; border: string; label: string; 
   legendary: { bg: "bg-amber-600", border: "border-amber-400", label: "LEGENDARY", labelColor: "text-amber-400" },
 };
 
-const ITEM_WIDTH = 180;
-const ITEM_GAP = 8;
-const FULL_CYCLES = 6;
+// Reel sizing constants - single source of truth
+const REEL = {
+  ITEM_WIDTH: 180,
+  ITEM_GAP: 8,
+  VIEWPORT_HEIGHT: 208,
+  FULL_CYCLES: 6,
+} as const;
+
+// Calculate offset to center a specific item under the pointer
+function calculateReelOffset(targetIndex: number): number {
+  return targetIndex * (REEL.ITEM_WIDTH + REEL.ITEM_GAP);
+}
 
 const SPIN_SOUND_DATA = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAcAQJ7Z3ax1AAAATW1zz/TJnF4LAABY2vXWsmUUBVeYz+W4axEKVZjP5bhrEQpVl87kunIOEFKVz+jGfScRR5TS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/kNLpyoMtEz+Q0unKgy0TP5DS6cqDLRM/";
 const WIN_SOUND_DATA = "data:audio/wav;base64,UklGRl9XAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYhWAACBhYaGhYWEg4KBgH+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wA=";
@@ -100,7 +109,7 @@ export default function DailySpin() {
     const items: ReelItem[] = [];
     const prizeCount = WHEEL_PRIZES.length;
     
-    for (let cycle = 0; cycle < FULL_CYCLES; cycle++) {
+    for (let cycle = 0; cycle < REEL.FULL_CYCLES; cycle++) {
       for (let i = 0; i < prizeCount; i++) {
         const prize = WHEEL_PRIZES[i];
         items.push({
@@ -145,8 +154,7 @@ export default function DailySpin() {
         playSound("spin");
         
         const targetPosition = items.length - 1;
-        const targetOffset = targetPosition * (ITEM_WIDTH + ITEM_GAP);
-        setReelOffset(targetOffset);
+        setReelOffset(calculateReelOffset(targetPosition));
         
         setTimeout(() => {
           setState("revealing");
@@ -301,9 +309,11 @@ export default function DailySpin() {
           ))}
         </div>
         
+        {/* Reel Container - fixed height, proper z-index layering */}
         <div 
-          className="relative mx-auto w-full max-w-[900px] rounded-2xl overflow-hidden mb-8"
+          className="relative mx-auto w-full max-w-[900px] rounded-2xl mb-8"
           style={{
+            height: REEL.VIEWPORT_HEIGHT,
             background: "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(20,20,30,0.95) 100%)",
             border: "2px solid rgba(255,215,0,0.4)",
             boxShadow: state === "revealing" 
@@ -311,13 +321,9 @@ export default function DailySpin() {
               : "0 0 30px rgba(255,215,0,0.2)"
           }}
         >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-amber-400 via-amber-400/50 to-amber-400 z-40 pointer-events-none">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-[12px] border-l-transparent border-r-transparent border-t-amber-400" />
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-[12px] border-l-transparent border-r-transparent border-b-amber-400" />
-          </div>
-          
+          {/* Layer 1: Reel track (z-10) */}
           <div 
-            className="relative h-44 md:h-52 overflow-hidden"
+            className="absolute inset-0 overflow-hidden z-10"
             style={{
               maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
@@ -331,8 +337,8 @@ export default function DailySpin() {
                 ease: [0.25, 0.1, 0.25, 1],
               }}
               style={{ 
-                left: `calc(50% - ${ITEM_WIDTH / 2}px)`,
-                gap: `${ITEM_GAP}px`,
+                left: `calc(50% - ${REEL.ITEM_WIDTH / 2}px)`,
+                gap: `${REEL.ITEM_GAP}px`,
               }}
             >
               {displayItems.map((prize, i) => {
@@ -341,8 +347,11 @@ export default function DailySpin() {
                 return (
                   <div 
                     key={i}
-                    className={`flex-shrink-0 h-28 md:h-36 rounded-lg ${styles.bg} ${styles.border} border-2 flex flex-col items-center justify-center`}
-                    style={{ width: ITEM_WIDTH }}
+                    className={`flex-shrink-0 rounded-lg ${styles.bg} ${styles.border} border-2 flex flex-col items-center justify-center`}
+                    style={{ 
+                      width: REEL.ITEM_WIDTH,
+                      height: REEL.VIEWPORT_HEIGHT - 48,
+                    }}
                   >
                     <span className={`text-xs font-bold uppercase tracking-wide ${styles.labelColor}`}>
                       {styles.label}
@@ -356,7 +365,8 @@ export default function DailySpin() {
             </motion.div>
           </div>
           
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+          {/* Layer 2: Gift overlay (z-20) */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
             <motion.div
               className="relative"
               animate={
@@ -434,6 +444,12 @@ export default function DailySpin() {
                 </AnimatePresence>
               </div>
             </motion.div>
+          </div>
+          
+          {/* Layer 3: Center pointer (z-30) */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-amber-400 via-amber-400/50 to-amber-400 z-30 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-[12px] border-l-transparent border-r-transparent border-t-amber-400" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-[12px] border-l-transparent border-r-transparent border-b-amber-400" />
           </div>
         </div>
         
