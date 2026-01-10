@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Shield, Zap, Play, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { getPlinkoMultipliers, PlinkoRisk, PLINKO_CONFIG } from "@shared/config";
@@ -22,11 +23,24 @@ interface PlinkoResponse {
   multiplier: number;
 }
 
-interface BallPosition {
+interface BallInstance {
+  id: string;
+  betAmount: number;
+  path: number[];
+  binIndex: number;
+  multiplier: number;
+  bet: any;
   x: number;
   y: number;
   step: number;
+  status: 'animating' | 'landed' | 'done';
+  landedAt?: number;
 }
+
+// Rate limiting constants
+const MAX_BALLS_PER_SECOND = 10;
+const MAX_ACTIVE_BALLS = 50;
+const AUTO_DROP_INTERVAL = 200; // 5 balls per second for auto mode
 
 export default function Plinko() {
   const { user } = useAuth();
@@ -36,28 +50,58 @@ export default function Plinko() {
   const [amount, setAmount] = useState<string>("1");
   const [risk, setRisk] = useState<PlinkoRisk>("medium");
   const [rows, setRows] = useState<number>(12);
-  const [dropping, setDropping] = useState(false);
-  const [ballPosition, setBallPosition] = useState<BallPosition | null>(null);
-  const [activePath, setActivePath] = useState<number[]>([]);
-  const [lastResult, setLastResult] = useState<{ binIndex: number; multiplier: number } | null>(null);
+  const [balls, setBalls] = useState<BallInstance[]>([]);
+  const [autoDropping, setAutoDropping] = useState(false);
+  const [pendingDrops, setPendingDrops] = useState(0);
   
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  // Rate limiting state
+  const dropTimestamps = useRef<number[]>([]);
+  const autoDropIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
   const multipliers = getPlinkoMultipliers(risk, rows);
   const numBins = rows + 1;
+  const activeBallCount = balls.filter(b => b.status !== 'done').length;
+
+  // Constants for board layout
+  const PEG_SPACING = 32;
+  const ROW_HEIGHT = 28;
+  const PEG_AREA_TOP = 16;
+  const BIN_HEIGHT = 28;
+  const BIN_MARGIN = 4;
+  const BALL_RADIUS = 8;
 
   const plinkoMutation = useMutation({
-    mutationFn: async (data: { betAmount: number; risk: string; rows: number }) => {
-      const res = await apiRequest("POST", "/api/games/plinko", data);
-      return res.json() as Promise<PlinkoResponse>;
+    mutationFn: async (data: { betAmount: number; risk: string; rows: number; ballId: string }) => {
+      const res = await apiRequest("POST", "/api/games/plinko", {
+        betAmount: data.betAmount,
+        risk: data.risk,
+        rows: data.rows,
+      });
+      const result = await res.json() as PlinkoResponse;
+      return { ...result, ballId: data.ballId };
     },
     onSuccess: (data) => {
-      setActivePath(data.path);
-      animateBall(data.path, data.binIndex, data.multiplier, data.bet);
+      // Add ball to active balls
+      const newBall: BallInstance = {
+        id: data.ballId,
+        betAmount: data.bet.betAmount,
+        path: data.path,
+        binIndex: data.binIndex,
+        multiplier: data.multiplier,
+        bet: data.bet,
+        x: 0,
+        y: -10,
+        step: -1,
+        status: 'animating',
+      };
+      setBalls(prev => [...prev, newBall]);
+      setPendingDrops(prev => Math.max(0, prev - 1));
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (error: any) => {
-      setDropping(false);
+      setPendingDrops(prev => Math.max(0, prev - 1));
       toast({
         title: "Error",
         description: error.message || "Failed to place bet",
@@ -66,76 +110,194 @@ export default function Plinko() {
     },
   });
 
-  // Constants for board layout
-  const PEG_SPACING = 32;
-  const ROW_HEIGHT = 28;
-  const PEG_AREA_TOP = 16;
-  const BIN_HEIGHT = 28;
-  const BIN_MARGIN = 4;
-  
-  const animateBall = useCallback((path: number[], binIndex: number, multiplier: number, bet: any) => {
-    let step = 0;
-    setBallPosition({ x: 0, y: -10, step: -1 });
+  // Check rate limiting
+  const canDropBall = useCallback(() => {
+    const now = Date.now();
+    // Clean old timestamps (older than 1 second)
+    dropTimestamps.current = dropTimestamps.current.filter(t => now - t < 1000);
+    
+    // Check rate limit
+    if (dropTimestamps.current.length >= MAX_BALLS_PER_SECOND) {
+      return false;
+    }
+    
+    // Check active balls limit
+    if (activeBallCount + pendingDrops >= MAX_ACTIVE_BALLS) {
+      return false;
+    }
+    
+    return true;
+  }, [activeBallCount, pendingDrops]);
 
-    const animate = () => {
-      if (step < path.length) {
-        // Ball is moving through peg rows
-        let x = 0;
-        for (let i = 0; i <= step; i++) {
-          x += path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+  // Drop a single ball
+  const dropBall = useCallback(() => {
+    if (!user || baseAmount < 0.1 || baseAmount > user.balance) return false;
+    if (!canDropBall()) {
+      toast({
+        title: "Rate Limited",
+        description: "Too many balls! Wait a moment.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const ballId = `ball-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    dropTimestamps.current.push(Date.now());
+    setPendingDrops(prev => prev + 1);
+    plinkoMutation.mutate({ betAmount: baseAmount, risk, rows, ballId });
+    return true;
+  }, [user, baseAmount, risk, rows, canDropBall, plinkoMutation, toast]);
+
+  // Drop multiple balls
+  const dropMultiple = useCallback((count: number) => {
+    let dropped = 0;
+    const dropNext = () => {
+      if (dropped < count && dropBall()) {
+        dropped++;
+        if (dropped < count) {
+          setTimeout(dropNext, 100); // 100ms between each drop
         }
-        const y = PEG_AREA_TOP + (step + 1) * ROW_HEIGHT;
-        setBallPosition({ x, y, step });
-        step++;
-        animationRef.current = setTimeout(animate, 65);
-      } else if (step === path.length) {
-        // Final position - land in the bin
-        let x = 0;
-        for (let i = 0; i < path.length; i++) {
-          x += path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
-        }
-        // Calculate final Y so ball CENTER lands in bin center
-        // Board height = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8
-        // Bins are positioned: bottom: 4px, height: BIN_HEIGHT
-        // So bin center from top = boardHeight - 4 - BIN_HEIGHT/2
-        // Ball is 16px (w-4 h-4), radius = 8
-        // Ball top = binCenterY - 8
-        const BALL_RADIUS = 8;
-        const currentBoardHeight = PEG_AREA_TOP + path.length * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
-        const binCenterY = currentBoardHeight - 4 - BIN_HEIGHT / 2;
-        const finalY = binCenterY - BALL_RADIUS;
-        setBallPosition({ x, y: finalY, step });
-        step++;
-        
-        setDropping(false);
-        setLastResult({ binIndex, multiplier });
-        
-        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-
-        addResult({
-          game: "plinko",
-          betAmount: bet.betAmount,
-          won: bet.won,
-          profit: bet.profit,
-          detail: `${risk} risk, ${rows} rows → ${multiplier}x`,
-        });
-
-        // Clear after showing result
-        animationRef.current = setTimeout(() => {
-          setBallPosition(null);
-          setActivePath([]);
-          setLastResult(null);
-        }, 1200);
       }
     };
+    dropNext();
+  }, [dropBall]);
 
-    animationRef.current = setTimeout(animate, 150);
-  }, [risk, rows, addResult]);
+  // Auto drop toggle
+  const toggleAutoDrop = useCallback(() => {
+    if (autoDropping) {
+      setAutoDropping(false);
+      if (autoDropIntervalRef.current) {
+        clearInterval(autoDropIntervalRef.current);
+        autoDropIntervalRef.current = null;
+      }
+    } else {
+      if (!user || baseAmount < 0.1 || baseAmount > user.balance) {
+        toast({
+          title: "Cannot Auto Drop",
+          description: "Check your bet amount and balance",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAutoDropping(true);
+      dropBall(); // Drop immediately
+      autoDropIntervalRef.current = setInterval(() => {
+        if (!dropBall()) {
+          // Stop if we can't drop anymore
+          setAutoDropping(false);
+          if (autoDropIntervalRef.current) {
+            clearInterval(autoDropIntervalRef.current);
+            autoDropIntervalRef.current = null;
+          }
+        }
+      }, AUTO_DROP_INTERVAL);
+    }
+  }, [autoDropping, user, baseAmount, dropBall, toast]);
 
+  // Stop auto drop when balance too low
+  useEffect(() => {
+    if (autoDropping && user && baseAmount > user.balance) {
+      setAutoDropping(false);
+      if (autoDropIntervalRef.current) {
+        clearInterval(autoDropIntervalRef.current);
+        autoDropIntervalRef.current = null;
+      }
+      toast({
+        title: "Auto Drop Stopped",
+        description: "Insufficient balance",
+      });
+    }
+  }, [autoDropping, user, baseAmount, toast]);
+
+  // Animation loop for all balls
+  useEffect(() => {
+    const currentBoardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
+    const binCenterY = currentBoardHeight - 4 - BIN_HEIGHT / 2;
+    const finalY = binCenterY - BALL_RADIUS;
+
+    let lastTime = 0;
+    const STEP_DURATION = 65;
+
+    const animate = (time: number) => {
+      if (time - lastTime >= STEP_DURATION) {
+        lastTime = time;
+        
+        setBalls(prev => {
+          const now = Date.now();
+          return prev
+            .map(ball => {
+              if (ball.status === 'done') return ball;
+              
+              if (ball.status === 'landed') {
+                // Check if it's time to remove the ball
+                if (ball.landedAt && now - ball.landedAt > 1200) {
+                  return { ...ball, status: 'done' as const };
+                }
+                return ball;
+              }
+              
+              // Animating
+              if (ball.step < ball.path.length - 1) {
+                const nextStep = ball.step + 1;
+                let x = 0;
+                for (let i = 0; i <= nextStep; i++) {
+                  x += ball.path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+                }
+                const y = PEG_AREA_TOP + (nextStep + 1) * ROW_HEIGHT;
+                return { ...ball, x, y, step: nextStep };
+              } else if (ball.step === ball.path.length - 1) {
+                // Land in bin
+                let x = 0;
+                for (let i = 0; i < ball.path.length; i++) {
+                  x += ball.path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+                }
+                
+                // Add result to history
+                addResult({
+                  game: "plinko",
+                  betAmount: ball.betAmount,
+                  won: ball.bet.won,
+                  profit: ball.bet.profit,
+                  detail: `${risk} risk, ${rows} rows → ${ball.multiplier}x`,
+                });
+                
+                return { 
+                  ...ball, 
+                  x, 
+                  y: finalY, 
+                  step: ball.path.length, 
+                  status: 'landed' as const,
+                  landedAt: now,
+                };
+              }
+              return ball;
+            })
+            .filter(ball => ball.status !== 'done');
+        });
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    if (balls.some(b => b.status === 'animating' || b.status === 'landed')) {
+      animationFrameRef.current = requestAnimationFrame(animate);
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [balls.length, rows, risk, addResult]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (animationRef.current) {
-        clearTimeout(animationRef.current);
+      if (autoDropIntervalRef.current) {
+        clearInterval(autoDropIntervalRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, []);
@@ -149,10 +311,11 @@ export default function Plinko() {
   const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
 
   const handleDrop = () => {
-    if (baseAmount < 0.1 || baseAmount > (user?.balance || 0) || dropping) return;
-    setDropping(true);
-    setLastResult(null);
-    plinkoMutation.mutate({ betAmount: baseAmount, risk, rows });
+    dropBall();
+  };
+
+  const handleDrop10 = () => {
+    dropMultiple(10);
   };
 
   const getMultiplierColor = (mult: number) => {
@@ -175,6 +338,13 @@ export default function Plinko() {
   const maxPegsInRow = rows + 2;
   const boardWidth = maxPegsInRow * PEG_SPACING;
   const boardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
+
+  // Get recently landed balls for highlighting bins
+  const landedBalls = balls.filter(b => b.status === 'landed');
+  const highlightedBins = new Set(landedBalls.map(b => b.binIndex));
+
+  const isControlsDisabled = autoDropping || activeBallCount > 0 || pendingDrops > 0;
+  const canDrop = user && baseAmount >= 0.1 && baseAmount <= (user?.balance || 0) && activeBallCount + pendingDrops < MAX_ACTIVE_BALLS;
 
   return (
     <Layout>
@@ -202,13 +372,13 @@ export default function Plinko() {
                     min={0.1}
                     step={0.1}
                     max={1000}
-                    disabled={dropping}
+                    disabled={isControlsDisabled}
                     data-testid="input-bet-amount"
                   />
                   <button 
                     className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
                     onClick={halve}
-                    disabled={dropping}
+                    disabled={isControlsDisabled}
                     data-testid="button-halve"
                   >
                     ½
@@ -216,7 +386,7 @@ export default function Plinko() {
                   <button 
                     className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
                     onClick={double}
-                    disabled={dropping}
+                    disabled={isControlsDisabled}
                     data-testid="button-double"
                   >
                     2x
@@ -229,7 +399,7 @@ export default function Plinko() {
                       key={pct} 
                       className="py-1.5 rounded-md bg-[#1a2530]/50 hover:bg-[#1a2530] text-[10px] font-semibold text-slate-500 hover:text-white transition-all border border-transparent hover:border-[#2a3a4a] disabled:opacity-50"
                       onClick={() => setPercent(pct)}
-                      disabled={dropping}
+                      disabled={isControlsDisabled}
                       data-testid={`button-percent-${pct * 100}`}
                     >
                       {pct === 1 ? "Max" : `${pct * 100}%`}
@@ -248,7 +418,7 @@ export default function Plinko() {
                     <button
                       key={level}
                       onClick={() => setRisk(level)}
-                      disabled={dropping}
+                      disabled={isControlsDisabled}
                       data-testid={`button-risk-${level}`}
                       className={cn(
                         "py-2.5 rounded-lg font-semibold text-xs transition-all capitalize",
@@ -273,7 +443,7 @@ export default function Plinko() {
                 <Select 
                   value={String(rows)} 
                   onValueChange={(v) => setRows(Number(v))} 
-                  disabled={dropping}
+                  disabled={isControlsDisabled}
                 >
                   <SelectTrigger className="bg-[#0d1419] border-[#1a2530] h-10" data-testid="select-rows">
                     <SelectValue />
@@ -300,16 +470,58 @@ export default function Plinko() {
                 </div>
               </div>
 
-              {/* Drop Button */}
-              <Button 
-                size="lg" 
-                className="w-full h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]" 
-                onClick={handleDrop}
-                disabled={!user || dropping || baseAmount > (user?.balance || 0) || baseAmount < 0.1}
-                data-testid="button-drop"
-              >
-                {dropping ? "Dropping..." : user ? "Drop Ball" : "Login to Play"}
-              </Button>
+              {/* Drop Buttons */}
+              <div className="space-y-2 mb-4">
+                <Button 
+                  size="lg" 
+                  className="w-full h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]" 
+                  onClick={handleDrop}
+                  disabled={!canDrop || autoDropping}
+                  data-testid="button-drop"
+                >
+                  {user ? "Drop Ball" : "Login to Play"}
+                </Button>
+                
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  className="w-full h-10 text-sm font-bold border-amber-500/50 text-amber-400 hover:bg-amber-500/10 transition-all" 
+                  onClick={handleDrop10}
+                  disabled={!canDrop || autoDropping}
+                  data-testid="button-drop-10"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Drop x10
+                </Button>
+              </div>
+
+              {/* Auto Drop Toggle */}
+              <div className="flex items-center justify-between p-3 bg-[#0d1419] rounded-lg border border-[#1a2530]">
+                <div className="flex items-center gap-2">
+                  {autoDropping ? (
+                    <Square className="w-4 h-4 text-red-400" />
+                  ) : (
+                    <Play className="w-4 h-4 text-emerald-400" />
+                  )}
+                  <span className="text-xs font-semibold text-slate-400">Auto Drop</span>
+                </div>
+                <Switch
+                  checked={autoDropping}
+                  onCheckedChange={toggleAutoDrop}
+                  disabled={!user || (!autoDropping && !canDrop)}
+                  data-testid="switch-auto-drop"
+                />
+              </div>
+
+              {/* Active Balls Counter */}
+              {(activeBallCount > 0 || pendingDrops > 0) && (
+                <div className="mt-3 text-center">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                    Active Balls: {activeBallCount} / {MAX_ACTIVE_BALLS}
+                    {pendingDrops > 0 && ` (+${pendingDrops} pending)`}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Right Column: Game Panel */}
@@ -354,12 +566,7 @@ export default function Plinko() {
                         {Array.from({ length: pegsInRow }).map((_, pegIndex) => (
                           <div 
                             key={pegIndex}
-                            className={cn(
-                              "w-2.5 h-2.5 rounded-full transition-colors duration-100 shrink-0",
-                              activePath[rowIndex] !== undefined
-                                ? "bg-slate-400"
-                                : "bg-slate-600"
-                            )}
+                            className="w-2.5 h-2.5 rounded-full bg-slate-600 shrink-0"
                             style={{ margin: `0 ${(PEG_SPACING - 10) / 2}px` }}
                           />
                         ))}
@@ -367,17 +574,21 @@ export default function Plinko() {
                     ))}
                   </div>
 
-                  {/* Ball */}
-                  {ballPosition && (
+                  {/* Balls */}
+                  {balls.filter(b => b.status !== 'done').map((ball) => (
                     <div
-                      className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-20 pointer-events-none"
+                      key={ball.id}
+                      className={cn(
+                        "absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-20 pointer-events-none",
+                        ball.status === 'landed' && "animate-pulse"
+                      )}
                       style={{
-                        left: `calc(50% + ${ballPosition.x}px - 8px)`,
-                        top: ballPosition.y,
+                        left: `calc(50% + ${ball.x}px - 8px)`,
+                        top: ball.y,
                         transition: 'left 55ms ease-out, top 55ms ease-out',
                       }}
                     />
-                  )}
+                  ))}
 
                   {/* Multiplier Bins - positioned to exactly match ball physics */}
                   <div 
@@ -388,13 +599,10 @@ export default function Plinko() {
                     }}
                   >
                     {multipliers.map((mult, i) => {
-                      // Ball physics: each step moves ±PEG_SPACING/2 (±16px)
-                      // But changing one left→right changes X by 32px
-                      // So final positions are spaced at PEG_SPACING (32px) intervals
-                      // For bin i with numBins total, center offset = (i - (numBins-1)/2) * PEG_SPACING
-                      const binSpacing = PEG_SPACING; // 32px between bin centers
+                      const binSpacing = PEG_SPACING;
                       const binCenterOffset = (i - (numBins - 1) / 2) * binSpacing;
-                      const binWidth = binSpacing - 4; // 28px wide with 4px gaps
+                      const binWidth = binSpacing - 4;
+                      const isHighlighted = highlightedBins.has(i);
                       
                       return (
                         <div 
@@ -402,7 +610,7 @@ export default function Plinko() {
                           className={cn(
                             "absolute flex items-center justify-center font-bold rounded border transition-all",
                             getMultiplierColor(mult),
-                            lastResult?.binIndex === i && "ring-2 ring-white ring-offset-1 ring-offset-[#0a0e12] scale-110 z-10"
+                            isHighlighted && "ring-2 ring-white ring-offset-1 ring-offset-[#0a0e12] scale-110 z-10"
                           )}
                           style={{
                             left: `calc(50% + ${binCenterOffset}px - ${binWidth / 2}px)`,
@@ -419,21 +627,6 @@ export default function Plinko() {
                   </div>
                 </div>
               </div>
-
-              {/* Result Display */}
-              {lastResult && (
-                <div className="mt-4 text-center animate-pulse">
-                  <div className={cn(
-                    "text-2xl font-bold font-mono",
-                    lastResult.multiplier >= 1 ? "text-emerald-400" : "text-red-400"
-                  )}>
-                    {lastResult.multiplier.toFixed(2)}x
-                  </div>
-                  <div className="text-slate-500 text-xs mt-1">
-                    {lastResult.multiplier >= 1 ? "Win" : "Loss"}: {lastResult.multiplier >= 1 ? "+" : ""}{((baseAmount * lastResult.multiplier) - baseAmount).toFixed(2)}
-                  </div>
-                </div>
-              )}
 
               {/* Stats Row */}
               <div className="flex gap-6 mt-6">
