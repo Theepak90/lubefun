@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -481,6 +481,141 @@ export async function registerRoutes(
       prizeIndex,
       prizeLabel: prize.label,
       prizeValue: prize.value,
+      newBalance: updatedUser.balance,
+    });
+  });
+  
+  // Helper for cooldown checks
+  function canClaimWithCooldown(lastClaim: Date | null, cooldownMs: number): boolean {
+    if (!lastClaim) return true;
+    return Date.now() - new Date(lastClaim).getTime() >= cooldownMs;
+  }
+  
+  function getNextClaimTimeWithCooldown(lastClaim: Date | null, cooldownMs: number): string | null {
+    if (!lastClaim) return null;
+    const nextTime = new Date(lastClaim).getTime() + cooldownMs;
+    if (Date.now() >= nextTime) return null;
+    return new Date(nextTime).toISOString();
+  }
+  
+  // All Rewards Status endpoint
+  app.get(api.rewards.allStatus.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    const todayStart = getStartOfToday();
+    const todayVolume = await storage.getDailyWagerVolume(user.id, todayStart);
+    
+    // Rakeback calculation
+    const lastRakebackDate = user.lastRakebackClaim || user.createdAt || new Date(0);
+    const wagerSinceRakeback = await storage.getWagerVolumeSince(user.id, lastRakebackDate);
+    const rakebackAmount = Math.floor(wagerSinceRakeback * REWARDS_CONFIG.rakeback.percentage * 100) / 100;
+    
+    res.json({
+      dailyReload: {
+        canClaim: canClaimWithCooldown(user.lastDailyReload, REWARDS_CONFIG.dailyReload.cooldownMs),
+        nextClaimTime: getNextClaimTimeWithCooldown(user.lastDailyReload, REWARDS_CONFIG.dailyReload.cooldownMs),
+        amount: REWARDS_CONFIG.dailyReload.amount,
+        label: REWARDS_CONFIG.dailyReload.label,
+        description: REWARDS_CONFIG.dailyReload.description,
+      },
+      dailyBonus: {
+        canClaim: canClaimWithCooldown(user.lastBonusClaim, REWARDS_CONFIG.dailyBonus.cooldownMs),
+        nextClaimTime: getNextClaimTimeWithCooldown(user.lastBonusClaim, REWARDS_CONFIG.dailyBonus.cooldownMs),
+        amount: REWARDS_CONFIG.dailyBonus.amount,
+        label: REWARDS_CONFIG.dailyBonus.label,
+        description: REWARDS_CONFIG.dailyBonus.description,
+        volumeProgress: Math.min(100, (todayVolume / REQUIRED_DAILY_VOLUME) * 100),
+      },
+      weeklyBonus: {
+        canClaim: canClaimWithCooldown(user.lastWeeklyBonus, REWARDS_CONFIG.weeklyBonus.cooldownMs),
+        nextClaimTime: getNextClaimTimeWithCooldown(user.lastWeeklyBonus, REWARDS_CONFIG.weeklyBonus.cooldownMs),
+        amount: REWARDS_CONFIG.weeklyBonus.amount,
+        label: REWARDS_CONFIG.weeklyBonus.label,
+        description: REWARDS_CONFIG.weeklyBonus.description,
+      },
+      monthlyBonus: {
+        canClaim: canClaimWithCooldown(user.lastMonthlyBonus, REWARDS_CONFIG.monthlyBonus.cooldownMs),
+        nextClaimTime: getNextClaimTimeWithCooldown(user.lastMonthlyBonus, REWARDS_CONFIG.monthlyBonus.cooldownMs),
+        amount: REWARDS_CONFIG.monthlyBonus.amount,
+        label: REWARDS_CONFIG.monthlyBonus.label,
+        description: REWARDS_CONFIG.monthlyBonus.description,
+      },
+      rakeback: {
+        canClaim: canClaimWithCooldown(user.lastRakebackClaim, REWARDS_CONFIG.rakeback.cooldownMs) && rakebackAmount > 0,
+        nextClaimTime: getNextClaimTimeWithCooldown(user.lastRakebackClaim, REWARDS_CONFIG.rakeback.cooldownMs),
+        amount: rakebackAmount,
+        label: REWARDS_CONFIG.rakeback.label,
+        description: REWARDS_CONFIG.rakeback.description,
+        wagerVolume: wagerSinceRakeback,
+      },
+    });
+  });
+  
+  // Claim any reward type
+  app.post("/api/rewards/claim/:type", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    const { type } = req.params;
+    
+    let amount = 0;
+    let lastClaim: Date | null = null;
+    let cooldownMs = 0;
+    let updateFn: ((id: number) => Promise<any>) | null = null;
+    
+    switch (type) {
+      case "dailyReload":
+        lastClaim = user.lastDailyReload;
+        cooldownMs = REWARDS_CONFIG.dailyReload.cooldownMs;
+        amount = REWARDS_CONFIG.dailyReload.amount;
+        updateFn = storage.updateLastDailyReload.bind(storage);
+        break;
+      case "dailyBonus":
+        lastClaim = user.lastBonusClaim;
+        cooldownMs = REWARDS_CONFIG.dailyBonus.cooldownMs;
+        amount = REWARDS_CONFIG.dailyBonus.amount;
+        updateFn = storage.updateLastBonusClaim.bind(storage);
+        break;
+      case "weeklyBonus":
+        lastClaim = user.lastWeeklyBonus;
+        cooldownMs = REWARDS_CONFIG.weeklyBonus.cooldownMs;
+        amount = REWARDS_CONFIG.weeklyBonus.amount;
+        updateFn = storage.updateLastWeeklyBonus.bind(storage);
+        break;
+      case "monthlyBonus":
+        lastClaim = user.lastMonthlyBonus;
+        cooldownMs = REWARDS_CONFIG.monthlyBonus.cooldownMs;
+        amount = REWARDS_CONFIG.monthlyBonus.amount;
+        updateFn = storage.updateLastMonthlyBonus.bind(storage);
+        break;
+      case "rakeback":
+        lastClaim = user.lastRakebackClaim;
+        cooldownMs = REWARDS_CONFIG.rakeback.cooldownMs;
+        const lastRakebackDate = user.lastRakebackClaim || user.createdAt || new Date(0);
+        const wagerSinceRakeback = await storage.getWagerVolumeSince(user.id, lastRakebackDate);
+        amount = Math.floor(wagerSinceRakeback * REWARDS_CONFIG.rakeback.percentage * 100) / 100;
+        updateFn = storage.updateLastRakebackClaim.bind(storage);
+        if (amount <= 0) {
+          return res.status(400).json({ message: "No rakeback to claim. Play some games first!" });
+        }
+        break;
+      default:
+        return res.status(400).json({ message: "Invalid reward type" });
+    }
+    
+    if (!canClaimWithCooldown(lastClaim, cooldownMs)) {
+      return res.status(400).json({ message: "Reward not available yet" });
+    }
+    
+    await updateFn!(user.id);
+    const updatedUser = await storage.updateUserBalance(user.id, amount);
+    
+    res.json({
+      success: true,
+      amount,
       newBalance: updatedUser.balance,
     });
   });

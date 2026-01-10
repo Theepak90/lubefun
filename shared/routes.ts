@@ -180,6 +180,63 @@ export const api = {
         400: errorSchemas.gameError,
       },
     },
+    allStatus: {
+      method: "GET" as const,
+      path: "/api/rewards/all-status",
+      responses: {
+        200: z.object({
+          dailyReload: z.object({
+            canClaim: z.boolean(),
+            nextClaimTime: z.string().nullable(),
+            amount: z.number(),
+            label: z.string(),
+            description: z.string(),
+          }),
+          dailyBonus: z.object({
+            canClaim: z.boolean(),
+            nextClaimTime: z.string().nullable(),
+            amount: z.number(),
+            label: z.string(),
+            description: z.string(),
+            volumeProgress: z.number(),
+          }),
+          weeklyBonus: z.object({
+            canClaim: z.boolean(),
+            nextClaimTime: z.string().nullable(),
+            amount: z.number(),
+            label: z.string(),
+            description: z.string(),
+          }),
+          monthlyBonus: z.object({
+            canClaim: z.boolean(),
+            nextClaimTime: z.string().nullable(),
+            amount: z.number(),
+            label: z.string(),
+            description: z.string(),
+          }),
+          rakeback: z.object({
+            canClaim: z.boolean(),
+            nextClaimTime: z.string().nullable(),
+            amount: z.number(),
+            label: z.string(),
+            description: z.string(),
+            wagerVolume: z.number(),
+          }),
+        }),
+      },
+    },
+    claimReward: {
+      method: "POST" as const,
+      path: "/api/rewards/claim/:type",
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          amount: z.number(),
+          newBalance: z.number(),
+        }),
+        400: errorSchemas.gameError,
+      },
+    },
   },
 };
 
