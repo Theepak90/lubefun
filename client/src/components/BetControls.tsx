@@ -94,11 +94,11 @@ export function BetControls({
       <div className="mt-auto">
         <Button 
           size="lg" 
-          className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-[0.98]" 
+          className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-[0.98] select-none text-center flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" 
           onClick={handleBet}
           disabled={isPending || disabled || !user || parseFloat(amount) > (user?.balance || 0)}
         >
-          {isPending ? "Betting..." : user ? actionLabel : "Login to Play"}
+          <span className="select-none">{isPending ? "Betting..." : user ? actionLabel : "Login to Play"}</span>
         </Button>
       </div>
     </div>
