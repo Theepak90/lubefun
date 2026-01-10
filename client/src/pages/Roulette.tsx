@@ -224,6 +224,103 @@ export default function Roulette() {
     );
   };
 
+  // Vegas-style chip colors by denomination
+  const getChipStyle = (value: number) => {
+    if (value <= 0.5) return { bg: "from-slate-200 to-slate-400", edge: "bg-slate-300", text: "text-slate-800", accent: "#94a3b8" };
+    if (value <= 1) return { bg: "from-blue-400 to-blue-600", edge: "bg-blue-500", text: "text-white", accent: "#3b82f6" };
+    if (value <= 2) return { bg: "from-green-400 to-green-600", edge: "bg-green-500", text: "text-white", accent: "#22c55e" };
+    if (value <= 10) return { bg: "from-orange-400 to-orange-600", edge: "bg-orange-500", text: "text-white", accent: "#f97316" };
+    if (value <= 50) return { bg: "from-red-500 to-red-700", edge: "bg-red-600", text: "text-white", accent: "#ef4444" };
+    if (value <= 200) return { bg: "from-purple-500 to-purple-700", edge: "bg-purple-600", text: "text-white", accent: "#a855f7" };
+    if (value <= 1000) return { bg: "from-amber-400 to-amber-600", edge: "bg-amber-500", text: "text-slate-900", accent: "#f59e0b" };
+    return { bg: "from-pink-400 to-pink-600", edge: "bg-pink-500", text: "text-white", accent: "#ec4899" };
+  };
+
+  const formatChipValue = (value: number) => {
+    if (value < 1) return `$${value.toFixed(2).replace('0.', '.')}`;
+    if (value >= 1000) return `$${value / 1000}k`;
+    return `$${value}`;
+  };
+
+  const VegasChip = ({ value, selected, disabled, onClick }: { 
+    value: number; 
+    selected: boolean; 
+    disabled: boolean;
+    onClick: () => void;
+  }) => {
+    const style = getChipStyle(value);
+    const isAffordable = (user?.balance || 0) >= value;
+    
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled || !isAffordable}
+        data-testid={`chip-${value}`}
+        className={cn(
+          "relative w-11 h-11 rounded-full transition-all duration-200 flex-shrink-0",
+          selected ? "scale-110 -translate-y-1" : "hover:scale-105",
+          !isAffordable && "opacity-40 cursor-not-allowed"
+        )}
+        style={{
+          boxShadow: selected 
+            ? `0 8px 20px -4px ${style.accent}80, 0 0 15px ${style.accent}60` 
+            : "0 4px 8px -2px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.2)"
+        }}
+      >
+        {/* Outer ring with edge pattern */}
+        <div className={cn(
+          "absolute inset-0 rounded-full bg-gradient-to-br",
+          style.bg
+        )}>
+          {/* Edge segments (dashed pattern) */}
+          <div className="absolute inset-0 rounded-full overflow-hidden">
+            {[...Array(16)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-full h-full"
+                style={{ transform: `rotate(${i * 22.5}deg)` }}
+              >
+                <div className={cn(
+                  "absolute top-0 left-1/2 -translate-x-1/2 w-1 h-[6px] rounded-b-sm",
+                  style.edge,
+                  "opacity-60"
+                )} />
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Middle ring */}
+        <div className={cn(
+          "absolute inset-[4px] rounded-full border-2 border-white/30"
+        )} />
+        
+        {/* Inner circle with denomination */}
+        <div className={cn(
+          "absolute inset-[6px] rounded-full bg-gradient-to-br flex items-center justify-center",
+          style.bg,
+          "shadow-inner"
+        )}>
+          <div className="absolute inset-[2px] rounded-full border border-white/20" />
+          <span className={cn(
+            "font-bold text-[9px] drop-shadow-sm relative z-10",
+            style.text
+          )}>
+            {formatChipValue(value)}
+          </span>
+        </div>
+        
+        {/* Selection glow ring */}
+        {selected && (
+          <div 
+            className="absolute -inset-1 rounded-full border-2 border-white/80 animate-pulse"
+            style={{ boxShadow: `0 0 10px ${style.accent}` }}
+          />
+        )}
+      </button>
+    );
+  };
+
   return (
     <Layout>
       <div className="max-w-5xl mx-auto px-4 py-4">
@@ -494,26 +591,15 @@ export default function Roulette() {
               Repeat
             </Button>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
               {CHIP_DENOMINATIONS.map((chip) => (
-                <button
+                <VegasChip
                   key={chip}
-                  onClick={() => setSelectedChip(chip)}
+                  value={chip}
+                  selected={selectedChip === chip}
                   disabled={!isBettingOpen}
-                  data-testid={`chip-${chip}`}
-                  className={cn(
-                    "relative w-9 h-9 rounded-full font-bold text-[9px] transition-all",
-                    "bg-gradient-to-br border-2 shadow-md",
-                    selectedChip === chip 
-                      ? "from-yellow-400 to-yellow-600 border-yellow-300 ring-2 ring-white ring-offset-1 ring-offset-[#0d1419] scale-110" 
-                      : "from-slate-600 to-slate-800 border-slate-500 hover:from-slate-500 hover:to-slate-700",
-                    chip > (user?.balance || 0) && "opacity-40 cursor-not-allowed"
-                  )}
-                >
-                  <span className={selectedChip === chip ? "text-slate-900" : "text-white"}>
-                    {chip >= 1000 ? `${chip/1000}k` : chip}
-                  </span>
-                </button>
+                  onClick={() => setSelectedChip(chip)}
+                />
               ))}
             </div>
           </div>
