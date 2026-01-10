@@ -1,12 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { BetControls } from "@/components/BetControls";
 import { useDiceGame } from "@/hooks/use-games";
 import { Slider } from "@/components/ui/slider";
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { motion, useAnimation } from "framer-motion";
-import { Dice5, Trophy } from "lucide-react";
+import { Dice5 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Dice() {
@@ -26,7 +24,6 @@ export default function Dice() {
       {
         onSuccess: (data: any) => {
           const result = data.result.roll;
-          // Animate the slider indicator to the result position
           controls.start({
             left: `${result}%`,
             transition: { type: "spring", stiffness: 300, damping: 20 }
@@ -39,52 +36,53 @@ export default function Dice() {
 
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
+      <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto">
         {/* Controls Panel */}
-        <div className="w-full lg:w-auto lg:shrink-0 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="bg-card border-b border-border p-4 lg:hidden">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <Dice5 className="w-6 h-6 text-primary" /> Dice
+        <div className="w-full lg:w-80 lg:shrink-0">
+          <div className="neon-card p-5 lg:hidden mb-4">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2 text-cyan-400 tracking-wider">
+              <Dice5 className="w-5 h-5" /> Dice
             </h2>
           </div>
           <BetControls 
             onBet={handleBet} 
             isPending={isPending} 
-            className="h-full rounded-b-2xl lg:rounded-2xl"
+            className="neon-card"
           />
         </div>
 
         {/* Game Area */}
-        <Card className="flex-1 bg-card border-border p-6 lg:p-12 flex flex-col justify-center items-center relative overflow-hidden min-h-[500px]">
-          {/* Background decoration */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none" />
-
+        <div className="flex-1 neon-card p-8 lg:p-12 flex flex-col justify-center items-center relative overflow-hidden min-h-[500px]">
           {/* Stats Bar */}
-          <div className="w-full grid grid-cols-3 gap-4 mb-12 p-4 bg-secondary/30 rounded-xl border border-white/5 backdrop-blur-sm">
+          <div className="w-full grid grid-cols-3 gap-6 mb-14 p-5 neon-card-magenta">
             <div className="text-center">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Multiplier</div>
-               <div className="text-xl font-mono font-bold text-primary">{multiplier}x</div>
+               <div className="text-xs font-display text-pink-400 uppercase tracking-wider mb-2">Multiplier</div>
+               <div className="text-2xl font-mono font-bold text-cyan-400 text-glow-cyan">{multiplier}x</div>
             </div>
-            <div className="text-center border-x border-white/5">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Win Chance</div>
-               <div className="text-xl font-mono font-bold text-foreground">{winChance.toFixed(2)}%</div>
+            <div className="text-center border-x border-pink-500/20">
+               <div className="text-xs font-display text-pink-400 uppercase tracking-wider mb-2">Win Chance</div>
+               <div className="text-2xl font-mono font-bold text-foreground">{winChance.toFixed(2)}%</div>
             </div>
             <div className="text-center">
-               <div className="text-xs text-muted-foreground font-bold uppercase mb-1">Result</div>
-               <div className={cn("text-xl font-mono font-bold", lastResult ? (lastResult.won ? "text-primary text-glow" : "text-destructive") : "text-muted")}>
+               <div className="text-xs font-display text-pink-400 uppercase tracking-wider mb-2">Result</div>
+               <div className={cn("text-2xl font-mono font-bold", lastResult ? (lastResult.won ? "text-cyan-400 text-glow-cyan" : "text-pink-400 text-glow-magenta") : "text-purple-400")}>
                   {lastResult ? lastResult.result.toFixed(2) : "-"}
                </div>
             </div>
           </div>
 
           {/* Dice Slider */}
-          <div className="w-full max-w-2xl px-8 py-16 bg-secondary/20 rounded-3xl border border-white/5 relative">
+          <div className="w-full max-w-2xl px-8 py-14 neon-card relative">
             
             {/* Range Bar */}
-            <div className="relative h-4 bg-secondary rounded-full overflow-hidden mb-8 shadow-inner">
-               <div 
-                 className={cn("absolute h-full transition-all duration-300", condition === "above" ? "bg-primary right-0" : "bg-primary left-0")}
+            <div className="relative h-4 bg-purple-900/50 rounded-full overflow-hidden mb-10 border border-purple-500/30">
+               <motion.div 
+                 className={cn(
+                   "absolute h-full transition-all duration-300",
+                   condition === "above" ? "right-0 bg-gradient-to-r from-cyan-500 to-cyan-400" : "left-0 bg-gradient-to-l from-cyan-500 to-cyan-400"
+                 )}
                  style={{ width: `${winChance}%` }}
+                 animate={{ boxShadow: "0 0 20px hsl(180, 100%, 50%, 0.5)" }}
                />
             </div>
 
@@ -96,54 +94,57 @@ export default function Dice() {
                 max={98}
                 step={1}
                 onValueChange={(val) => setTarget(val[0])}
-                className="w-full relative z-20 cursor-grab active:cursor-grabbing"
+                className="w-full relative z-20"
               />
               
               {/* Result Indicator */}
               <motion.div 
-                className="absolute top-[-40px] -translate-x-1/2 z-10 pointer-events-none"
+                className="absolute top-[-55px] -translate-x-1/2 z-10 pointer-events-none"
                 initial={{ left: "50%" }}
                 animate={controls}
               >
                 <div className={cn(
-                  "bg-card border-2 px-3 py-1 rounded-lg font-mono font-bold shadow-lg text-lg min-w-[60px] text-center",
-                  lastResult ? (lastResult.won ? "border-primary text-primary" : "border-destructive text-destructive") : "border-muted text-muted-foreground"
+                  "neon-card px-4 py-2 font-mono font-bold text-lg min-w-[80px] text-center",
+                  lastResult ? (lastResult.won ? "neon-glow-cyan text-cyan-400" : "neon-glow-magenta text-pink-400") : "text-purple-400"
                 )}>
-                  {lastResult?.result.toFixed(2) || 50.00}
+                  {lastResult?.result.toFixed(2) || "50.00"}
                 </div>
                 <div className={cn(
-                  "w-4 h-4 bg-card border-r-2 border-b-2 rotate-45 absolute bottom-[-8px] left-1/2 -translate-x-1/2",
-                  lastResult ? (lastResult.won ? "border-primary" : "border-destructive") : "border-muted"
+                  "w-3 h-3 bg-card border-r border-b rotate-45 absolute bottom-[-6px] left-1/2 -translate-x-1/2",
+                  lastResult ? (lastResult.won ? "border-cyan-500/50" : "border-pink-500/50") : "border-purple-500/30"
                 )} />
               </motion.div>
             </div>
             
-            <div className="flex justify-between mt-8">
-               <span className="font-mono font-bold text-muted-foreground">0</span>
-               <span className="font-mono font-bold text-muted-foreground">25</span>
-               <span className="font-mono font-bold text-muted-foreground">50</span>
-               <span className="font-mono font-bold text-muted-foreground">75</span>
-               <span className="font-mono font-bold text-muted-foreground">100</span>
+            <div className="flex justify-between mt-10">
+               {[0, 25, 50, 75, 100].map((val) => (
+                 <span key={val} className="font-mono text-sm text-purple-400">{val}</span>
+               ))}
             </div>
           </div>
 
           {/* Roll Over/Under Toggle */}
-          <div className="mt-8 flex bg-secondary rounded-xl p-1 shadow-inner">
+          <div className="mt-10 flex neon-card p-1.5">
              <button 
-               className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", condition === "above" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+               className={cn(
+                 "px-8 py-3 rounded-xl text-sm font-display font-bold tracking-wider transition-all",
+                 condition === "above" ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-black neon-glow-cyan" : "text-purple-400 hover:text-cyan-400"
+               )}
                onClick={() => setCondition("above")}
              >
                Roll Over
              </button>
              <button 
-               className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", condition === "below" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+               className={cn(
+                 "px-8 py-3 rounded-xl text-sm font-display font-bold tracking-wider transition-all",
+                 condition === "below" ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-black neon-glow-cyan" : "text-purple-400 hover:text-cyan-400"
+               )}
                onClick={() => setCondition("below")}
              >
                Roll Under
              </button>
           </div>
-
-        </Card>
+        </div>
       </div>
     </Layout>
   );

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { Zap } from "lucide-react";
 
 interface BetControlsProps {
   onBet: (amount: number) => void;
@@ -42,14 +43,14 @@ export function BetControls({
   const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
 
   return (
-    <div className={cn("bg-card border-t lg:border-t-0 lg:border-r border-border p-4 lg:p-6 flex flex-col gap-6 lg:w-[320px] shrink-0", className)}>
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs font-semibold text-muted-foreground uppercase">
+    <div className={cn("p-6 flex flex-col gap-6", className)}>
+      <div className="space-y-3">
+        <div className="flex justify-between text-xs font-display text-cyan-400 uppercase tracking-wider">
           <Label>Bet Amount</Label>
-          <span>${parseFloat(amount || "0").toFixed(2)}</span>
+          <span className="text-pink-400">${parseFloat(amount || "0").toFixed(2)}</span>
         </div>
         
-        <div className="flex gap-1 bg-secondary/50 p-1 rounded-xl border border-input focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+        <div className="flex gap-2 bg-purple-900/30 p-2 rounded-xl border border-purple-500/30 focus-within:border-cyan-400/50 transition-all">
           <Input 
             type="number"
             value={amount}
@@ -61,7 +62,7 @@ export function BetControls({
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-10 w-10 px-0 font-mono text-muted-foreground hover:text-foreground"
+            className="h-10 w-10 px-0 font-mono text-purple-400 hover:text-cyan-400 hover:bg-purple-500/20"
             onClick={halve}
           >
             ½
@@ -69,7 +70,7 @@ export function BetControls({
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-10 w-10 px-0 font-mono text-muted-foreground hover:text-foreground"
+            className="h-10 w-10 px-0 font-mono text-purple-400 hover:text-cyan-400 hover:bg-purple-500/20"
             onClick={double}
           >
             2x
@@ -82,7 +83,7 @@ export function BetControls({
                key={pct} 
                variant="outline" 
                size="sm" 
-               className="bg-secondary/30 border-transparent hover:bg-secondary text-xs"
+               className="bg-purple-900/20 border-purple-500/30 hover:bg-purple-500/30 hover:border-cyan-400/50 text-xs font-display font-bold text-purple-300 hover:text-cyan-400 transition-all"
                onClick={() => setPercent(pct)}
              >
                {pct === 1 ? "Max" : `${pct * 100}%`}
@@ -93,12 +94,12 @@ export function BetControls({
 
       <div className="mt-auto">
         <Button 
-          size="lg" 
-          className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-[0.98]" 
+          className="w-full h-14 neon-button font-display font-bold text-black tracking-wider rounded-xl text-base" 
           onClick={handleBet}
           disabled={isPending || disabled || !user || parseFloat(amount) > (user?.balance || 0)}
         >
-          {isPending ? "Betting..." : user ? actionLabel : "Login to Play"}
+          <Zap className="w-5 h-5 mr-2" />
+          {isPending ? "Processing..." : user ? actionLabel : "Login to Play"}
         </Button>
       </div>
     </div>
