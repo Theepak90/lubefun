@@ -547,51 +547,6 @@ export default function DailySpin() {
           </div>
         </div>
         
-        <div className="mt-8">
-          <h3 className="text-center text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
-            Drop Rates
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
-            {[
-              { rarity: "common" as Rarity, chance: "99.5%", prizes: "1¢ - 5¢" },
-              { rarity: "uncommon" as Rarity, chance: "0.4%", prizes: "$5" },
-              { rarity: "rare" as Rarity, chance: "0.08%", prizes: "$50" },
-              { rarity: "epic" as Rarity, chance: "0.015%", prizes: "$500" },
-            ].map((tier) => {
-              const styles = rarityStyles[tier.rarity];
-              return (
-                <div 
-                  key={tier.rarity}
-                  className={`p-3 rounded-lg text-center ${styles.bg} ${styles.border} border`}
-                >
-                  <span className={`text-xs font-bold uppercase ${styles.labelColor}`}>
-                    {styles.label}
-                  </span>
-                  <div className="text-lg font-bold text-white mt-1">
-                    {tier.chance}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {tier.prizes}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-center mt-3">
-            <div className={`p-3 rounded-lg text-center ${rarityStyles.legendary.bg} ${rarityStyles.legendary.border} border w-48`}>
-              <span className={`text-xs font-bold uppercase ${rarityStyles.legendary.labelColor}`}>
-                LEGENDARY
-              </span>
-              <div className="text-lg font-bold text-white mt-1">
-                0.005%
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                $1000
-              </div>
-            </div>
-          </div>
-        </div>
-        
         <div className="mt-8 p-4 rounded-lg bg-muted/30 border border-border text-center">
           <p className="text-sm text-muted-foreground">
             This is a play-money demo. No real currency is involved. All outcomes are determined by weighted randomness with no manipulation.
