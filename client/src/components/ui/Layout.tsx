@@ -60,42 +60,60 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body">
       {/* Header */}
-      <header className="h-24 border-b border-border bg-card/50 backdrop-blur-md fixed top-0 w-full z-50 flex items-center px-4 lg:px-6 justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden text-muted-foreground hover:text-primary">
-            <Menu className="h-6 w-6" />
+      <header className="h-16 border-b border-[#1e2a36] bg-[#0f1923]/95 backdrop-blur-md fixed top-0 w-full z-50 flex items-center px-4 lg:px-6">
+        {/* Left: Logo + Mobile Menu */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden text-slate-400 hover:text-white">
+            <Menu className="h-5 w-5" />
           </Button>
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer group">
-              <img src={logoImg} alt="Lube.fun Logo" className="h-16 w-auto object-contain group-hover:scale-105 transition-transform" />
+              <img src={logoImg} alt="Lube.fun Logo" className="h-10 w-auto object-contain group-hover:scale-105 transition-transform" />
             </div>
           </Link>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Center: Balance + Wallet (only when logged in) */}
+        {user && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              {/* Balance Pill */}
+              <div className="flex items-center gap-2 bg-[#1a2633] px-4 py-2 rounded-full border border-[#2a3a4a] cursor-pointer hover:bg-[#1e2a38] transition-colors">
+                <span className="font-mono font-bold text-white text-sm">${user.balance.toFixed(2)}</span>
+                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              
+              {/* Wallet Button */}
+              <button 
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-full font-semibold text-white text-sm shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40"
+                data-testid="button-wallet"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="hidden sm:inline">Wallet</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Right: User Icons or Auth Buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           {user ? (
             <>
               <RewardsDropdown />
               <DailySpinDropdown />
-              <div className="hidden sm:flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg border border-white/5">
-                <span className="text-sm font-medium text-muted-foreground">Balance:</span>
-                <span className="font-mono font-bold text-primary text-glow">${user.balance.toFixed(2)}</span>
-              </div>
-              <Button variant="default" size="sm" className="hidden sm:flex gap-2 font-bold shadow-lg shadow-primary/20">
-                <Wallet className="w-4 h-4" />
-                Wallet
-              </Button>
-              <Button variant="ghost" size="icon" className="rounded-full bg-secondary text-secondary-foreground" title={user.username}>
+              <Button variant="ghost" size="icon" className="rounded-full bg-[#1a2633] text-slate-300 hover:text-white border border-[#2a3a4a]" title={user.username}>
                  <UserIcon className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => logout()} title="Logout" className="text-muted-foreground hover:text-destructive">
+              <Button variant="ghost" size="icon" onClick={() => logout()} title="Logout" className="text-slate-400 hover:text-red-400">
                 <LogOut className="w-4 h-4" />
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" onClick={openLogin} className="font-semibold">Log In</Button>
-              <Button onClick={openRegister} className="font-bold shadow-lg shadow-primary/20">Register</Button>
+              <Button variant="ghost" onClick={openLogin} className="font-semibold text-slate-300 hover:text-white">Log In</Button>
+              <Button onClick={openRegister} className="font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20">Register</Button>
             </>
           )}
         </div>
@@ -114,10 +132,10 @@ export function Layout({ children }: LayoutProps) {
         )}
       </AnimatePresence>
 
-      <div className="flex pt-24 min-h-screen">
+      <div className="flex pt-16 min-h-screen">
         {/* Sidebar */}
         <aside className={cn(
-          "fixed lg:sticky top-24 left-0 h-[calc(100vh-6rem)] w-64 bg-card border-r border-border z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
+          "fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-[#0f1923] border-r border-[#1e2a36] z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="p-4 flex-1 overflow-y-auto">
