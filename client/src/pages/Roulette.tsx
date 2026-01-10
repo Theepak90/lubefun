@@ -65,6 +65,7 @@ export default function Roulette() {
   const tickSoundRef = useRef<number>(0);
   const ballAngleRef = useRef(0);
   const ballRadiusRef = useRef(48);
+  const lastChipSoundRef = useRef<number>(0);
 
   const totalPendingBet = pendingBets.reduce((sum, b) => sum + b.amount, 0);
   const canSpin = pendingBets.length > 0 && !isSpinning && totalPendingBet <= (user?.balance || 0);
@@ -252,7 +253,11 @@ export default function Roulette() {
       return;
     }
 
-    playSound("chipDrop");
+    const now = Date.now();
+    if (now - lastChipSoundRef.current >= 125) {
+      playSound("chipDrop");
+      lastChipSoundRef.current = now;
+    }
     
     const bounceKey = `${type}-${number ?? 'none'}`;
     setChipBounce(bounceKey);
