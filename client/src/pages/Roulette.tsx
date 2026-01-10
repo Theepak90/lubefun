@@ -232,7 +232,7 @@ export default function Roulette() {
       return;
     }
 
-    playSound("bet");
+    playSound("chipDrop");
     
     // Trigger chip bounce animation
     const bounceKey = `${type}-${number ?? 'none'}`;

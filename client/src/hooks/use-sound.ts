@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop";
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -202,6 +202,52 @@ function playResultSound() {
   oscillator.stop(ctx.currentTime + 0.3);
 }
 
+function playChipDropSound() {
+  const ctx = getAudioContext();
+  
+  // Soft chip click - low volume, quick attack, simulates chip on felt
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  
+  oscillator.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  // Low-mid frequency thud with quick decay
+  oscillator.frequency.setValueAtTime(180, ctx.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.08);
+  oscillator.type = "sine";
+  
+  // Low-pass filter to soften the sound
+  filter.type = "lowpass";
+  filter.frequency.value = 400;
+  filter.Q.value = 1;
+  
+  // Very low volume, quick attack and decay
+  gainNode.gain.setValueAtTime(0.06, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+  
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.1);
+  
+  // Add a subtle high click on top
+  const clickOsc = ctx.createOscillator();
+  const clickGain = ctx.createGain();
+  
+  clickOsc.connect(clickGain);
+  clickGain.connect(ctx.destination);
+  
+  clickOsc.frequency.value = 2000;
+  clickOsc.type = "sine";
+  
+  clickGain.gain.setValueAtTime(0.02, ctx.currentTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.02);
+  
+  clickOsc.start(ctx.currentTime);
+  clickOsc.stop(ctx.currentTime + 0.02);
+}
+
 export function useSound() {
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -241,6 +287,9 @@ export function useSound() {
           break;
         case "result":
           playResultSound();
+          break;
+        case "chipDrop":
+          playChipDropSound();
           break;
       }
     } catch (e) {
