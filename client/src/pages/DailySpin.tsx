@@ -305,19 +305,19 @@ export default function DailySpin() {
           className="relative mx-auto w-full max-w-[900px] rounded-2xl overflow-hidden mb-8"
           style={{
             background: "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(20,20,30,0.95) 100%)",
-            border: "2px solid rgba(0,255,136,0.3)",
+            border: "2px solid rgba(255,215,0,0.4)",
             boxShadow: state === "revealing" 
-              ? "0 0 60px rgba(0,255,136,0.6), 0 0 120px rgba(0,255,255,0.3)"
-              : "0 0 30px rgba(0,255,136,0.2)"
+              ? "0 0 60px rgba(255,215,0,0.6), 0 0 120px rgba(255,165,0,0.3)"
+              : "0 0 30px rgba(255,215,0,0.2)"
           }}
         >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-primary via-primary/50 to-primary z-20 pointer-events-none">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-[12px] border-l-transparent border-r-transparent border-t-primary" />
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-[12px] border-l-transparent border-r-transparent border-b-primary" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-gradient-to-b from-amber-400 via-amber-400/50 to-amber-400 z-40 pointer-events-none">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-8 border-r-8 border-t-[12px] border-l-transparent border-r-transparent border-t-amber-400" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-0 h-0 border-l-8 border-r-8 border-b-[12px] border-l-transparent border-r-transparent border-b-amber-400" />
           </div>
           
           <div 
-            className="relative h-36 md:h-44 overflow-hidden"
+            className="relative h-44 md:h-52 overflow-hidden"
             style={{
               maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
@@ -353,6 +353,86 @@ export default function DailySpin() {
                   </div>
                 );
               })}
+            </motion.div>
+          </div>
+          
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+            <motion.div
+              className="relative"
+              animate={
+                state === "revealing" 
+                  ? { scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }
+                  : state === "spinning" 
+                    ? { scale: [1, 1.05, 1] }
+                    : {}
+              }
+              transition={
+                state === "revealing"
+                  ? { duration: 0.5, ease: "easeOut" }
+                  : state === "spinning"
+                    ? { duration: 0.5, repeat: Infinity, ease: "easeInOut" }
+                    : {}
+              }
+            >
+              <img 
+                src="/gift.png" 
+                alt="Gift box" 
+                className="w-64 md:w-80 h-auto drop-shadow-2xl"
+                style={{
+                  filter: state === "revealing" 
+                    ? "drop-shadow(0 0 30px rgba(255,215,0,0.8))" 
+                    : "drop-shadow(0 0 15px rgba(255,215,0,0.4))"
+                }}
+              />
+              
+              <div 
+                className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center"
+                style={{ 
+                  top: "58%",
+                  width: "45%",
+                  height: "18%",
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {state === "spinning" ? (
+                    <motion.span
+                      key="spinning"
+                      initial={{ opacity: 0 }}
+                      animate={{ 
+                        opacity: 1,
+                        scale: [1, 1.2, 1],
+                      }}
+                      transition={{ 
+                        scale: { duration: 0.4, repeat: Infinity, ease: "easeInOut" }
+                      }}
+                      className="text-2xl md:text-3xl font-black text-gray-800"
+                    >
+                      ???
+                    </motion.span>
+                  ) : state === "revealing" && wonPrize ? (
+                    <motion.span
+                      key="revealed"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ 
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 15,
+                      }}
+                      className="text-2xl md:text-3xl font-black text-gray-800"
+                    >
+                      {wonPrize.label}
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="idle"
+                      className="text-xl md:text-2xl font-bold text-gray-600"
+                    >
+                      OPEN
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
           </div>
         </div>
