@@ -20,6 +20,7 @@ export interface IStorage {
   getBet(id: number): Promise<Bet | undefined>;
   getUserBets(userId: number, limit?: number): Promise<Bet[]>;
   getActiveMinesBet(userId: number): Promise<Bet | undefined>;
+  getActiveBlackjackBet(userId: number): Promise<Bet | undefined>;
   
   updateLastBonusClaim(id: number): Promise<User>;
   updateLastWheelSpin(id: number): Promise<User>;
@@ -114,6 +115,17 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(bets.userId, userId),
         eq(bets.game, 'mines'),
+        eq(bets.active, true)
+      ))
+      .limit(1);
+    return bet;
+  }
+  
+  async getActiveBlackjackBet(userId: number): Promise<Bet | undefined> {
+    const [bet] = await db.select().from(bets)
+      .where(and(
+        eq(bets.userId, userId),
+        eq(bets.game, 'blackjack'),
         eq(bets.active, true)
       ))
       .limit(1);

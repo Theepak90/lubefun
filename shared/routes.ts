@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -152,6 +152,94 @@ export const api = {
             color: z.enum(["red", "black", "green"]),
             won: z.boolean(),
             payout: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+    },
+    blackjack: {
+      deal: {
+        method: "POST" as const,
+        path: "/api/games/blackjack/deal",
+        input: blackjackDealSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            playerCards: z.array(z.number()),
+            dealerCards: z.array(z.number()),
+            playerTotal: z.number(),
+            dealerShowing: z.number(),
+            status: z.string(),
+            canDouble: z.boolean(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      hit: {
+        method: "POST" as const,
+        path: "/api/games/blackjack/hit",
+        input: blackjackActionSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            playerCards: z.array(z.number()),
+            dealerCards: z.array(z.number()),
+            playerTotal: z.number(),
+            status: z.string(),
+            outcome: z.string().optional(),
+            payout: z.number().optional(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      stand: {
+        method: "POST" as const,
+        path: "/api/games/blackjack/stand",
+        input: blackjackActionSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            playerCards: z.array(z.number()),
+            dealerCards: z.array(z.number()),
+            playerTotal: z.number(),
+            dealerTotal: z.number(),
+            status: z.string(),
+            outcome: z.string(),
+            payout: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      double: {
+        method: "POST" as const,
+        path: "/api/games/blackjack/double",
+        input: blackjackActionSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            playerCards: z.array(z.number()),
+            dealerCards: z.array(z.number()),
+            playerTotal: z.number(),
+            dealerTotal: z.number(),
+            status: z.string(),
+            outcome: z.string(),
+            payout: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      active: {
+        method: "GET" as const,
+        path: "/api/games/blackjack/active",
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>().nullable(),
+            playerCards: z.array(z.number()),
+            dealerCards: z.array(z.number()),
+            playerTotal: z.number(),
+            dealerShowing: z.number(),
+            status: z.string(),
+            canDouble: z.boolean(),
           }),
           400: errorSchemas.gameError,
         },

@@ -2,13 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
-import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin } from "@shared/config";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber } from "./fairness";
+import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber, getShuffledDeck, calculateHandTotal, getCardValue } from "./fairness";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -489,6 +489,471 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[Roulette] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+
+  // BLACKJACK
+  
+  // Helper: Play dealer's hand according to standard rules (stand on soft 17)
+  function playDealerHand(deck: number[], dealerCards: number[], deckPointer: number): { dealerCards: number[], dealerTotal: number, deckPointer: number } {
+    let pointer = deckPointer;
+    const cards = [...dealerCards];
+    
+    while (true) {
+      const { total, soft } = calculateHandTotal(cards);
+      
+      // Dealer stands on 17+ (including soft 17 since DEALER_STANDS_ON_SOFT_17 is true)
+      if (total >= 17) {
+        if (BLACKJACK_CONFIG.DEALER_STANDS_ON_SOFT_17 || !soft || total > 17) {
+          return { dealerCards: cards, dealerTotal: total, deckPointer: pointer };
+        }
+      }
+      
+      // Dealer hits
+      cards.push(deck[pointer]);
+      pointer++;
+    }
+  }
+  
+  // Helper: Determine outcome and payout
+  function determineOutcome(playerTotal: number, dealerTotal: number, playerBlackjack: boolean, dealerBlackjack: boolean): { outcome: string, multiplier: number } {
+    if (playerBlackjack && dealerBlackjack) {
+      return { outcome: "push", multiplier: BLACKJACK_CONFIG.PUSH_PAYOUT };
+    }
+    if (playerBlackjack) {
+      return { outcome: "blackjack", multiplier: BLACKJACK_CONFIG.BLACKJACK_PAYOUT };
+    }
+    if (dealerBlackjack) {
+      return { outcome: "lose", multiplier: 0 };
+    }
+    if (playerTotal > 21) {
+      return { outcome: "lose", multiplier: 0 };
+    }
+    if (dealerTotal > 21) {
+      return { outcome: "win", multiplier: BLACKJACK_CONFIG.WIN_PAYOUT };
+    }
+    if (playerTotal > dealerTotal) {
+      return { outcome: "win", multiplier: BLACKJACK_CONFIG.WIN_PAYOUT };
+    }
+    if (playerTotal < dealerTotal) {
+      return { outcome: "lose", multiplier: 0 };
+    }
+    return { outcome: "push", multiplier: BLACKJACK_CONFIG.PUSH_PAYOUT };
+  }
+
+  // Helper: Strip sensitive data from bet before sending to client
+  function sanitizeBetForClient(bet: any): any {
+    if (!bet) return bet;
+    const { result, ...rest } = bet;
+    if (!result) return bet;
+    // Remove deck from result, keep only safe fields
+    const { deck, deckPointer, ...safeResult } = result;
+    return { ...rest, result: safeResult };
+  }
+
+  // GET active blackjack hand
+  app.get(api.games.blackjack.active.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const bet = await storage.getActiveBlackjackBet(req.user!.id);
+    
+    if (!bet) {
+      return res.json({
+        bet: null,
+        playerCards: [],
+        dealerCards: [],
+        playerTotal: 0,
+        dealerShowing: 0,
+        status: "betting",
+        canDouble: false,
+      });
+    }
+    
+    const result = bet.result as any;
+    const { total: playerTotal } = calculateHandTotal(result.playerCards);
+    const dealerShowing = result.dealerCards.length > 0 ? getCardValue(result.dealerCards[1]) : 0;
+    
+    res.json({
+      bet: sanitizeBetForClient(bet),
+      playerCards: result.playerCards,
+      dealerCards: [result.dealerCards[1]], // Only show second card (first is hole card)
+      playerTotal,
+      dealerShowing,
+      status: result.status,
+      canDouble: result.playerCards.length === 2 && result.status === "playing",
+    });
+  });
+
+  // DEAL - Start a new hand
+  app.post(api.games.blackjack.deal.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      // Check for existing active hand
+      const existingBet = await storage.getActiveBlackjackBet(user.id);
+      if (existingBet) {
+        return res.status(400).json({ message: "You already have an active hand" });
+      }
+
+      const input = blackjackDealSchema.parse(req.body);
+      if (user.balance < input.betAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // Deduct bet
+      await storage.updateUserBalance(user.id, -input.betAmount);
+
+      // Generate shuffled deck
+      const deck = getShuffledDeck(user.serverSeed, user.clientSeed, user.nonce);
+      await storage.incrementNonce(user.id);
+
+      // Deal cards: player, dealer, player, dealer
+      const playerCards = [deck[0], deck[2]];
+      const dealerCards = [deck[1], deck[3]];
+      let deckPointer = 4;
+
+      const { total: playerTotal } = calculateHandTotal(playerCards);
+      const { total: dealerTotal } = calculateHandTotal(dealerCards);
+      
+      const playerBlackjack = playerTotal === 21 && playerCards.length === 2;
+      const dealerBlackjack = dealerTotal === 21 && dealerCards.length === 2;
+
+      let status = "playing";
+      let outcome: string | undefined;
+      let payout = 0;
+
+      // Check for immediate blackjacks
+      if (playerBlackjack || dealerBlackjack) {
+        status = "completed";
+        const result = determineOutcome(playerTotal, dealerTotal, playerBlackjack, dealerBlackjack);
+        outcome = result.outcome;
+        payout = input.betAmount * result.multiplier;
+        
+        if (payout > 0) {
+          await storage.updateUserBalance(user.id, payout);
+        }
+      }
+
+      const bet = await storage.createBet({
+        userId: user.id,
+        game: "blackjack",
+        betAmount: input.betAmount,
+        payoutMultiplier: status === "completed" ? (payout / input.betAmount) : 1,
+        profit: status === "completed" ? payout - input.betAmount : 0,
+        won: status === "completed" ? (outcome === "win" || outcome === "blackjack") : false,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: {
+          deck,
+          deckPointer,
+          playerCards,
+          dealerCards,
+          status,
+          outcome,
+          doubled: false,
+        },
+        active: status !== "completed",
+      });
+
+      res.json({
+        bet: sanitizeBetForClient(bet),
+        playerCards,
+        dealerCards: status === "completed" ? dealerCards : [dealerCards[1]], // Show hole card if complete
+        playerTotal,
+        dealerShowing: getCardValue(dealerCards[1]),
+        status,
+        canDouble: status === "playing",
+        outcome,
+        payout,
+      });
+    } catch (err) {
+      console.error("[Blackjack Deal] Error:", err);
+      res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+
+  // HIT - Draw a card
+  app.post(api.games.blackjack.hit.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = blackjackActionSchema.parse(req.body);
+      const bet = await storage.getBet(input.betId);
+      
+      if (!bet || bet.userId !== user.id || !bet.active || bet.game !== "blackjack") {
+        return res.status(400).json({ message: "No active blackjack hand" });
+      }
+
+      const result = bet.result as any;
+      if (result.status !== "playing") {
+        return res.status(400).json({ message: "Cannot hit - hand is not in play" });
+      }
+
+      // Draw card
+      const newCard = result.deck[result.deckPointer];
+      const playerCards = [...result.playerCards, newCard];
+      const deckPointer = result.deckPointer + 1;
+
+      const { total: playerTotal } = calculateHandTotal(playerCards);
+      
+      let status = "playing";
+      let outcome: string | undefined;
+      let payout: number | undefined;
+
+      if (playerTotal > 21) {
+        // Bust
+        status = "completed";
+        outcome = "lose";
+        payout = 0;
+      } else if (playerTotal === 21) {
+        // Auto-stand on 21
+        status = "dealer_turn";
+      }
+
+      // If player busts or gets 21, complete the hand
+      if (status === "completed" || status === "dealer_turn") {
+        if (status === "dealer_turn") {
+          // Play dealer's hand
+          const dealerResult = playDealerHand(result.deck, result.dealerCards, deckPointer);
+          const { outcome: finalOutcome, multiplier } = determineOutcome(playerTotal, dealerResult.dealerTotal, false, false);
+          
+          outcome = finalOutcome;
+          payout = bet.betAmount * multiplier;
+          status = "completed";
+          
+          if (payout > 0) {
+            await storage.updateUserBalance(user.id, payout);
+          }
+
+          const updatedBet = await storage.updateBet(bet.id, {
+            active: false,
+            won: outcome === "win",
+            profit: payout - bet.betAmount,
+            payoutMultiplier: multiplier,
+            result: {
+              ...result,
+              playerCards,
+              dealerCards: dealerResult.dealerCards,
+              deckPointer: dealerResult.deckPointer,
+              status: "completed",
+              outcome,
+            },
+          });
+
+          return res.json({
+            bet: sanitizeBetForClient(updatedBet),
+            playerCards,
+            dealerCards: dealerResult.dealerCards,
+            playerTotal,
+            dealerTotal: dealerResult.dealerTotal,
+            status: "completed",
+            outcome,
+            payout,
+          });
+        }
+
+        // Player busted
+        const updatedBet = await storage.updateBet(bet.id, {
+          active: false,
+          won: false,
+          profit: -bet.betAmount,
+          payoutMultiplier: 0,
+          result: {
+            ...result,
+            playerCards,
+            deckPointer,
+            status: "completed",
+            outcome: "lose",
+          },
+        });
+
+        return res.json({
+          bet: sanitizeBetForClient(updatedBet),
+          playerCards,
+          dealerCards: result.dealerCards,
+          playerTotal,
+          status: "completed",
+          outcome: "lose",
+          payout: 0,
+        });
+      }
+
+      // Still playing
+      const updatedBet = await storage.updateBet(bet.id, {
+        result: {
+          ...result,
+          playerCards,
+          deckPointer,
+        },
+      });
+
+      res.json({
+        bet: sanitizeBetForClient(updatedBet),
+        playerCards,
+        dealerCards: [result.dealerCards[1]],
+        playerTotal,
+        status: "playing",
+      });
+    } catch (err) {
+      console.error("[Blackjack Hit] Error:", err);
+      res.status(400).json({ message: "Invalid action" });
+    }
+  });
+
+  // STAND - End player turn
+  app.post(api.games.blackjack.stand.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = blackjackActionSchema.parse(req.body);
+      const bet = await storage.getBet(input.betId);
+      
+      if (!bet || bet.userId !== user.id || !bet.active || bet.game !== "blackjack") {
+        return res.status(400).json({ message: "No active blackjack hand" });
+      }
+
+      const result = bet.result as any;
+      if (result.status !== "playing") {
+        return res.status(400).json({ message: "Cannot stand - hand is not in play" });
+      }
+
+      const { total: playerTotal } = calculateHandTotal(result.playerCards);
+      
+      // Play dealer's hand
+      const dealerResult = playDealerHand(result.deck, result.dealerCards, result.deckPointer);
+      const { outcome, multiplier } = determineOutcome(playerTotal, dealerResult.dealerTotal, false, false);
+      
+      const payout = bet.betAmount * multiplier;
+      
+      if (payout > 0) {
+        await storage.updateUserBalance(user.id, payout);
+      }
+
+      const updatedBet = await storage.updateBet(bet.id, {
+        active: false,
+        won: outcome === "win",
+        profit: payout - bet.betAmount,
+        payoutMultiplier: multiplier,
+        result: {
+          ...result,
+          dealerCards: dealerResult.dealerCards,
+          deckPointer: dealerResult.deckPointer,
+          status: "completed",
+          outcome,
+        },
+      });
+
+      res.json({
+        bet: sanitizeBetForClient(updatedBet),
+        playerCards: result.playerCards,
+        dealerCards: dealerResult.dealerCards,
+        playerTotal,
+        dealerTotal: dealerResult.dealerTotal,
+        status: "completed",
+        outcome,
+        payout,
+      });
+    } catch (err) {
+      console.error("[Blackjack Stand] Error:", err);
+      res.status(400).json({ message: "Invalid action" });
+    }
+  });
+
+  // DOUBLE - Double bet, take one card, stand
+  app.post(api.games.blackjack.double.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = blackjackActionSchema.parse(req.body);
+      const bet = await storage.getBet(input.betId);
+      
+      if (!bet || bet.userId !== user.id || !bet.active || bet.game !== "blackjack") {
+        return res.status(400).json({ message: "No active blackjack hand" });
+      }
+
+      const result = bet.result as any;
+      if (result.status !== "playing" || result.playerCards.length !== 2) {
+        return res.status(400).json({ message: "Cannot double - only allowed on first action" });
+      }
+
+      if (user.balance < bet.betAmount) {
+        return res.status(400).json({ message: "Insufficient balance to double" });
+      }
+
+      // Deduct additional bet
+      await storage.updateUserBalance(user.id, -bet.betAmount);
+      const totalBet = bet.betAmount * 2;
+
+      // Draw one card
+      const newCard = result.deck[result.deckPointer];
+      const playerCards = [...result.playerCards, newCard];
+      let deckPointer = result.deckPointer + 1;
+
+      const { total: playerTotal } = calculateHandTotal(playerCards);
+      
+      let outcome: string;
+      let payout: number;
+
+      if (playerTotal > 21) {
+        // Bust
+        outcome = "lose";
+        payout = 0;
+      } else {
+        // Play dealer's hand
+        const dealerResult = playDealerHand(result.deck, result.dealerCards, deckPointer);
+        deckPointer = dealerResult.deckPointer;
+        
+        const finalResult = determineOutcome(playerTotal, dealerResult.dealerTotal, false, false);
+        outcome = finalResult.outcome;
+        payout = totalBet * finalResult.multiplier;
+        
+        result.dealerCards = dealerResult.dealerCards;
+      }
+
+      if (payout > 0) {
+        await storage.updateUserBalance(user.id, payout);
+      }
+
+      const updatedBet = await storage.updateBet(bet.id, {
+        betAmount: totalBet,
+        active: false,
+        won: outcome === "win",
+        profit: payout - totalBet,
+        payoutMultiplier: payout / totalBet,
+        result: {
+          ...result,
+          playerCards,
+          deckPointer,
+          status: "completed",
+          outcome,
+          doubled: true,
+        },
+      });
+
+      const { total: dealerTotal } = calculateHandTotal(result.dealerCards);
+
+      res.json({
+        bet: sanitizeBetForClient(updatedBet),
+        playerCards,
+        dealerCards: result.dealerCards,
+        playerTotal,
+        dealerTotal,
+        status: "completed",
+        outcome,
+        payout,
+      });
+    } catch (err) {
+      console.error("[Blackjack Double] Error:", err);
+      res.status(400).json({ message: "Invalid action" });
     }
   });
 

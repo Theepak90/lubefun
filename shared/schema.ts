@@ -158,8 +158,18 @@ export const rouletteBetSchema = z.object({
   straightNumber: z.number().min(0).max(36).optional(),
 });
 
+export const blackjackDealSchema = z.object({
+  betAmount: z.number().min(0.1),
+});
+
+export const blackjackActionSchema = z.object({
+  betId: z.number(),
+});
+
 export type DiceBetRequest = z.infer<typeof diceBetSchema>;
 export type CoinflipBetRequest = z.infer<typeof coinflipBetSchema>;
 export type MinesBetRequest = z.infer<typeof minesBetSchema>;
 export type PlinkoBetRequest = z.infer<typeof plinkoBetSchema>;
 export type RouletteBetRequest = z.infer<typeof rouletteBetSchema>;
+export type BlackjackDealRequest = z.infer<typeof blackjackDealSchema>;
+export type BlackjackActionRequest = z.infer<typeof blackjackActionSchema>;

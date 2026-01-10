@@ -107,3 +107,73 @@ export function getRouletteNumber(serverSeed: string, clientSeed: string, nonce:
   const number = parseInt(subHash, 16);
   return number % 37;
 }
+
+// Blackjack: Generate a shuffled deck of 52 cards
+// Returns an array of card indices 0-51 in shuffled order
+// Cards: 0-12 = A-K Spades, 13-25 = A-K Hearts, 26-38 = A-K Diamonds, 39-51 = A-K Clubs
+export function getShuffledDeck(serverSeed: string, clientSeed: string, nonce: number): number[] {
+  const hash = getResult(serverSeed, clientSeed, nonce);
+  
+  // Create deck [0, 1, 2, ..., 51]
+  const deck = Array.from({ length: 52 }, (_, i) => i);
+  
+  // Fisher-Yates shuffle using hash as randomness source
+  let currentHash = hash;
+  
+  for (let i = 51; i > 0; i--) {
+    // Re-hash periodically for more entropy
+    if (i % 16 === 0 && i !== 51) {
+      currentHash = crypto.createHash('sha256').update(currentHash).digest('hex');
+    }
+    
+    // Take 4 hex chars (2 bytes) for each swap
+    const byteIndex = ((51 - i) % 16) * 4;
+    const value = parseInt(currentHash.substring(byteIndex, byteIndex + 4), 16);
+    const j = value % (i + 1);
+    
+    // Swap
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  
+  return deck;
+}
+
+// Card helper functions
+export function getCardValue(cardIndex: number): number {
+  const rank = cardIndex % 13; // 0=A, 1=2, ..., 9=10, 10=J, 11=Q, 12=K
+  if (rank === 0) return 11; // Ace starts as 11
+  if (rank >= 10) return 10; // J, Q, K = 10
+  return rank + 1;
+}
+
+export function getCardRank(cardIndex: number): string {
+  const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  return ranks[cardIndex % 13];
+}
+
+export function getCardSuit(cardIndex: number): string {
+  const suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+  return suits[Math.floor(cardIndex / 13)];
+}
+
+export function calculateHandTotal(cards: number[]): { total: number; soft: boolean } {
+  let total = 0;
+  let aces = 0;
+  
+  for (const card of cards) {
+    const value = getCardValue(card);
+    total += value;
+    if (value === 11) aces++;
+  }
+  
+  // Convert aces from 11 to 1 if over 21
+  while (total > 21 && aces > 0) {
+    total -= 10;
+    aces--;
+  }
+  
+  // Soft hand has an ace counted as 11
+  const soft = aces > 0 && total <= 21;
+  
+  return { total, soft };
+}

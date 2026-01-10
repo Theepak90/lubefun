@@ -115,3 +115,16 @@ export function checkRouletteWin(num: number, betType: RouletteBetType, straight
   }
   return false;
 }
+
+// Blackjack configuration
+export const BLACKJACK_CONFIG = {
+  DEALER_STANDS_ON_SOFT_17: true,
+  BLACKJACK_PAYOUT: 2.5,
+  WIN_PAYOUT: 2,
+  PUSH_PAYOUT: 1,
+  STATUSES: ["betting", "playing", "dealer_turn", "completed"] as const,
+  OUTCOMES: ["win", "lose", "push", "blackjack"] as const,
+};
+
+export type BlackjackStatus = typeof BLACKJACK_CONFIG.STATUSES[number];
+export type BlackjackOutcome = typeof BLACKJACK_CONFIG.OUTCOMES[number];
