@@ -59,6 +59,12 @@ export default function Roulette() {
   const [ballVisible, setBallVisible] = useState(false);
   const [showWinningNumber, setShowWinningNumber] = useState(false);
   const [currentWinningNumber, setCurrentWinningNumber] = useState<number | null>(null);
+  const [devOverlay, setDevOverlay] = useState<{
+    winningNumber: number;
+    winningIndex: number;
+    finalAngle: number;
+  } | null>(null);
+  const [showDevOverlay, setShowDevOverlay] = useState(true);
   
   const sparkleIdRef = useRef(0);
   const ballAnimationRef = useRef<number | null>(null);
@@ -163,11 +169,28 @@ export default function Roulette() {
       setCurrentWinningNumber(data.winningNumber);
       setShowWinningNumber(false);
       
-      const numberIndex = WHEEL_NUMBERS.indexOf(data.winningNumber);
+      // Calculate target rotation using canonical wheel order
+      const EXTRA_SPINS = 3;
+      const winningIndex = WHEEL_NUMBERS.indexOf(data.winningNumber);
       const segmentAngle = 360 / WHEEL_NUMBERS.length;
-      const targetPocketAngle = 360 - (numberIndex * segmentAngle) - (segmentAngle / 2);
-      const totalRotation = wheelRotation + 900 + targetPocketAngle;
-      setWheelRotation(totalRotation);
+      
+      // desiredOffset: the final wheel rotation (mod 360) that places pocket center at 12 o'clock
+      const desiredOffset = ((360 - winningIndex * segmentAngle) % 360 + 360) % 360;
+      
+      // Calculate final rotation to land at desiredOffset
+      const baseRotation = wheelRotation + EXTRA_SPINS * 360;
+      const currentModAngle = ((baseRotation % 360) + 360) % 360;
+      const adjustmentAngle = ((desiredOffset - currentModAngle) % 360 + 360) % 360;
+      const finalRotation = baseRotation + adjustmentAngle;
+      
+      setWheelRotation(finalRotation);
+      
+      // Dev overlay info
+      setDevOverlay({
+        winningNumber: data.winningNumber,
+        winningIndex,
+        finalAngle: finalRotation,
+      });
       
       const initialBallAngle = Math.random() * 360;
       setBallVisible(true);
@@ -582,6 +605,42 @@ export default function Roulette() {
               </div>
             )}
           </div>
+          
+          {/* Dev Overlay - Toggle to verify wheel alignment */}
+          {showDevOverlay && devOverlay && (
+            <div className="absolute -right-4 top-0 translate-x-full bg-slate-900/95 border border-slate-700 rounded-lg p-3 text-xs font-mono text-slate-300 z-50 min-w-[200px]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-amber-400 font-bold">DEV OVERLAY</span>
+                <button 
+                  onClick={() => setShowDevOverlay(false)}
+                  className="text-slate-500 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-1">
+                <div>winningNumber: <span className="text-emerald-400">{devOverlay.winningNumber}</span></div>
+                <div>winningIndex: <span className="text-emerald-400">{devOverlay.winningIndex}</span></div>
+                <div>finalAngle: <span className="text-emerald-400">{devOverlay.finalAngle.toFixed(2)}°</span></div>
+                <div>finalAngle % 360: <span className="text-emerald-400">{(devOverlay.finalAngle % 360).toFixed(2)}°</span></div>
+                <div className="pt-1 border-t border-slate-700 mt-1">
+                  <span className="text-slate-500">Pocket at pointer:</span>
+                  <div className="text-lg text-amber-300 font-bold">
+                    {WHEEL_NUMBERS[Math.round((360 - (devOverlay.finalAngle % 360 + 360) % 360) / (360 / WHEEL_NUMBERS.length)) % WHEEL_NUMBERS.length]}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {!showDevOverlay && devOverlay && (
+            <button
+              onClick={() => setShowDevOverlay(true)}
+              className="absolute -right-2 top-2 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-400 hover:text-white z-50"
+            >
+              DEV
+            </button>
+          )}
 
           <div className="flex items-center gap-6 mb-4 text-sm">
             <div className="text-slate-400">
