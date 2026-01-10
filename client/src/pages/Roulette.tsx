@@ -174,8 +174,9 @@ export default function Roulette() {
       const winningIndex = WHEEL_NUMBERS.indexOf(data.winningNumber);
       const segmentAngle = 360 / WHEEL_NUMBERS.length;
       
-      // desiredOffset: the final wheel rotation (mod 360) that places pocket center at 12 o'clock
-      const desiredOffset = ((360 - winningIndex * segmentAngle) % 360 + 360) % 360;
+      // desiredOffset: the final wheel rotation (mod 360) that places pocket CENTER at 12 o'clock
+      // Each pocket's center is at (i + 0.5) * segmentAngle, so we need to offset by half a slot
+      const desiredOffset = ((360 - (winningIndex + 0.5) * segmentAngle) % 360 + 360) % 360;
       
       // Calculate final rotation to land at desiredOffset
       const baseRotation = wheelRotation + EXTRA_SPINS * 360;
@@ -626,7 +627,8 @@ export default function Roulette() {
                 <div className="pt-1 border-t border-slate-700 mt-1">
                   <span className="text-slate-500">Pocket at pointer:</span>
                   <div className="text-lg text-amber-300 font-bold">
-                    {WHEEL_NUMBERS[Math.round((360 - (devOverlay.finalAngle % 360 + 360) % 360) / (360 / WHEEL_NUMBERS.length)) % WHEEL_NUMBERS.length]}
+                    {/* Reverse the offset calculation to find which pocket is at 0° */}
+                    {WHEEL_NUMBERS[Math.floor(((360 - ((devOverlay.finalAngle % 360) + 360) % 360) / (360 / WHEEL_NUMBERS.length) + 0.5) % WHEEL_NUMBERS.length)]}
                   </div>
                 </div>
               </div>
