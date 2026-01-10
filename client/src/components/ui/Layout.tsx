@@ -12,7 +12,10 @@ import {
   ShieldCheck,
   RotateCw,
   Volume2,
-  VolumeX
+  VolumeX,
+  Spade,
+  CircleDot,
+  Triangle
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSound } from "@/hooks/use-sound";
@@ -58,6 +61,9 @@ export function Layout({ children }: LayoutProps) {
     { icon: Dice5, label: "Dice", href: "/dice" },
     { icon: Coins, label: "Coinflip", href: "/coinflip" },
     { icon: Bomb, label: "Mines", href: "/mines" },
+    { icon: Spade, label: "Blackjack", href: "/blackjack" },
+    { icon: CircleDot, label: "Roulette", href: "/roulette" },
+    { icon: Triangle, label: "Plinko", href: "/plinko" },
     { icon: RotateCw, label: "Daily Spin", href: "/daily-spin" },
   ];
 
