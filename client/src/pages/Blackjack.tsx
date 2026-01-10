@@ -465,24 +465,25 @@ function SeatWithBets({
   showPlus3: boolean;
   isPlaying: boolean;
 }) {
-  const angle = (position - 3) * 20;
-  const radius = 80;
+  const centerPos = 4.5;
+  const angle = (position - centerPos) * 16;
+  const radius = 85;
   const x = Math.sin(angle * Math.PI / 180) * radius;
-  const y = Math.cos(angle * Math.PI / 180) * 15;
+  const y = Math.cos(angle * Math.PI / 180) * 12;
 
   return (
     <div
       className="absolute flex flex-col items-center"
       style={{
         left: `calc(50% + ${x}%)`,
-        bottom: `${12 + y}%`,
+        bottom: `${5 + y}%`,
         transform: 'translateX(-50%)'
       }}
     >
       {cards && cards.length > 0 && (
         <motion.div 
           className={cn(
-            "absolute -top-28 left-1/2 -translate-x-1/2 flex rounded-lg",
+            "absolute -top-24 left-1/2 -translate-x-1/2 flex rounded-lg",
             outcome === "blackjack" && "shadow-[0_0_25px_rgba(251,191,36,0.7)]",
             outcome === "win" && "shadow-[0_0_25px_rgba(34,197,94,0.6)]",
             outcome === "lose" && "shadow-[0_0_20px_rgba(239,68,68,0.5)]"
@@ -706,10 +707,10 @@ export default function Blackjack() {
     }
   }, [isMobile, isPlaying, selectedSeat]);
 
-  const seatCount = isMobile ? 5 : 7;
+  const seatCount = isMobile ? 7 : 10;
   const seatPositions = isMobile 
-    ? [0, 1.5, 3, 4.5, 6] 
-    : [0, 1, 2, 3, 4, 5, 6];
+    ? [0, 1, 2, 3, 4, 5, 6] 
+    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const { data: activeHand, isLoading } = useQuery<BlackjackState | null>({
     queryKey: ["/api/games/blackjack/active"],
