@@ -298,18 +298,18 @@ export default function Roulette() {
   };
 
   const VegasChip = ({ value, selected, disabled, onClick }: { value: number; selected: boolean; disabled: boolean; onClick: () => void }) => {
-    const chipColors: Record<number, { bg: string; ring: string; text: string }> = {
-      0.20: { bg: "bg-slate-200", ring: "ring-slate-400", text: "text-slate-700" },
-      1: { bg: "bg-blue-500", ring: "ring-blue-300", text: "text-white" },
-      2: { bg: "bg-emerald-500", ring: "ring-emerald-300", text: "text-white" },
-      10: { bg: "bg-orange-500", ring: "ring-orange-300", text: "text-white" },
-      50: { bg: "bg-red-500", ring: "ring-red-300", text: "text-white" },
-      200: { bg: "bg-purple-600", ring: "ring-purple-400", text: "text-white" },
-      1000: { bg: "bg-yellow-400", ring: "ring-yellow-200", text: "text-yellow-900" },
-      4000: { bg: "bg-pink-400", ring: "ring-pink-200", text: "text-pink-900" },
+    const chipColors: Record<number, { bg: string; border: string; text: string }> = {
+      0.20: { bg: "bg-slate-300", border: "border-slate-500", text: "text-slate-800" },
+      1: { bg: "bg-blue-600", border: "border-blue-400", text: "text-white" },
+      2: { bg: "bg-emerald-600", border: "border-emerald-400", text: "text-white" },
+      10: { bg: "bg-orange-500", border: "border-orange-300", text: "text-white" },
+      50: { bg: "bg-red-600", border: "border-red-400", text: "text-white" },
+      200: { bg: "bg-purple-600", border: "border-purple-400", text: "text-white" },
+      1000: { bg: "bg-yellow-500", border: "border-yellow-300", text: "text-yellow-950" },
+      4000: { bg: "bg-pink-500", border: "border-pink-300", text: "text-pink-950" },
     };
     const colors = chipColors[value] || chipColors[1];
-    const label = value >= 1000 ? `$${value / 1000}k` : value < 1 ? `$.${Math.round(value * 100)}` : `$${value}`;
+    const label = value >= 1000 ? `$${value / 1000}k` : value < 1 ? `$0.20` : `$${value}`;
 
     return (
       <button
@@ -317,31 +317,40 @@ export default function Roulette() {
         disabled={disabled}
         data-testid={`chip-${value}`}
         className={cn(
-          "relative w-10 h-10 rounded-full transition-all duration-150",
+          "relative w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150",
           colors.bg,
-          "ring-2 ring-inset", colors.ring,
-          "shadow-md",
-          selected && "ring-4 ring-white scale-110 shadow-lg shadow-white/30",
+          "border-[3px]", colors.border,
+          "shadow-lg",
+          selected && "ring-2 ring-offset-2 ring-offset-[#0d1419] ring-white scale-110",
           disabled && "opacity-50 cursor-not-allowed",
-          !disabled && !selected && "hover:scale-105"
+          !disabled && !selected && "hover:scale-105 hover:brightness-110"
         )}
       >
-        <div className="absolute inset-1 rounded-full border-2 border-dashed border-white/40" />
-        <span className={cn("text-[10px] font-bold", colors.text)}>{label}</span>
+        <div className="absolute inset-1.5 rounded-full border border-dashed border-white/30" />
+        <span className={cn(
+          "relative z-10 font-bold drop-shadow-sm",
+          value >= 1000 ? "text-[9px]" : value >= 100 ? "text-[10px]" : "text-[11px]",
+          colors.text
+        )}>{label}</span>
       </button>
     );
   };
 
   const ChipStack = ({ amount, small, bouncing }: { amount: number; small?: boolean; bouncing?: boolean }) => {
     if (amount <= 0) return null;
-    const size = small ? "w-4 h-4 text-[6px]" : "w-6 h-6 text-[8px]";
+    const size = small ? "w-5 h-5" : "w-7 h-7";
+    const displayAmount = amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount >= 1 ? amount.toFixed(0) : amount.toFixed(2);
     return (
       <div className={cn(
-        "absolute inset-0 flex items-center justify-center pointer-events-none",
+        "absolute inset-0 flex items-center justify-center pointer-events-none z-10",
         bouncing && "animate-chip-drop"
       )}>
-        <div className={cn(size, "rounded-full bg-yellow-400 border border-yellow-600 flex items-center justify-center font-bold text-yellow-900 shadow-md")}>
-          {amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount >= 1 ? amount.toFixed(0) : amount.toFixed(2)}
+        <div className={cn(
+          size,
+          "rounded-full bg-yellow-400 border-2 border-yellow-600 flex items-center justify-center font-bold text-yellow-950 shadow-md",
+          small ? "text-[7px]" : "text-[9px]"
+        )}>
+          {displayAmount}
         </div>
       </div>
     );
@@ -506,27 +515,27 @@ export default function Roulette() {
           </div>
         </div>
         
-        <div className="bg-[#0d1419] border border-[#1a2530] rounded-2xl p-4 mt-2 max-w-2xl mx-auto">
+        <div className="bg-[#0d1419] border border-[#1a2530] rounded-2xl p-5 mt-2 max-w-3xl mx-auto">
           
           <div className={cn(
-            "bg-[#0f4c3a] rounded-xl p-3 border-2 border-[#1a6b4f] shadow-inner transition-opacity",
+            "bg-[#0f4c3a] rounded-xl p-4 border-2 border-[#1a6b4f] shadow-inner transition-opacity",
             isSpinning && "opacity-60 pointer-events-none"
           )}>
             
-            <div className="flex mb-1">
+            <div className="flex gap-1 mb-2">
               <button
                 onClick={() => placeBet("straight", 0)}
                 disabled={isSpinning}
                 data-testid="button-number-0"
-                className="relative w-8 h-20 bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 rounded-l-lg flex items-center justify-center text-white font-bold text-sm transition-all"
+                className="relative w-10 min-h-[7.5rem] bg-emerald-600 hover:bg-emerald-500 border-2 border-emerald-400 rounded-lg flex items-center justify-center text-white font-bold text-base transition-all"
               >
                 0
                 <ChipStack amount={getBetAmount("straight", 0)} small bouncing={chipBounce === "straight-0"} />
               </button>
               
-              <div className="flex-1 grid grid-rows-3 gap-px">
+              <div className="flex-1 grid grid-rows-3 gap-1">
                 {TABLE_ROWS.map((row, rowIdx) => (
-                  <div key={rowIdx} className="grid grid-cols-12 gap-px">
+                  <div key={rowIdx} className="grid grid-cols-12 gap-1">
                     {row.map((num) => {
                       const color = getNumberColor(num);
                       return (
@@ -536,7 +545,7 @@ export default function Roulette() {
                           disabled={isSpinning}
                           data-testid={`button-number-${num}`}
                           className={cn(
-                            "relative h-6 flex items-center justify-center text-white font-bold text-[10px] transition-all border border-opacity-30",
+                            "relative h-9 flex items-center justify-center text-white font-bold text-xs transition-all border-2 rounded-sm",
                             color === "red" 
                               ? "bg-red-600 hover:bg-red-500 border-red-400" 
                               : "bg-slate-800 hover:bg-slate-700 border-slate-600"
@@ -551,14 +560,14 @@ export default function Roulette() {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-px ml-1">
+              <div className="flex flex-col gap-1">
                 {["col1", "col2", "col3"].map((col) => (
                   <button
                     key={col}
                     onClick={() => placeBet(col as BetType)}
                     disabled={isSpinning}
                     data-testid={`button-${col}`}
-                    className="relative w-8 h-6 bg-[#1a6b4f] hover:bg-[#228b5b] border border-[#2a8b6f] flex items-center justify-center text-white font-bold text-[9px] transition-all"
+                    className="relative w-10 flex-1 bg-[#1a6b4f] hover:bg-[#228b5b] border-2 border-[#2a8b6f] rounded-sm flex items-center justify-center text-white font-bold text-[10px] transition-all"
                   >
                     2:1
                     <ChipStack amount={getBetAmount(col as BetType)} small bouncing={chipBounce === `${col}-none`} />
@@ -567,18 +576,18 @@ export default function Roulette() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 mt-1.5 mb-1.5">
+            <div className="grid grid-cols-3 gap-2 mb-2">
               {[
-                { type: "1st12" as BetType, label: "1-12" },
-                { type: "2nd12" as BetType, label: "13-24" },
-                { type: "3rd12" as BetType, label: "25-36" },
+                { type: "1st12" as BetType, label: "1st 12" },
+                { type: "2nd12" as BetType, label: "2nd 12" },
+                { type: "3rd12" as BetType, label: "3rd 12" },
               ].map(({ type, label }) => (
                 <button
                   key={type}
                   onClick={() => placeBet(type)}
                   disabled={isSpinning}
                   data-testid={`button-${type}`}
-                  className="relative h-8 bg-[#1a6b4f] hover:bg-[#228b5b] border border-[#2a8b6f] rounded flex items-center justify-center text-white font-bold text-xs transition-all"
+                  className="relative h-10 bg-[#1a6b4f] hover:bg-[#228b5b] border-2 border-[#2a8b6f] rounded flex items-center justify-center text-white font-bold text-sm transition-all"
                 >
                   {label}
                   <ChipStack amount={getBetAmount(type)} small bouncing={chipBounce === `${type}-none`} />
@@ -586,7 +595,7 @@ export default function Roulette() {
               ))}
             </div>
 
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-6 gap-2">
               {[
                 { type: "1-18" as BetType, label: "1-18" },
                 { type: "even" as BetType, label: "EVEN" },
@@ -601,14 +610,14 @@ export default function Roulette() {
                   disabled={isSpinning}
                   data-testid={`button-${type}`}
                   className={cn(
-                    "relative h-8 border rounded flex items-center justify-center text-white font-bold text-[10px] transition-all",
+                    "relative h-10 border-2 rounded flex items-center justify-center text-white font-bold text-xs transition-all",
                     isRed ? "bg-red-600 hover:bg-red-500 border-red-400" :
                     isBlack ? "bg-slate-800 hover:bg-slate-700 border-slate-600" :
                     "bg-[#1a6b4f] hover:bg-[#228b5b] border-[#2a8b6f]"
                   )}
                 >
-                  {isRed && <div className="w-4 h-4 bg-red-500 rotate-45 border border-red-300" />}
-                  {isBlack && <div className="w-4 h-4 bg-slate-900 rotate-45 border border-slate-600" />}
+                  {isRed && <div className="w-5 h-5 bg-red-500 rotate-45 border-2 border-red-300" />}
+                  {isBlack && <div className="w-5 h-5 bg-slate-900 rotate-45 border-2 border-slate-600" />}
                   {label}
                   <ChipStack amount={getBetAmount(type)} small bouncing={chipBounce === `${type}-none`} />
                 </button>
