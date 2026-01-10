@@ -35,6 +35,13 @@ interface BallInstance {
   step: number;
   status: 'animating' | 'landed' | 'done';
   landedAt?: number;
+  // Physics animation state
+  startTime: number;
+  prevX: number;
+  prevY: number;
+  velocityX: number;
+  velocityY: number;
+  jitterSeed: number; // Per-ball deterministic jitter
 }
 
 // Rate limiting constants
@@ -83,7 +90,7 @@ export default function Plinko() {
       return { ...result, ballId: data.ballId };
     },
     onSuccess: (data) => {
-      // Add ball to active balls
+      // Add ball to active balls with physics state
       const newBall: BallInstance = {
         id: data.ballId,
         betAmount: data.bet.betAmount,
@@ -95,6 +102,12 @@ export default function Plinko() {
         y: -10,
         step: -1,
         status: 'animating',
+        startTime: performance.now(),
+        prevX: 0,
+        prevY: -10,
+        velocityX: 0,
+        velocityY: 0,
+        jitterSeed: Math.random(), // Deterministic per-ball jitter
       };
       setBalls(prev => [...prev, newBall]);
       setPendingDrops(prev => Math.max(0, prev - 1));
@@ -209,50 +222,71 @@ export default function Plinko() {
     }
   }, [autoDropping, user, baseAmount, toast]);
 
-  // Animation loop for all balls
+  // Physics constants for realistic motion
+  const GRAVITY = 0.15; // Acceleration per frame
+  const FRICTION = 0.98; // Horizontal damping
+  const RESTITUTION = 0.3; // Bounciness (0-1)
+  const STEP_TIME = 80; // Base time per row (ms), slower for gravity feel
+  const JITTER_AMOUNT = 2; // Max random offset in pixels (visual only)
+
+  // Calculate target positions for each step
+  const getTargetPosition = useCallback((path: number[], step: number) => {
+    let x = 0;
+    for (let i = 0; i <= step; i++) {
+      x += path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+    }
+    const y = PEG_AREA_TOP + (step + 1) * ROW_HEIGHT;
+    return { x, y };
+  }, []);
+
+  // Animation loop for all balls with physics
   useEffect(() => {
     const currentBoardHeight = PEG_AREA_TOP + rows * ROW_HEIGHT + BIN_MARGIN + BIN_HEIGHT + 8;
     const binCenterY = currentBoardHeight - 4 - BIN_HEIGHT / 2;
     const finalY = binCenterY - BALL_RADIUS;
 
-    let lastTime = 0;
-    const STEP_DURATION = 65;
-
     const animate = (time: number) => {
-      if (time - lastTime >= STEP_DURATION) {
-        lastTime = time;
-        
-        setBalls(prev => {
-          const now = Date.now();
-          return prev
-            .map(ball => {
-              if (ball.status === 'done') return ball;
-              
-              if (ball.status === 'landed') {
-                // Check if it's time to remove the ball
-                if (ball.landedAt && now - ball.landedAt > 1200) {
-                  return { ...ball, status: 'done' as const };
-                }
-                return ball;
+      setBalls(prev => {
+        const now = Date.now();
+        return prev
+          .map(ball => {
+            if (ball.status === 'done') return ball;
+            
+            if (ball.status === 'landed') {
+              if (ball.landedAt && now - ball.landedAt > 1200) {
+                return { ...ball, status: 'done' as const };
+              }
+              return ball;
+            }
+            
+            // Calculate elapsed time since ball started
+            const elapsed = time - ball.startTime;
+            
+            // Determine which step we should be at based on time
+            // Use accelerating time per step (gravity effect - faster as ball falls)
+            let totalTime = 0;
+            let targetStep = -1;
+            for (let s = 0; s < ball.path.length; s++) {
+              // Each step takes less time as ball accelerates (capped)
+              const stepDuration = Math.max(40, STEP_TIME - s * 2);
+              totalTime += stepDuration;
+              if (elapsed >= totalTime) {
+                targetStep = s;
+              }
+            }
+            
+            // Final landing phase
+            const landingTime = totalTime + 60;
+            
+            if (elapsed >= landingTime && ball.step >= ball.path.length - 1) {
+              // Landed in bin
+              let finalX = 0;
+              for (let i = 0; i < ball.path.length; i++) {
+                finalX += ball.path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
               }
               
-              // Animating
-              if (ball.step < ball.path.length - 1) {
-                const nextStep = ball.step + 1;
-                let x = 0;
-                for (let i = 0; i <= nextStep; i++) {
-                  x += ball.path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
-                }
-                const y = PEG_AREA_TOP + (nextStep + 1) * ROW_HEIGHT;
-                return { ...ball, x, y, step: nextStep };
-              } else if (ball.step === ball.path.length - 1) {
-                // Land in bin
-                let x = 0;
-                for (let i = 0; i < ball.path.length; i++) {
-                  x += ball.path[i] === 1 ? PEG_SPACING / 2 : -PEG_SPACING / 2;
-                }
-                
-                // Add result to history
+              if (ball.status === 'animating') {
+                // Add result to history only once
                 addResult({
                   game: "plinko",
                   betAmount: ball.betAmount,
@@ -260,21 +294,65 @@ export default function Plinko() {
                   profit: ball.bet.profit,
                   detail: `${risk} risk, ${rows} rows → ${ball.multiplier}x`,
                 });
-                
-                return { 
-                  ...ball, 
-                  x, 
-                  y: finalY, 
-                  step: ball.path.length, 
-                  status: 'landed' as const,
-                  landedAt: now,
-                };
               }
-              return ball;
-            })
-            .filter(ball => ball.status !== 'done');
-        });
-      }
+              
+              return { 
+                ...ball, 
+                x: finalX, 
+                y: finalY, 
+                step: ball.path.length, 
+                status: 'landed' as const,
+                landedAt: now,
+                velocityX: 0,
+                velocityY: 0,
+              };
+            }
+            
+            // Smooth interpolation between steps
+            if (targetStep >= ball.step) {
+              const newStep = Math.min(targetStep, ball.path.length - 1);
+              const target = getTargetPosition(ball.path, newStep);
+              
+              // Calculate progress within current step for smooth interpolation
+              let stepStartTime = 0;
+              for (let s = 0; s < newStep; s++) {
+                stepStartTime += Math.max(40, STEP_TIME - s * 2);
+              }
+              const currentStepDuration = Math.max(40, STEP_TIME - newStep * 2);
+              const stepProgress = Math.min(1, (elapsed - stepStartTime) / currentStepDuration);
+              
+              // Easing function (ease-out bounce feel)
+              const eased = 1 - Math.pow(1 - stepProgress, 2);
+              
+              // Add subtle deterministic jitter based on ball seed and step
+              const jitterX = (Math.sin(ball.jitterSeed * 1000 + newStep * 7) * JITTER_AMOUNT) * (1 - eased);
+              const jitterY = (Math.cos(ball.jitterSeed * 1000 + newStep * 11) * JITTER_AMOUNT * 0.5) * (1 - eased);
+              
+              // Interpolate from previous position
+              const prevTarget = newStep > 0 ? getTargetPosition(ball.path, newStep - 1) : { x: 0, y: -10 };
+              const newX = prevTarget.x + (target.x - prevTarget.x) * eased + jitterX;
+              const newY = prevTarget.y + (target.y - prevTarget.y) * eased + jitterY;
+              
+              // Calculate velocity for motion blur
+              const velocityX = (newX - ball.x) * 0.5;
+              const velocityY = (newY - ball.y) * 0.5;
+              
+              return { 
+                ...ball, 
+                prevX: ball.x,
+                prevY: ball.y,
+                x: newX, 
+                y: newY, 
+                step: newStep,
+                velocityX,
+                velocityY,
+              };
+            }
+            
+            return ball;
+          })
+          .filter(ball => ball.status !== 'done');
+      });
       
       animationFrameRef.current = requestAnimationFrame(animate);
     };
@@ -288,7 +366,7 @@ export default function Plinko() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [balls.length, rows, risk, addResult]);
+  }, [balls.length, rows, risk, addResult, getTargetPosition]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -574,21 +652,81 @@ export default function Plinko() {
                     ))}
                   </div>
 
-                  {/* Balls */}
-                  {balls.filter(b => b.status !== 'done').map((ball) => (
-                    <div
-                      key={ball.id}
-                      className={cn(
-                        "absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-500/50 z-20 pointer-events-none",
-                        ball.status === 'landed' && "animate-pulse"
-                      )}
-                      style={{
-                        left: `calc(50% + ${ball.x}px - 8px)`,
-                        top: ball.y,
-                        transition: 'left 55ms ease-out, top 55ms ease-out',
-                      }}
-                    />
-                  ))}
+                  {/* Ball Shadows - rendered first (behind balls) */}
+                  {balls.filter(b => b.status !== 'done').map((ball) => {
+                    // Shadow offset and blur based on height (more shadow as ball falls)
+                    const heightRatio = Math.min(1, ball.y / (boardHeight - 50));
+                    const shadowOffset = 2 + heightRatio * 4;
+                    const shadowBlur = 4 + heightRatio * 6;
+                    const shadowOpacity = 0.2 + heightRatio * 0.15;
+                    
+                    return (
+                      <div
+                        key={`shadow-${ball.id}`}
+                        className="absolute rounded-full bg-black pointer-events-none"
+                        style={{
+                          left: `calc(50% + ${ball.x + shadowOffset}px - 7px)`,
+                          top: ball.y + shadowOffset,
+                          width: 14,
+                          height: 14,
+                          opacity: shadowOpacity,
+                          filter: `blur(${shadowBlur}px)`,
+                          zIndex: 15,
+                        }}
+                      />
+                    );
+                  })}
+
+                  {/* Balls with motion blur trail */}
+                  {balls.filter(b => b.status !== 'done').map((ball) => {
+                    // Calculate velocity magnitude for motion blur
+                    const velocity = Math.sqrt(ball.velocityX * ball.velocityX + ball.velocityY * ball.velocityY);
+                    const showTrail = velocity > 1 && ball.status === 'animating';
+                    
+                    return (
+                      <div key={ball.id}>
+                        {/* Motion blur trail (faded previous positions) */}
+                        {showTrail && (
+                          <>
+                            <div
+                              className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300/30 to-amber-500/30 pointer-events-none"
+                              style={{
+                                left: `calc(50% + ${ball.prevX}px - 8px)`,
+                                top: ball.prevY,
+                                zIndex: 18,
+                                filter: 'blur(2px)',
+                              }}
+                            />
+                            <div
+                              className="absolute w-4 h-4 rounded-full bg-gradient-to-br from-amber-300/50 to-amber-500/50 pointer-events-none"
+                              style={{
+                                left: `calc(50% + ${(ball.x + ball.prevX) / 2}px - 8px)`,
+                                top: (ball.y + ball.prevY) / 2,
+                                zIndex: 19,
+                                filter: 'blur(1px)',
+                              }}
+                            />
+                          </>
+                        )}
+                        
+                        {/* Main ball */}
+                        <div
+                          className={cn(
+                            "absolute w-4 h-4 rounded-full pointer-events-none",
+                            "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600",
+                            "shadow-[0_0_8px_rgba(251,191,36,0.6),inset_0_-2px_4px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.4)]",
+                            ball.status === 'landed' && "animate-pulse scale-110"
+                          )}
+                          style={{
+                            left: `calc(50% + ${ball.x}px - 8px)`,
+                            top: ball.y,
+                            zIndex: 20,
+                            transform: ball.status === 'landed' ? 'scale(1.1)' : undefined,
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
 
                   {/* Multiplier Bins - positioned to exactly match ball physics */}
                   <div 
