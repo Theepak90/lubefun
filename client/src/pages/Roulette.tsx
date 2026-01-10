@@ -162,6 +162,7 @@ export default function Roulette() {
       const winnings = calculateWinnings(pendingBets, roundState.winningNumber, roundState.winningColor || "");
       if (winnings > 0) {
         setWinPopup({ amount: winnings, visible: true });
+        playSound("win");
         // Generate sparkle particles
         const newSparkles = Array.from({ length: 8 }, (_, i) => ({
           id: sparkleIdRef.current++,
@@ -563,21 +564,24 @@ export default function Roulette() {
               />
             ))}
             
-            {/* Win Popup - subtle toast near wheel */}
+            {/* Win Popup - bigger celebration */}
             <div 
               className={cn(
-                "absolute -bottom-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none",
+                "absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none",
                 "transition-all duration-300 motion-reduce:transition-none",
                 winPopup.visible 
-                  ? "opacity-100 translate-y-0" 
-                  : "opacity-0 translate-y-2"
+                  ? "opacity-100 translate-y-0 scale-100" 
+                  : "opacity-0 translate-y-4 scale-90"
               )}
               data-testid="win-popup"
             >
-              <div className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/90 to-yellow-500/90 backdrop-blur-sm shadow-lg shadow-amber-500/20 border border-amber-400/50">
-                <span className="text-sm font-bold text-white drop-shadow-sm">
-                  You won ${winPopup.amount.toFixed(2)}
-                </span>
+              <div className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 shadow-xl shadow-amber-500/40 border-2 border-amber-300">
+                <div className="text-center">
+                  <div className="text-xs font-semibold text-amber-900 uppercase tracking-wider mb-0.5">Winner!</div>
+                  <span className="text-xl font-bold text-white drop-shadow-md">
+                    +${winPopup.amount.toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -594,7 +598,7 @@ export default function Roulette() {
         </div>
         
         {/* Bottom Panel: Betting Table + Chips */}
-        <div className="bg-[#0d1419] border border-[#1a2530] rounded-2xl p-4 mt-2">
+        <div className="bg-[#0d1419] border border-[#1a2530] rounded-2xl p-4 mt-2 max-w-2xl mx-auto">
           
           {/* Betting Grid */}
           <div className={cn(
