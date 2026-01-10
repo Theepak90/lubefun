@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
+import { LiveWins } from "@/components/LiveWins";
 
 export default function Dice() {
   const { mutate: playDice, isPending } = useDiceGame();
@@ -372,11 +373,14 @@ export default function Dice() {
           </div>
         </div>
         
-        <RecentResults 
-          results={results} 
-          onClear={clearHistory}
-          filterGame="dice"
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <RecentResults 
+            results={results} 
+            onClear={clearHistory}
+            filterGame="dice"
+          />
+          <LiveWins />
+        </div>
       </div>
     </Layout>
   );

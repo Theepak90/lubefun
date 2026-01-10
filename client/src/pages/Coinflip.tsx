@@ -12,6 +12,7 @@ import { GAME_CONFIG } from "@shared/config";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useSound } from "@/hooks/use-sound";
 import { RecentResults } from "@/components/RecentResults";
+import { LiveWins } from "@/components/LiveWins";
 
 export default function Coinflip() {
   const { mutate: playCoinflip, isPending } = useCoinflipGame();
@@ -275,11 +276,14 @@ export default function Coinflip() {
           </div>
         </div>
         
-        <RecentResults 
-          results={results} 
-          onClear={clearHistory}
-          filterGame="coinflip"
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <RecentResults 
+            results={results} 
+            onClear={clearHistory}
+            filterGame="coinflip"
+          />
+          <LiveWins />
+        </div>
       </div>
     </Layout>
   );
