@@ -937,9 +937,8 @@ export default function Blackjack() {
   }, [isMobile, isPlaying, selectedSeats]);
 
   const seatCount = isMobile ? 7 : 10;
-  const seatPositions = isMobile 
-    ? [0, 1, 2, 3, 4, 5, 6] 
-    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  // Single seat in the middle
+  const seatPositions = [4.5];
 
   const { data: activeHand, isLoading } = useQuery<BlackjackState | null>({
     queryKey: ["/api/games/blackjack/active"],
