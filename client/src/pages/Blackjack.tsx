@@ -552,6 +552,7 @@ export default function Blackjack() {
   const [gameState, setGameState] = useState<BlackjackState | null>(null);
   const [activeHandIndex, setActiveHandIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const totalBet = handBets.slice(0, activeHandCount).reduce((sum, h) => 
     sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0
@@ -559,6 +560,30 @@ export default function Blackjack() {
   
   const isPlaying = gameState?.status === "playing";
   const isCompleted = gameState?.status === "completed";
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const newIsMobile = window.innerWidth < 768;
+      setIsMobile(newIsMobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying && selectedSeat !== null) {
+      const seatCount = isMobile ? 5 : 7;
+      if (selectedSeat >= seatCount) {
+        setSelectedSeat(Math.floor(seatCount / 2));
+      }
+    }
+  }, [isMobile, isPlaying, selectedSeat]);
+
+  const seatCount = isMobile ? 5 : 7;
+  const seatPositions = isMobile 
+    ? [0, 1.5, 3, 4.5, 6] 
+    : [0, 1, 2, 3, 4, 5, 6];
 
   const { data: activeHand, isLoading } = useQuery<BlackjackState | null>({
     queryKey: ["/api/games/blackjack/active"],
@@ -754,17 +779,15 @@ export default function Blackjack() {
     
     if (isPush) {
       toast({
-        title: "Push",
-        description: `Bet returned ${formatCurrency(betAmount)}`,
-        duration: 1500,
+        description: `Push - Bet returned ${formatCurrency(betAmount)}`,
+        duration: 1000,
       });
     } else {
       toast({
-        title: won ? "You won!" : "You lost",
         description: won 
-          ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(profit)})`
-          : `Lost ${formatCurrency(betAmount)} (profit ${formatCurrency(-betAmount)})`,
-        duration: 1500,
+          ? `You won ${formatCurrency(payout)} (profit ${formatCurrency(profit)})`
+          : `You lost ${formatCurrency(betAmount)} (profit ${formatCurrency(-betAmount)})`,
+        duration: 1000,
       });
     }
     
@@ -827,9 +850,9 @@ export default function Blackjack() {
             <ProfitTrackerWidget gameId="blackjack" />
           </div>
 
-          <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+          <div className="relative rounded-3xl overflow-x-auto shadow-2xl">
             <div 
-              className="relative h-[500px]"
+              className="relative h-[500px] min-w-[600px] md:min-w-0"
               style={{
                 background: "radial-gradient(ellipse 120% 100% at 50% 0%, #1a3a5c 0%, #0f2a42 50%, #0a1929 100%)"
               }}
@@ -890,17 +913,17 @@ export default function Blackjack() {
               </div>
 
               <div className="absolute inset-0">
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                {seatPositions.map((pos, idx) => (
                   <Seat
-                    key={i}
-                    index={i}
-                    isOccupied={selectedSeat === i}
-                    isPlayer={selectedSeat === i}
-                    onClick={() => !isPlaying && handleSitDown(i)}
-                    cards={selectedSeat === i && gameState?.playerCards ? gameState.playerCards : undefined}
-                    total={selectedSeat === i && gameState?.playerCards ? playerTotal : undefined}
-                    isActive={selectedSeat === i && isPlaying}
-                    outcome={selectedSeat === i && isCompleted ? gameState?.outcome : undefined}
+                    key={idx}
+                    index={pos}
+                    isOccupied={selectedSeat === idx}
+                    isPlayer={selectedSeat === idx}
+                    onClick={() => !isPlaying && handleSitDown(idx)}
+                    cards={selectedSeat === idx && gameState?.playerCards ? gameState.playerCards : undefined}
+                    total={selectedSeat === idx && gameState?.playerCards ? playerTotal : undefined}
+                    isActive={selectedSeat === idx && isPlaying}
+                    outcome={selectedSeat === idx && isCompleted ? gameState?.outcome : undefined}
                   />
                 ))}
               </div>
