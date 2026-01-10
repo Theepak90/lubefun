@@ -156,6 +156,8 @@ export default function Plinko() {
   };
 
   const getMultiplierColor = (mult: number) => {
+    if (mult >= 900) return "bg-gradient-to-b from-yellow-400 via-amber-500 to-orange-600 text-black font-black border-yellow-300 shadow-[0_0_12px_rgba(251,191,36,0.8),0_0_24px_rgba(251,191,36,0.4)] animate-pulse";
+    if (mult >= 100) return "bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-bold border-emerald-300";
     if (mult >= 10) return "bg-emerald-500 text-white border-emerald-400";
     if (mult >= 3) return "bg-emerald-500/60 text-white border-emerald-400/60";
     if (mult >= 1.5) return "bg-amber-500/60 text-white border-amber-400/60";
@@ -410,7 +412,7 @@ export default function Plinko() {
                           }}
                           data-testid={`bin-${i}`}
                         >
-                          {mult.toFixed(mult >= 10 ? 0 : 1)}x
+                          {mult >= 100 ? `${Math.round(mult)}x` : mult.toFixed(mult >= 10 ? 0 : 1) + 'x'}
                         </div>
                       );
                     })}
