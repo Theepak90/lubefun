@@ -10,50 +10,87 @@ interface LiveWin {
   timestamp: number;
 }
 
-const USERNAMES = [
-  "brad22", "lucky_mike", "diamondking", "crypto_ace", "winner99",
-  "jackpot_joe", "goldstar", "ninja_bet", "high_roller", "fortune_x",
-  "megawin", "blazer_77", "coolcat", "richie_r", "spinmaster",
-  "ace_player", "betking", "lucky_charm", "goldmine", "big_bet_bob"
+const NAME_PARTS = [
+  "brad", "luna", "max", "kai", "nova", "zane", "milo", "aria", "leo", "jade",
+  "rex", "sky", "ace", "neo", "ivy", "cruz", "ash", "finn", "sage", "jax",
+  "mason", "xKairo", "tyler", "crypto", "lucky", "diamond", "gold", "shadow"
 ];
 
+const SUFFIXES = ["22", "88", "_7", "_dev", "99", "X", "_pro", "777", "001", ""];
+
 const GAMES = ["Dice", "Coinflip", "Mines"];
+
+let lastUsername = "";
+
+function generateUsername(): string {
+  let username = "";
+  do {
+    const part = NAME_PARTS[Math.floor(Math.random() * NAME_PARTS.length)];
+    const suffix = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
+    const addNumber = Math.random() > 0.5 && !suffix;
+    username = part + suffix + (addNumber ? Math.floor(Math.random() * 99) : "");
+  } while (username === lastUsername);
+  lastUsername = username;
+  return username;
+}
+
+function generateAmount(): number {
+  const roll = Math.random();
+  if (roll < 0.85) {
+    return 0.10 + Math.random() * 7.90;
+  } else if (roll < 0.97) {
+    return 8 + Math.random() * 52;
+  } else if (roll < 0.995) {
+    return 60 + Math.random() * 140;
+  } else {
+    return 200 + Math.random() * 300;
+  }
+}
 
 function formatAmount(amount: number): string {
   if (amount >= 1000) {
     return `$${(amount / 1000).toFixed(1)}k`;
   }
-  return `$${amount.toFixed(0)}`;
+  return `$${amount.toFixed(2)}`;
 }
 
 function generateWin(): LiveWin {
-  const username = USERNAMES[Math.floor(Math.random() * USERNAMES.length)];
-  const amount = Math.random() < 0.3 
-    ? Math.floor(Math.random() * 5000) + 1000
-    : Math.floor(Math.random() * 500) + 10;
-  const game = GAMES[Math.floor(Math.random() * GAMES.length)];
-  
+  const amount = generateAmount();
   return {
     id: crypto.randomUUID(),
-    username,
+    username: generateUsername(),
     amount: formatAmount(amount),
-    game,
+    game: GAMES[Math.floor(Math.random() * GAMES.length)],
     timestamp: Date.now()
   };
 }
 
 export function LiveWins() {
   const [wins, setWins] = useState<LiveWin[]>([]);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const burstCountRef = useRef(0);
 
   useEffect(() => {
-    for (let i = 0; i < 5; i++) {
-      setWins(prev => [generateWin(), ...prev].slice(0, 12));
+    const initial: LiveWin[] = [];
+    for (let i = 0; i < 8; i++) {
+      initial.push(generateWin());
     }
+    setWins(initial);
 
     const scheduleNext = () => {
-      const delay = 3000 + Math.random() * 5000;
-      intervalRef.current = setTimeout(() => {
+      let delay: number;
+      
+      if (burstCountRef.current > 0) {
+        delay = 150 + Math.random() * 300;
+        burstCountRef.current--;
+      } else if (Math.random() < 0.15) {
+        burstCountRef.current = 2 + Math.floor(Math.random() * 3);
+        delay = 150 + Math.random() * 200;
+      } else {
+        delay = 800 + Math.random() * 1700;
+      }
+
+      timeoutRef.current = setTimeout(() => {
         setWins(prev => [generateWin(), ...prev].slice(0, 12));
         scheduleNext();
       }, delay);
@@ -62,8 +99,8 @@ export function LiveWins() {
     scheduleNext();
 
     return () => {
-      if (intervalRef.current) {
-        clearTimeout(intervalRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
