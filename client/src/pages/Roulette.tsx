@@ -191,7 +191,6 @@ export default function Roulette() {
       setTimeout(() => {
         setIsSpinning(false);
         setBallVisible(false);
-        playSound("result");
         
         setRecentNumbers(prev => [
           { number: data.winningNumber, color: data.color },
