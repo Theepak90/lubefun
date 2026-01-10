@@ -742,12 +742,39 @@ export default function Blackjack() {
               </div>
 
               {selectedSeat !== null && !isPlaying && !isCompleted && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
-                  <BetSpot
-                    bet={handBets[0].main}
-                    label="BET"
-                    onClick={() => addChipToBet(0, 'main')}
-                  />
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-8 items-end">
+                  {Array.from({ length: activeHandCount }).map((_, handIdx) => (
+                    <div key={handIdx} className="flex flex-col items-center gap-2">
+                      {multiHand && (
+                        <span className="text-[10px] text-amber-400/80 font-medium bg-slate-900/60 px-2 py-0.5 rounded">
+                          Hand {handIdx + 1}
+                        </span>
+                      )}
+                      <div className="flex gap-2 items-end">
+                        {sideBetsEnabled.perfectPairs && (
+                          <BetSpot
+                            bet={handBets[handIdx].perfectPairs}
+                            label="PP"
+                            onClick={() => addChipToBet(handIdx, 'perfectPairs')}
+                            small
+                          />
+                        )}
+                        <BetSpot
+                          bet={handBets[handIdx].main}
+                          label={multiHand ? `H${handIdx + 1}` : "BET"}
+                          onClick={() => addChipToBet(handIdx, 'main')}
+                        />
+                        {sideBetsEnabled.twentyOnePlus3 && (
+                          <BetSpot
+                            bet={handBets[handIdx].twentyOnePlus3}
+                            label="21+3"
+                            onClick={() => addChipToBet(handIdx, 'twentyOnePlus3')}
+                            small
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -821,29 +848,45 @@ export default function Blackjack() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Coming soon">
+                      <div className="flex items-center gap-2">
                         <Switch
                           id="multihand"
-                          checked={false}
-                          disabled
+                          checked={multiHand}
+                          onCheckedChange={(v) => {
+                            setMultiHand(v);
+                            setActiveHandCount(v ? 3 : 1);
+                            if (!v) {
+                              setHandBets(prev => [prev[0], { main: 0, perfectPairs: 0, twentyOnePlus3: 0 }, { main: 0, perfectPairs: 0, twentyOnePlus3: 0 }]);
+                            }
+                          }}
                         />
-                        <Label htmlFor="multihand" className="text-xs text-slate-500">Multi</Label>
+                        <Label htmlFor="multihand" className="text-xs text-slate-400">Multi</Label>
                       </div>
-                      <div className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Coming soon">
+                      <div className="flex items-center gap-2">
                         <Switch
                           id="pp"
-                          checked={false}
-                          disabled
+                          checked={sideBetsEnabled.perfectPairs}
+                          onCheckedChange={(v) => {
+                            setSideBetsEnabled(s => ({ ...s, perfectPairs: v }));
+                            if (!v) {
+                              setHandBets(prev => prev.map(h => ({ ...h, perfectPairs: 0 })));
+                            }
+                          }}
                         />
-                        <Label htmlFor="pp" className="text-xs text-slate-500">PP</Label>
+                        <Label htmlFor="pp" className="text-xs text-slate-400">PP</Label>
                       </div>
-                      <div className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Coming soon">
+                      <div className="flex items-center gap-2">
                         <Switch
                           id="21p3"
-                          checked={false}
-                          disabled
+                          checked={sideBetsEnabled.twentyOnePlus3}
+                          onCheckedChange={(v) => {
+                            setSideBetsEnabled(s => ({ ...s, twentyOnePlus3: v }));
+                            if (!v) {
+                              setHandBets(prev => prev.map(h => ({ ...h, twentyOnePlus3: 0 })));
+                            }
+                          }}
                         />
-                        <Label htmlFor="21p3" className="text-xs text-slate-500">21+3</Label>
+                        <Label htmlFor="21p3" className="text-xs text-slate-400">21+3</Label>
                       </div>
                     </div>
 
@@ -856,10 +899,10 @@ export default function Blackjack() {
                         size="lg"
                         className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
                         onClick={handleDeal}
-                        disabled={!user || selectedSeat === null || handBets[0].main < 0.1 || totalBet > (user?.balance || 0) || isBusy}
+                        disabled={!user || selectedSeat === null || handBets.slice(0, activeHandCount).every(h => h.main < 0.1) || totalBet > (user?.balance || 0) || isBusy}
                         data-testid="button-deal"
                       >
-                        {isBusy ? "Dealing..." : selectedSeat === null ? "Sit Down First" : "Deal"}
+                        {isBusy ? "Dealing..." : selectedSeat === null ? "Sit Down First" : totalBet === 0 ? "Place Bet" : "Deal"}
                       </Button>
                     </div>
                   </>
