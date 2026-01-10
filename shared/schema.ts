@@ -154,7 +154,7 @@ export const plinkoBetSchema = z.object({
 
 export const rouletteBetSchema = z.object({
   betAmount: z.number().min(0.1),
-  betType: z.enum(["red", "black", "odd", "even", "1-18", "19-36", "straight"]),
+  betType: z.enum(["red", "black", "odd", "even", "1-18", "19-36", "straight", "1st12", "2nd12", "3rd12", "col1", "col2", "col3"]),
   straightNumber: z.number().min(0).max(36).optional(),
 });
 

@@ -72,8 +72,8 @@ export const ROULETTE_CONFIG = {
   RED_NUMBERS: [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36],
   BLACK_NUMBERS: [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35],
   WHEEL_ORDER: [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26],
-  BET_TYPES: ["red", "black", "odd", "even", "1-18", "19-36", "straight"] as const,
-  PAYOUTS: {
+  BET_TYPES: ["red", "black", "odd", "even", "1-18", "19-36", "straight", "1st12", "2nd12", "3rd12", "col1", "col2", "col3"] as const,
+  BASE_PAYOUTS: {
     red: 2,
     black: 2,
     odd: 2,
@@ -81,7 +81,36 @@ export const ROULETTE_CONFIG = {
     "1-18": 2,
     "19-36": 2,
     straight: 36,
+    "1st12": 3,
+    "2nd12": 3,
+    "3rd12": 3,
+    col1: 3,
+    col2: 3,
+    col3: 3,
   } as const,
+  get PAYOUTS() {
+    const rtp = GAME_CONFIG.RTP;
+    return {
+      red: 2 * rtp,
+      black: 2 * rtp,
+      odd: 2 * rtp,
+      even: 2 * rtp,
+      "1-18": 2 * rtp,
+      "19-36": 2 * rtp,
+      straight: 36 * rtp,
+      "1st12": 3 * rtp,
+      "2nd12": 3 * rtp,
+      "3rd12": 3 * rtp,
+      col1: 3 * rtp,
+      col2: 3 * rtp,
+      col3: 3 * rtp,
+    };
+  },
+  COLUMN_NUMBERS: {
+    col1: [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
+    col2: [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+    col3: [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+  },
 };
 
 export type RouletteBetType = typeof ROULETTE_CONFIG.BET_TYPES[number];
@@ -112,6 +141,24 @@ export function checkRouletteWin(num: number, betType: RouletteBetType, straight
   }
   if (betType === "19-36") {
     return num >= 19 && num <= 36;
+  }
+  if (betType === "1st12") {
+    return num >= 1 && num <= 12;
+  }
+  if (betType === "2nd12") {
+    return num >= 13 && num <= 24;
+  }
+  if (betType === "3rd12") {
+    return num >= 25 && num <= 36;
+  }
+  if (betType === "col1") {
+    return ROULETTE_CONFIG.COLUMN_NUMBERS.col1.includes(num);
+  }
+  if (betType === "col2") {
+    return ROULETTE_CONFIG.COLUMN_NUMBERS.col2.includes(num);
+  }
+  if (betType === "col3") {
+    return ROULETTE_CONFIG.COLUMN_NUMBERS.col3.includes(num);
   }
   return false;
 }
