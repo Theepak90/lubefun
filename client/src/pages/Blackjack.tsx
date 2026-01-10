@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -36,6 +35,9 @@ interface HandBet {
   main: number;
   perfectPairs: number;
   twentyOnePlus3: number;
+  mainChips: ChipValue[];
+  ppChips: ChipValue[];
+  plus3Chips: ChipValue[];
 }
 
 interface ChipValue {
@@ -142,80 +144,142 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   );
 }
 
+// Horizontal chip fan layout - no vertical stacking
+function ChipFan({ 
+  chips, 
+  total,
+  maxChips = 6,
+  chipSize = 24,
+  onRemoveChip,
+  showHoverTotal = false,
+  isHovered = false,
+}: { 
+  chips: ChipValue[]; 
+  total: number;
+  maxChips?: number;
+  chipSize?: number;
+  onRemoveChip?: () => void;
+  showHoverTotal?: boolean;
+  isHovered?: boolean;
+}) {
+  if (chips.length === 0) return null;
+  
+  const displayChips = chips.slice(0, maxChips);
+  const chipCount = displayChips.length;
+  
+  // Calculate horizontal fan offset - chips fan out horizontally
+  const getChipOffset = (index: number) => {
+    if (chipCount === 1) return 0;
+    // Fan chips horizontally with slight offset
+    const maxOffset = Math.min(chipCount - 1, 5) * 6; // Max spread
+    const totalWidth = maxOffset;
+    const step = chipCount > 1 ? totalWidth / (chipCount - 1) : 0;
+    return -totalWidth / 2 + index * step;
+  };
+  
+  return (
+    <div 
+      className="relative flex items-center justify-center"
+      style={{ minHeight: chipSize + 4 }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onRemoveChip?.();
+      }}
+    >
+      {displayChips.map((chip, i) => {
+        const colors = CHIP_COLORS[chip.value] || { bg: "#6b7280", ring: "#4b5563" };
+        const xOffset = getChipOffset(i);
+        
+        return (
+          <motion.div
+            key={`${chip.value}-${i}`}
+            className="absolute rounded-full flex items-center justify-center font-bold shadow-md"
+            style={{
+              width: chipSize,
+              height: chipSize,
+              background: `radial-gradient(circle at 30% 30%, ${colors.bg}dd, ${colors.bg})`,
+              boxShadow: `0 1px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 0 0 2px ${colors.ring}`,
+              zIndex: i + 1,
+              left: `calc(50% + ${xOffset}px - ${chipSize/2}px)`,
+            }}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+          >
+            <div 
+              className="absolute inset-0.5 rounded-full border border-dashed opacity-20"
+              style={{ borderColor: chip.textColor.includes('white') ? 'white' : 'black' }}
+            />
+            <span 
+              className={cn("drop-shadow-sm z-10 font-bold", chip.textColor)}
+              style={{ fontSize: chipSize * 0.35 }}
+            >
+              {chip.value >= 1 ? chip.value : `.${(chip.value * 10).toFixed(0)}`}
+            </span>
+          </motion.div>
+        );
+      })}
+      
+      {/* Overflow indicator */}
+      {chips.length > maxChips && (
+        <div 
+          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-black text-[7px] font-bold flex items-center justify-center shadow-md z-20"
+        >
+          +{chips.length - maxChips}
+        </div>
+      )}
+      
+      {/* Hover total preview */}
+      {showHoverTotal && isHovered && total > 0 && (
+        <motion.div 
+          className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap z-30"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.1 }}
+        >
+          <span className="text-[10px] font-mono font-bold text-white bg-slate-900/95 px-1.5 py-0.5 rounded shadow-lg border border-slate-700">
+            ${total.toFixed(2)}
+          </span>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// Simple chip display for backward compatibility - converts total to chip array
 function ChipStack({ total, onClick, animate = false, showTotal = true }: { total: number; onClick?: () => void; animate?: boolean; showTotal?: boolean }) {
   if (total <= 0) return null;
   
-  // Create a consolidated chip representation (max 3 visible chips for cleaner look)
+  // Convert total to chip array
   const chips: ChipValue[] = [];
   let remaining = total;
   
   for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
     const chip = CHIP_VALUES[i];
-    while (remaining >= chip.value - 0.001 && chips.length < 3) {
+    while (remaining >= chip.value - 0.001 && chips.length < 6) {
       chips.push(chip);
       remaining -= chip.value;
       remaining = Math.round(remaining * 100) / 100;
     }
   }
   
-  // If we still have remaining value, just show one chip representing the total
   if (chips.length === 0 && total > 0) {
-    chips.push(CHIP_VALUES[0]); // Default to smallest chip
+    chips.push(CHIP_VALUES[0]);
   }
-  
-  // Get the dominant chip color based on total value
-  const getDominantChip = () => {
-    for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
-      if (total >= CHIP_VALUES[i].value) return CHIP_VALUES[i];
-    }
-    return CHIP_VALUES[0];
-  };
-  
-  const dominantChip = getDominantChip();
-  const dominantColors = CHIP_COLORS[dominantChip.value] || { bg: "#6b7280", ring: "#4b5563" };
   
   return (
     <motion.div 
-      className={cn("relative flex flex-col-reverse items-center", onClick && "cursor-pointer")}
+      className={cn("relative", onClick && "cursor-pointer")}
       onClick={onClick}
-      initial={animate ? { y: -20, opacity: 0 } : false}
+      initial={animate ? { y: -10, opacity: 0 } : false}
       animate={animate ? { y: 0, opacity: 1 } : false}
-      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
     >
-      {/* Show max 3 chips with tight stacking */}
-      {chips.slice(0, 3).map((chip, i) => {
-        const colors = CHIP_COLORS[chip.value] || { bg: "#6b7280", ring: "#4b5563" };
-        return (
-          <motion.div
-            key={i}
-            className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-[8px] font-bold shadow-lg relative",
-              i > 0 && "-mt-6" // Tighter stacking - only 1px visible per chip
-            )}
-            style={{
-              background: `radial-gradient(circle at 30% 30%, ${colors.bg}dd, ${colors.bg})`,
-              boxShadow: `0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 0 0 2px ${colors.ring}`,
-              zIndex: chips.length - i
-            }}
-            initial={animate ? { scale: 0.8 } : false}
-            animate={animate ? { scale: 1 } : false}
-            transition={{ delay: i * 0.03, type: "spring", stiffness: 500 }}
-          >
-            <div 
-              className="absolute inset-1 rounded-full border border-dashed opacity-25"
-              style={{ borderColor: chip.textColor.includes('white') ? 'white' : 'black' }}
-            />
-            {i === 0 && (
-              <span className={cn("drop-shadow-md z-10", dominantChip.textColor)}>
-                {total >= 1 ? Math.floor(total) : total.toFixed(1)}
-              </span>
-            )}
-          </motion.div>
-        );
-      })}
+      <ChipFan chips={chips} total={total} maxChips={4} chipSize={22} />
       {showTotal && (
         <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
-          <span className="text-[9px] font-mono font-bold text-white bg-slate-900/80 px-1 py-0.5 rounded">
+          <span className="text-[9px] font-mono font-bold text-white bg-slate-900/90 px-1.5 py-0.5 rounded shadow">
             ${total.toFixed(2)}
           </span>
         </div>
@@ -440,6 +504,44 @@ function PlayingCard({
   );
 }
 
+// Custom hook for long press detection (mobile chip removal)
+function useLongPress(callback: () => void, delay = 500) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  
+  const start = useCallback(() => {
+    longPressTriggeredRef.current = false;
+    timeoutRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      callbackRef.current();
+    }, delay);
+  }, [delay]);
+  
+  const clear = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+  
+  const shouldPreventClick = useCallback(() => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return true;
+    }
+    return false;
+  }, []);
+  
+  return {
+    onTouchStart: start,
+    onTouchEnd: clear,
+    onTouchMove: clear,
+    shouldPreventClick,
+  };
+}
+
 function SeatWithBets({ 
   seatIndex,
   position,
@@ -452,11 +554,15 @@ function SeatWithBets({
   mainBet,
   ppBet,
   plus3Bet,
+  mainChips,
+  ppChips,
+  plus3Chips,
   onPlaceMainBet,
   onPlacePPBet,
   onPlacePlus3Bet,
-  showPP,
-  showPlus3,
+  onRemoveMainChip,
+  onRemovePPChip,
+  onRemovePlus3Chip,
   isPlaying,
 }: {
   seatIndex: number;
@@ -470,13 +576,51 @@ function SeatWithBets({
   mainBet: number;
   ppBet: number;
   plus3Bet: number;
+  mainChips: ChipValue[];
+  ppChips: ChipValue[];
+  plus3Chips: ChipValue[];
   onPlaceMainBet: () => void;
   onPlacePPBet: () => void;
   onPlacePlus3Bet: () => void;
-  showPP: boolean;
-  showPlus3: boolean;
+  onRemoveMainChip: () => void;
+  onRemovePPChip: () => void;
+  onRemovePlus3Chip: () => void;
   isPlaying: boolean;
 }) {
+  const [hoveredZone, setHoveredZone] = useState<'main' | 'pp' | '21+3' | null>(null);
+  
+  // Long press handlers for mobile chip removal (with click prevention)
+  const mainLongPress = useLongPress(() => {
+    if (isSelected && mainChips.length > 0 && !isPlaying) onRemoveMainChip();
+  });
+  const ppLongPress = useLongPress(() => {
+    if (ppChips.length > 0 && !isPlaying) onRemovePPChip();
+  });
+  const plus3LongPress = useLongPress(() => {
+    if (plus3Chips.length > 0 && !isPlaying) onRemovePlus3Chip();
+  });
+  
+  const handleMainClick = () => {
+    if (mainLongPress.shouldPreventClick()) return;
+    if (!isSelected) {
+      onSelect();
+    } else if (mainChips.length === 0 && ppChips.length === 0 && plus3Chips.length === 0) {
+      onSelect();
+    } else {
+      onPlaceMainBet();
+    }
+  };
+  
+  const handlePPClick = () => {
+    if (ppLongPress.shouldPreventClick()) return;
+    onPlacePPBet();
+  };
+  
+  const handlePlus3Click = () => {
+    if (plus3LongPress.shouldPreventClick()) return;
+    onPlacePlus3Bet();
+  };
+  
   const centerPos = 4.5;
   const angle = (position - centerPos) * 16;
   const radius = 85;
@@ -525,66 +669,125 @@ function SeatWithBets({
         </div>
       )}
 
-      <div className="flex items-end gap-1 mb-2">
-        {showPP && (
+      <div className="flex items-end gap-2 mb-2">
+        {/* PP Side Bet - Always visible */}
+        {isSelected && (
           <button
-            onClick={onPlacePPBet}
+            onClick={handlePPClick}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onRemovePPChip();
+            }}
+            onTouchStart={ppLongPress.onTouchStart}
+            onTouchEnd={ppLongPress.onTouchEnd}
+            onTouchMove={ppLongPress.onTouchMove}
+            onMouseEnter={() => setHoveredZone('pp')}
+            onMouseLeave={() => setHoveredZone(null)}
             disabled={isPlaying}
             className={cn(
-              "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+              "w-12 h-12 rounded-full border-2 flex flex-col items-center justify-center transition-all relative",
               ppBet > 0 
-                ? "border-amber-400 bg-amber-400/20" 
-                : "border-white/20 bg-transparent hover:border-amber-400/50",
+                ? "border-purple-400 bg-purple-500/20 shadow-[0_0_12px_rgba(168,85,247,0.4)]" 
+                : "border-white/25 bg-slate-900/30 hover:border-purple-400/60 hover:bg-purple-500/10",
               isPlaying && "opacity-50 cursor-not-allowed"
             )}
             data-testid={`seat-${seatIndex}-pp`}
           >
-            {ppBet > 0 ? (
-              <ChipStack total={ppBet} animate showTotal={false} />
+            {ppChips.length > 0 ? (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <ChipFan 
+                  chips={ppChips} 
+                  total={ppBet} 
+                  maxChips={3} 
+                  chipSize={18}
+                  showHoverTotal
+                  isHovered={hoveredZone === 'pp'}
+                />
+              </div>
             ) : (
-              <span className="text-[7px] text-white/40 font-medium">PP</span>
+              <span className="text-[9px] text-purple-300/70 font-bold tracking-wide">PP</span>
             )}
           </button>
         )}
         
+        {/* Main Bet Zone */}
         <button
-          onClick={isSelected ? onPlaceMainBet : onSelect}
+          onClick={handleMainClick}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (isSelected) onRemoveMainChip();
+          }}
+          onTouchStart={mainLongPress.onTouchStart}
+          onTouchEnd={mainLongPress.onTouchEnd}
+          onTouchMove={mainLongPress.onTouchMove}
+          onMouseEnter={() => setHoveredZone('main')}
+          onMouseLeave={() => setHoveredZone(null)}
           disabled={isPlaying && !isSelected}
           className={cn(
-            "w-16 h-10 rounded-[50%] border-2 flex items-center justify-center transition-all relative",
+            "w-20 h-12 rounded-[50%] border-2 flex items-center justify-center transition-all relative",
             isSelected 
-              ? "border-white/80 bg-white/10 shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
-              : "border-white/30 bg-transparent hover:border-white/60 hover:bg-white/5 cursor-pointer",
+              ? mainBet > 0
+                ? "border-amber-400 bg-amber-400/15 shadow-[0_0_18px_rgba(251,191,36,0.4)]"
+                : "border-white/70 bg-white/10 shadow-[0_0_12px_rgba(255,255,255,0.2)]" 
+              : "border-white/25 bg-transparent hover:border-white/50 hover:bg-white/5 cursor-pointer",
             isActive && "border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)] animate-pulse"
           )}
           data-testid={`seat-${seatIndex}`}
         >
-          {mainBet > 0 ? (
-            <ChipStack total={mainBet} animate showTotal={false} />
+          {mainChips.length > 0 ? (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <ChipFan 
+                chips={mainChips} 
+                total={mainBet} 
+                maxChips={5} 
+                chipSize={20}
+                showHoverTotal
+                isHovered={hoveredZone === 'main'}
+              />
+            </div>
           ) : (
-            <span className="text-[8px] text-white/40 font-medium">
+            <span className="text-[9px] text-white/50 font-medium">
               {isSelected ? "BET" : "SIT"}
             </span>
           )}
         </button>
         
-        {showPlus3 && (
+        {/* 21+3 Side Bet - Always visible */}
+        {isSelected && (
           <button
-            onClick={onPlacePlus3Bet}
+            onClick={handlePlus3Click}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onRemovePlus3Chip();
+            }}
+            onTouchStart={plus3LongPress.onTouchStart}
+            onTouchEnd={plus3LongPress.onTouchEnd}
+            onTouchMove={plus3LongPress.onTouchMove}
+            onMouseEnter={() => setHoveredZone('21+3')}
+            onMouseLeave={() => setHoveredZone(null)}
             disabled={isPlaying}
             className={cn(
-              "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+              "w-12 h-12 rounded-full border-2 flex flex-col items-center justify-center transition-all relative",
               plus3Bet > 0 
-                ? "border-amber-400 bg-amber-400/20" 
-                : "border-white/20 bg-transparent hover:border-amber-400/50",
+                ? "border-cyan-400 bg-cyan-500/20 shadow-[0_0_12px_rgba(34,211,238,0.4)]" 
+                : "border-white/25 bg-slate-900/30 hover:border-cyan-400/60 hover:bg-cyan-500/10",
               isPlaying && "opacity-50 cursor-not-allowed"
             )}
             data-testid={`seat-${seatIndex}-21plus3`}
           >
-            {plus3Bet > 0 ? (
-              <ChipStack total={plus3Bet} animate showTotal={false} />
+            {plus3Chips.length > 0 ? (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <ChipFan 
+                  chips={plus3Chips} 
+                  total={plus3Bet} 
+                  maxChips={3} 
+                  chipSize={18}
+                  showHoverTotal
+                  isHovered={hoveredZone === '21+3'}
+                />
+              </div>
             ) : (
-              <span className="text-[7px] text-white/40 font-medium">21+3</span>
+              <span className="text-[8px] text-cyan-300/70 font-bold tracking-wide">21+3</span>
             )}
           </button>
         )}
@@ -597,9 +800,9 @@ function SeatWithBets({
         {isSelected ? "You" : ""}
       </span>
 
-      {mainBet > 0 && !isPlaying && (
+      {(mainBet > 0 || ppBet > 0 || plus3Bet > 0) && !isPlaying && (
         <span className="text-[10px] font-mono text-amber-400 mt-0.5">
-          ${mainBet.toFixed(2)}
+          ${(mainBet + ppBet + plus3Bet).toFixed(2)}
         </span>
       )}
 
@@ -679,9 +882,13 @@ export default function Blackjack() {
   
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [selectedChip, setSelectedChip] = useState<ChipValue>(CHIP_VALUES[2]);
-  const [sideBetsEnabled, setSideBetsEnabled] = useState({ perfectPairs: false, twentyOnePlus3: false });
   const [seatBets, setSeatBets] = useState<Record<number, HandBet>>({});
   const [lastSeatBets, setLastSeatBets] = useState<Record<number, HandBet>>({});
+  
+  const emptyBet = (): HandBet => ({ 
+    main: 0, perfectPairs: 0, twentyOnePlus3: 0, 
+    mainChips: [], ppChips: [], plus3Chips: [] 
+  });
   const [gameState, setGameState] = useState<BlackjackState | null>(null);
   const [activeSeatIndex, setActiveSeatIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -733,10 +940,10 @@ export default function Blackjack() {
     }
   }, [activeHand]);
 
-  const addChipToBet = (seatIndex: number, betType: keyof HandBet) => {
+  const addChipToBet = (seatIndex: number, betType: 'main' | 'perfectPairs' | 'twentyOnePlus3') => {
     if (isPlaying) return;
     
-    const currentBet = seatBets[seatIndex] || { main: 0, perfectPairs: 0, twentyOnePlus3: 0 };
+    const currentBet = seatBets[seatIndex] || emptyBet();
     const newTotal = totalBet + selectedChip.value;
     
     if (newTotal > (user?.balance || 0)) {
@@ -747,30 +954,60 @@ export default function Blackjack() {
     
     playSound("chipDrop");
     
+    const chipArrayKey = betType === 'main' ? 'mainChips' : betType === 'perfectPairs' ? 'ppChips' : 'plus3Chips';
+    
     setSeatBets(prev => ({
       ...prev,
       [seatIndex]: {
         ...currentBet,
-        [betType]: Math.round((currentBet[betType] + selectedChip.value) * 100) / 100
+        [betType]: Math.round((currentBet[betType] + selectedChip.value) * 100) / 100,
+        [chipArrayKey]: [...currentBet[chipArrayKey], selectedChip]
       }
     }));
     setError(null);
+  };
+
+  const removeChipFromBet = (seatIndex: number, betType: 'main' | 'perfectPairs' | 'twentyOnePlus3') => {
+    if (isPlaying) return;
+    
+    const currentBet = seatBets[seatIndex];
+    if (!currentBet) return;
+    
+    const chipArrayKey = betType === 'main' ? 'mainChips' : betType === 'perfectPairs' ? 'ppChips' : 'plus3Chips';
+    const chips = currentBet[chipArrayKey];
+    
+    if (chips.length === 0) return;
+    
+    const removedChip = chips[chips.length - 1];
+    const newChips = chips.slice(0, -1);
+    const newTotal = Math.round((currentBet[betType] - removedChip.value) * 100) / 100;
+    
+    playSound("chipDrop");
+    
+    setSeatBets(prev => ({
+      ...prev,
+      [seatIndex]: {
+        ...currentBet,
+        [betType]: Math.max(0, newTotal),
+        [chipArrayKey]: newChips
+      }
+    }));
   };
 
   const undoLastBet = () => {
     const seatKeys = Object.keys(seatBets).map(Number).reverse();
     for (const seatIdx of seatKeys) {
       const bet = seatBets[seatIdx];
-      if (bet.twentyOnePlus3 > 0) {
-        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, twentyOnePlus3: 0 } }));
+      if (bet.plus3Chips.length > 0) {
+        removeChipFromBet(seatIdx, 'twentyOnePlus3');
         return;
       }
-      if (bet.perfectPairs > 0) {
-        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, perfectPairs: 0 } }));
+      if (bet.ppChips.length > 0) {
+        removeChipFromBet(seatIdx, 'perfectPairs');
         return;
       }
-      if (bet.main > 0) {
-        setSeatBets(prev => ({ ...prev, [seatIdx]: { ...bet, main: 0 } }));
+      if (bet.mainChips.length > 0) {
+        removeChipFromBet(seatIdx, 'main');
         return;
       }
     }
@@ -791,7 +1028,19 @@ export default function Blackjack() {
       setTimeout(() => setError(null), 2000);
       return;
     }
-    setSeatBets({ ...lastSeatBets });
+    // Deep copy to avoid mutation issues
+    const copiedBets: Record<number, HandBet> = {};
+    for (const [key, bet] of Object.entries(lastSeatBets)) {
+      copiedBets[Number(key)] = {
+        main: bet.main,
+        perfectPairs: bet.perfectPairs,
+        twentyOnePlus3: bet.twentyOnePlus3,
+        mainChips: [...bet.mainChips],
+        ppChips: [...bet.ppChips],
+        plus3Chips: [...bet.plus3Chips],
+      };
+    }
+    setSeatBets(copiedBets);
     setSelectedSeats(Object.keys(lastSeatBets).map(Number));
   };
 
@@ -802,6 +1051,9 @@ export default function Blackjack() {
         main: h.main * 2,
         perfectPairs: h.perfectPairs * 2,
         twentyOnePlus3: h.twentyOnePlus3 * 2,
+        mainChips: [...h.mainChips, ...h.mainChips],
+        ppChips: [...h.ppChips, ...h.ppChips],
+        plus3Chips: [...h.plus3Chips, ...h.plus3Chips],
       };
     }
     const doubleTotal = Object.values(doubled).reduce((sum, h) => 
@@ -821,7 +1073,19 @@ export default function Blackjack() {
       return res.json() as Promise<BlackjackState>;
     },
     onSuccess: (data) => {
-      setLastSeatBets({ ...seatBets });
+      // Deep copy seatBets for repeat functionality
+      const copiedBets: Record<number, HandBet> = {};
+      for (const [key, bet] of Object.entries(seatBets)) {
+        copiedBets[Number(key)] = {
+          main: bet.main,
+          perfectPairs: bet.perfectPairs,
+          twentyOnePlus3: bet.twentyOnePlus3,
+          mainChips: [...bet.mainChips],
+          ppChips: [...bet.ppChips],
+          plus3Chips: [...bet.plus3Chips],
+        };
+      }
+      setLastSeatBets(copiedBets);
       setGameState(data);
       setActiveSeatIndex(selectedSeats[0] ?? null);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -968,9 +1232,14 @@ export default function Blackjack() {
 
   const handleSitDown = (seatIndex: number) => {
     if (selectedSeats.includes(seatIndex)) {
-      // Deselect if clicking on already selected seat (only if no bet placed)
+      // Deselect if clicking on already selected seat (only if no chips placed)
       const seatBet = seatBets[seatIndex];
-      if (!seatBet || (seatBet.main === 0 && seatBet.perfectPairs === 0 && seatBet.twentyOnePlus3 === 0)) {
+      const hasChips = seatBet && (
+        seatBet.mainChips.length > 0 || 
+        seatBet.ppChips.length > 0 || 
+        seatBet.plus3Chips.length > 0
+      );
+      if (!hasChips) {
         setSelectedSeats(prev => prev.filter(s => s !== seatIndex));
         setSeatBets(prev => {
           const newBets = { ...prev };
@@ -1083,7 +1352,7 @@ export default function Blackjack() {
               <div className="absolute inset-0">
                 {seatPositions.map((pos, idx) => {
                   const isSelected = selectedSeats.includes(idx);
-                  const bet = seatBets[idx] || { main: 0, perfectPairs: 0, twentyOnePlus3: 0 };
+                  const bet = seatBets[idx] || emptyBet();
                   const isActiveSeat = activeSeatIndex === idx;
                   return (
                     <SeatWithBets
@@ -1099,11 +1368,15 @@ export default function Blackjack() {
                       mainBet={bet.main}
                       ppBet={bet.perfectPairs}
                       plus3Bet={bet.twentyOnePlus3}
+                      mainChips={bet.mainChips}
+                      ppChips={bet.ppChips}
+                      plus3Chips={bet.plus3Chips}
                       onPlaceMainBet={() => addChipToBet(idx, 'main')}
                       onPlacePPBet={() => addChipToBet(idx, 'perfectPairs')}
                       onPlacePlus3Bet={() => addChipToBet(idx, 'twentyOnePlus3')}
-                      showPP={isSelected && sideBetsEnabled.perfectPairs}
-                      showPlus3={isSelected && sideBetsEnabled.twentyOnePlus3}
+                      onRemoveMainChip={() => removeChipFromBet(idx, 'main')}
+                      onRemovePPChip={() => removeChipFromBet(idx, 'perfectPairs')}
+                      onRemovePlus3Chip={() => removeChipFromBet(idx, 'twentyOnePlus3')}
                       isPlaying={isPlaying || isCompleted}
                     />
                   );
@@ -1185,47 +1458,6 @@ export default function Blackjack() {
                         >
                           2x
                         </Button>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id="pp"
-                            checked={sideBetsEnabled.perfectPairs}
-                            onCheckedChange={(v) => {
-                              setSideBetsEnabled(s => ({ ...s, perfectPairs: v }));
-                              if (!v) {
-                                setSeatBets(prev => {
-                                  const updated: Record<number, HandBet> = {};
-                                  for (const [key, bet] of Object.entries(prev)) {
-                                    updated[Number(key)] = { ...bet, perfectPairs: 0 };
-                                  }
-                                  return updated;
-                                });
-                              }
-                            }}
-                          />
-                          <Label htmlFor="pp" className="text-xs text-slate-400">PP</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id="21p3"
-                            checked={sideBetsEnabled.twentyOnePlus3}
-                            onCheckedChange={(v) => {
-                              setSideBetsEnabled(s => ({ ...s, twentyOnePlus3: v }));
-                              if (!v) {
-                                setSeatBets(prev => {
-                                  const updated: Record<number, HandBet> = {};
-                                  for (const [key, bet] of Object.entries(prev)) {
-                                    updated[Number(key)] = { ...bet, twentyOnePlus3: 0 };
-                                  }
-                                  return updated;
-                                });
-                              }
-                            }}
-                          />
-                          <Label htmlFor="21p3" className="text-xs text-slate-400">21+3</Label>
-                        </div>
                       </div>
 
                       <div className="flex items-center gap-3">
