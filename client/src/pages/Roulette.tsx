@@ -210,7 +210,7 @@ export default function Roulette() {
           }));
           setSparkles(newSparkles);
           
-          setTimeout(() => setWinPopup(prev => ({ ...prev, visible: false })), 2000);
+          setTimeout(() => setWinPopup(prev => ({ ...prev, visible: false })), 1200);
           setTimeout(() => setSparkles([]), 1200);
         }
         
@@ -495,25 +495,27 @@ export default function Roulette() {
               />
             ))}
             
-            <div 
-              className={cn(
-                "absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none",
-                "transition-all duration-300 motion-reduce:transition-none",
-                winPopup.visible 
-                  ? "opacity-100 translate-y-0 scale-100" 
-                  : "opacity-0 translate-y-4 scale-90"
-              )}
-              data-testid="win-popup"
-            >
-              <div className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 shadow-xl shadow-amber-500/40 border-2 border-amber-300">
-                <div className="text-center">
-                  <div className="text-xs font-semibold text-amber-900 uppercase tracking-wider mb-0.5">Winner!</div>
-                  <span className="text-xl font-bold text-white drop-shadow-md">
-                    +${winPopup.amount.toFixed(2)}
-                  </span>
+            {winPopup.visible && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+                data-testid="win-popup"
+              >
+                <div className="animate-scale-in">
+                  <div className="relative px-10 py-6 rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-500 shadow-2xl border-4 border-amber-300"
+                    style={{
+                      boxShadow: "0 0 40px rgba(251, 191, 36, 0.7), 0 0 80px rgba(251, 191, 36, 0.4), 0 20px 60px rgba(0, 0, 0, 0.5)"
+                    }}
+                  >
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-amber-900 uppercase tracking-widest mb-1">You Won!</div>
+                      <div className="text-4xl font-black text-white drop-shadow-lg tracking-tight">
+                        ${winPopup.amount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 mb-4 text-sm">
