@@ -631,7 +631,7 @@ function SeatWithBets({
       className="absolute flex flex-col items-center"
       style={{
         left: `calc(50% + ${x}%)`,
-        bottom: `${5 + y}%`,
+        bottom: `${-2 + y}%`,
         transform: 'translateX(-50%)'
       }}
     >
