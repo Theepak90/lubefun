@@ -9,10 +9,13 @@ import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GAME_CONFIG } from "@shared/config";
 import { useAuth } from "@/hooks/use-auth";
+import { useGameHistory } from "@/hooks/use-game-history";
+import { RecentResults } from "@/components/RecentResults";
 
 export default function Dice() {
   const { mutate: playDice, isPending } = useDiceGame();
   const { user } = useAuth();
+  const { results, addResult, clearHistory } = useGameHistory();
   const [target, setTarget] = useState(50);
   const [condition, setCondition] = useState<"above" | "below">("above");
   const [lastResult, setLastResult] = useState<{ result: number, won: boolean } | null>(null);
@@ -41,6 +44,14 @@ export default function Dice() {
             transition: { type: "spring", stiffness: 300, damping: 20 }
           });
           setLastResult({ result, won: data.won });
+          
+          addResult({
+            game: "dice",
+            betAmount: val,
+            won: data.won,
+            profit: data.profit,
+            detail: `Rolled ${result.toFixed(2)} (${condition} ${target})`
+          });
         }
       }
     );
@@ -353,6 +364,12 @@ export default function Dice() {
             </div>
           </div>
         </div>
+        
+        <RecentResults 
+          results={results} 
+          onClear={clearHistory}
+          filterGame="dice"
+        />
       </div>
     </Layout>
   );

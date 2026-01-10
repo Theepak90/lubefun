@@ -9,10 +9,13 @@ import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
+import { useGameHistory } from "@/hooks/use-game-history";
+import { RecentResults } from "@/components/RecentResults";
 
 export default function Coinflip() {
   const { mutate: playCoinflip, isPending } = useCoinflipGame();
   const { user } = useAuth();
+  const { results, addResult, clearHistory } = useGameHistory();
   const [side, setSide] = useState<"heads" | "tails">("heads");
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState<"heads" | "tails" | null>(null);
@@ -34,6 +37,14 @@ export default function Coinflip() {
           onSuccess: (data: any) => {
             setResult(data.result.flip);
             setFlipping(false);
+            
+            addResult({
+              game: "coinflip",
+              betAmount: val,
+              won: data.won,
+              profit: data.profit,
+              detail: `Picked ${side}, got ${data.result.flip}`
+            });
           },
           onError: () => setFlipping(false)
         }
@@ -259,6 +270,12 @@ export default function Coinflip() {
             </div>
           </div>
         </div>
+        
+        <RecentResults 
+          results={results} 
+          onClear={clearHistory}
+          filterGame="coinflip"
+        />
       </div>
     </Layout>
   );

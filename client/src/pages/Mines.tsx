@@ -10,10 +10,13 @@ import { Bomb, Gem, Skull, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
+import { useGameHistory } from "@/hooks/use-game-history";
+import { RecentResults } from "@/components/RecentResults";
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
   const { user } = useAuth();
+  const { results, addResult, clearHistory } = useGameHistory();
   const [amount, setAmount] = useState<string>("10");
   const [minesCount, setMinesCount] = useState<string>("3");
   const [gameState, setGameState] = useState<{
@@ -73,6 +76,14 @@ export default function Mines() {
             mines: data.result.mines,
             explodedIndex: index
           }));
+          
+          addResult({
+            game: "mines",
+            betAmount: data.betAmount,
+            won: false,
+            profit: -data.betAmount,
+            detail: `Hit mine after ${data.result.revealed.length - 1} gems`
+          });
         } else {
           setGameState(prev => ({
             ...prev,
@@ -96,6 +107,14 @@ export default function Mines() {
           mines: data.result.mines,
           isCashout: true
         }));
+        
+        addResult({
+          game: "mines",
+          betAmount: data.betAmount,
+          won: true,
+          profit: data.profit,
+          detail: `Cashed out with ${data.result.revealed.length} gems (${data.payoutMultiplier.toFixed(2)}x)`
+        });
       }
     });
   };
@@ -345,6 +364,12 @@ export default function Mines() {
             </div>
           </div>
         </div>
+        
+        <RecentResults 
+          results={results} 
+          onClear={clearHistory}
+          filterGame="mines"
+        />
       </div>
     </Layout>
   );
