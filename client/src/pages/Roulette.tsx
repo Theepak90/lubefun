@@ -392,21 +392,30 @@ export default function Roulette() {
 
   const ChipStack = ({ amount, small, bouncing }: { amount: number; small?: boolean; bouncing?: boolean }) => {
     if (amount <= 0) return null;
-    const size = small ? "w-10 h-10" : "w-14 h-14";
+    const chipSize = small ? 44 : 56;
     
-    // Find the best matching chip image for the amount
-    const getChipImage = (amt: number) => {
-      // Find the largest chip that divides into the amount
+    // Break down amount into chips for stacking
+    const getChipBreakdown = (amt: number): ChipConfig[] => {
+      const chips: ChipConfig[] = [];
+      let remaining = amt;
       const sortedChips = [...CHIP_CONFIGS].sort((a, b) => b.value - a.value);
+      
       for (const chip of sortedChips) {
-        if (amt >= chip.value) {
-          return chip.image;
+        while (remaining >= chip.value && chips.length < 5) {
+          chips.push(chip);
+          remaining = Math.round((remaining - chip.value) * 100) / 100;
         }
       }
-      return CHIP_CONFIGS[0].image; // default to smallest chip
+      
+      // If we couldn't break it down, just show one chip
+      if (chips.length === 0 && amt > 0) {
+        chips.push(CHIP_CONFIGS[0]);
+      }
+      
+      return chips.slice(0, 5); // Max 5 chips in stack
     };
     
-    const chipImage = getChipImage(amount);
+    const chipStack = getChipBreakdown(amount);
     const displayAmount = amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount >= 1 ? amount.toFixed(0) : amount.toFixed(2);
     
     return (
@@ -414,16 +423,35 @@ export default function Roulette() {
         "absolute inset-0 flex items-center justify-center pointer-events-none z-10",
         bouncing && "animate-chip-drop"
       )}>
-        <div className={cn(size, "relative")}>
-          <img 
-            src={chipImage} 
-            alt={`$${amount}`} 
-            className="w-full h-full object-contain drop-shadow-lg"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative" style={{ width: chipSize, height: chipSize + (chipStack.length - 1) * 4 }}>
+          {chipStack.map((chip, i) => (
+            <img 
+              key={i}
+              src={chip.image} 
+              alt={chip.label}
+              className="absolute drop-shadow-lg"
+              style={{
+                width: chipSize,
+                height: chipSize,
+                bottom: i * 4,
+                left: 0,
+                zIndex: i,
+              }}
+            />
+          ))}
+          <div 
+            className="absolute flex items-center justify-center"
+            style={{
+              width: chipSize,
+              height: chipSize,
+              bottom: (chipStack.length - 1) * 4,
+              left: 0,
+              zIndex: chipStack.length + 1,
+            }}
+          >
             <span className={cn(
               "font-bold text-white drop-shadow-md",
-              small ? "text-[6px]" : "text-[8px]"
+              small ? "text-[8px]" : "text-[10px]"
             )}>
               ${displayAmount}
             </span>
