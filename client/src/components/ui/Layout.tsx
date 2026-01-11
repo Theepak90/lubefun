@@ -29,7 +29,7 @@ import { WalletDropdown } from "@/components/WalletDropdown";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-import logoImg from "@assets/image_(4)_1768093961296.jpg";
+import logoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_18_22_AM_1768094309251.png";
 
 interface LayoutProps {
   children: ReactNode;
