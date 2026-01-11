@@ -9,6 +9,7 @@ import { Gamepad2, TrendingUp, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 import newReleaseBg from "@assets/f05eea61-9bf2-4880-820b-f2a0acec5fea_1768107746554.png";
+import originalsLogo from "@assets/ChatGPT_Image_Jan_11,_2026,_05_10_52_AM_1768108258815.png";
 
 const allGames: GameInfo[] = [
   { id: "dice", name: "Dice", href: "/dice", icon: "dice", isHot: true },
@@ -181,7 +182,7 @@ export default function Home() {
             <GameRow 
               title="Originals" 
               games={allGames}
-              icon={<Gamepad2 className="w-5 h-5 text-primary" />}
+              icon={<img src={originalsLogo} alt="Originals" className="w-6 h-6 object-contain" />}
             />
 
             <GameRow 
