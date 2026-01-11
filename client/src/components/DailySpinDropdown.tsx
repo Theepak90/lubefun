@@ -40,23 +40,29 @@ export function DailySpinDropdown() {
   
   return (
     <Link href="/daily-spin">
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="gap-1.5 border-accent/30 hover:border-accent/50 relative"
+      <button 
+        className="w-10 h-10 rounded-xl bg-[#1a2633] border border-[#2a3a4a] hover:border-amber-500/50 flex items-center justify-center transition-all relative group"
         data-testid="button-daily-spin-nav"
       >
-        <RotateCw className="w-4 h-4 text-accent" />
-        <span className="hidden md:inline">Daily Spin</span>
+        <svg 
+          className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform duration-300" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 2v10l7 4" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+        </svg>
         {status?.canSpin ? (
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent rounded-full animate-pulse" />
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse" />
         ) : timeRemaining ? (
-          <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground ml-1">
-            <Clock className="w-3 h-3" />
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-400 bg-[#0f1923] px-1 rounded whitespace-nowrap">
             {timeRemaining}
           </span>
         ) : null}
-      </Button>
+      </button>
     </Link>
   );
 }

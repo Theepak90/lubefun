@@ -110,21 +110,17 @@ export function RewardsDropdown() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="gap-1.5 border-primary/30 hover:border-primary/50 relative"
+        <button 
+          className="w-10 h-10 rounded-xl bg-[#1a2633] border border-[#2a3a4a] hover:border-emerald-500/50 flex items-center justify-center transition-all relative group"
           data-testid="button-rewards-dropdown"
         >
-          <Gift className="w-4 h-4 text-primary" />
-          <span className="hidden md:inline">Rewards</span>
-          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+          <Gift className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
           {availableRewardsCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-primary-foreground rounded-full text-xs font-bold flex items-center justify-center animate-pulse">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white rounded-full text-xs font-bold flex items-center justify-center animate-pulse">
               {availableRewardsCount}
             </span>
           )}
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="p-4 border-b border-border bg-gradient-to-r from-primary/20 to-primary/5">
