@@ -112,6 +112,163 @@ export async function registerRoutes(
     res.json(req.user);
   });
 
+  // === UNIFIED BET ENDPOINT ===
+  app.post(api.bet.place.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const parsed = api.bet.place.input.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: "Invalid bet parameters" });
+      }
+      
+      const { gameType, betAmount, gameData = {} } = parsed.data;
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+      
+      // Pass gameData directly as choice - preserve caller intent
+      const choice: Record<string, any> = gameData || {};
+      
+      // Validate required fields per game type
+      switch (gameType) {
+        case "dice":
+          if (typeof choice.target !== "number" || !["above", "below"].includes(choice.condition)) {
+            return res.status(400).json({ success: false, error: "Dice requires target (number) and condition (above/below)" });
+          }
+          break;
+        case "coinflip":
+          if (!["heads", "tails"].includes(choice.side)) {
+            return res.status(400).json({ success: false, error: "Coinflip requires side (heads/tails)" });
+          }
+          break;
+        case "plinko":
+          if (!choice.risk) choice.risk = "medium";
+          if (!choice.rows) choice.rows = 16;
+          break;
+        case "roulette":
+          if (!choice.betType) {
+            return res.status(400).json({ success: false, error: "Roulette requires betType" });
+          }
+          if (choice.betType === "straight" && typeof choice.straightNumber !== "number") {
+            return res.status(400).json({ success: false, error: "Straight bets require straightNumber (0-36)" });
+          }
+          break;
+        case "splitsteal":
+          if (!["split", "steal"].includes(choice.playerChoice)) {
+            return res.status(400).json({ success: false, error: "Split/Steal requires playerChoice (split/steal)" });
+          }
+          break;
+        case "mines":
+          if (!choice.minesCount) choice.minesCount = 3;
+          break;
+        case "blackjack":
+        case "pressurevalve":
+          break;
+        default:
+          return res.status(400).json({ success: false, error: "Unknown game type" });
+      }
+      
+      const result = await placeBet({
+        userId: req.user!.id,
+        gameId: gameType,
+        wager: betAmount,
+        choice,
+        idempotencyKey,
+      });
+      
+      res.json(result);
+    } catch (err) {
+      console.error("[Unified Bet] Error:", err);
+      res.status(400).json({ success: false, error: "Bet failed" });
+    }
+  });
+
+  // === RECENT BETS ENDPOINT ===
+  app.get(api.bet.recent.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const bets = await storage.getUserBets(req.user!.id, 50);
+    res.json(bets);
+  });
+
+  // === WITHDRAWAL ENDPOINT ===
+  app.post(api.withdraw.request.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const parsed = api.withdraw.request.input.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: "Invalid withdrawal parameters" });
+      }
+      
+      const { amount, address } = parsed.data;
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+      
+      const result = await requestWithdrawal({
+        userId: req.user!.id,
+        amount,
+        address,
+        idempotencyKey,
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      
+      res.json({
+        success: true,
+        withdrawalId: result.withdrawal?.id,
+        status: result.withdrawal?.status,
+      });
+    } catch (err) {
+      console.error("[Withdrawal] Error:", err);
+      res.status(400).json({ success: false, error: "Withdrawal request failed" });
+    }
+  });
+
+  app.get(api.withdraw.history.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const withdrawals = await getUserWithdrawals(req.user!.id);
+    res.json(withdrawals);
+  });
+
+  // === PROVABLY FAIR ENDPOINT ===
+  app.get(api.provablyFair.info.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    const serverSeedHash = hashServerSeed(user.serverSeed);
+    
+    res.json({
+      serverSeedHash,
+      clientSeed: user.clientSeed,
+      nonce: user.nonce,
+      instructions: `
+PROVABLY FAIR VERIFICATION:
+
+Your current server seed is hidden and will be revealed when you rotate it.
+The hash above proves the server seed existed before your bets.
+
+To verify a bet:
+1. Combine: serverSeed + clientSeed + nonce
+2. Generate HMAC-SHA256 hash
+3. Convert first 8 hex chars to decimal
+4. Divide by 0xFFFFFFFF for 0-1 range
+5. Apply game-specific logic
+
+House Edge: 4% (96% RTP)
+
+Games use this formula:
+- Dice: roll = (hash / 0xFFFFFFFF) * 101, compare to target
+- Coinflip: result = hash < 0.5 ? "heads" : "tails"
+- Plinko: each peg = hash for direction
+- Roulette: number = (hash / 0xFFFFFFFF) * 37
+
+Your bets are verifiable after the server seed is revealed.
+      `.trim(),
+    });
+  });
+
   // === User Routes ===
   app.post(api.user.updateSeeds.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

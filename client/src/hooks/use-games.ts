@@ -1,12 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  api, 
-  type DiceBetRequest, 
-  type CoinflipBetRequest, 
-  type MinesBetRequest, 
-  type MinesNextRequest 
-} from "@shared/routes";
+import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
+import { useRef } from "react";
+
+interface DiceBetRequest {
+  betAmount: number;
+  target: number;
+  condition: "above" | "below";
+}
+
+interface CoinflipBetRequest {
+  betAmount: number;
+  side: "heads" | "tails";
+}
+
+interface MinesBetRequest {
+  betAmount: number;
+  minesCount: number;
+}
+
+interface MinesNextRequest {
+  betId: number;
+  tileIndex: number;
+}
 
 export function useGameHistory() {
   return useQuery({
@@ -22,12 +38,24 @@ export function useGameHistory() {
 export function useDiceGame() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const lastBetRef = useRef<number>(0);
 
   return useMutation({
     mutationFn: async (data: DiceBetRequest) => {
+      const now = Date.now();
+      if (now - lastBetRef.current < 500) {
+        return null;
+      }
+      lastBetRef.current = now;
+      
+      const idempotencyKey = `dice-${now}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const res = await fetch(api.games.dice.play.path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -37,16 +65,9 @@ export function useDiceGame() {
       return await res.json();
     },
     onSuccess: (data) => {
+      if (data === null) return;
       queryClient.invalidateQueries({ queryKey: [api.games.history.path] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] }); // Update balance
-      
-      if (data.won) {
-        toast({
-          title: "You Won!",
-          description: `Payout: $${data.profit?.toFixed(2)}`,
-          className: "bg-primary text-primary-foreground border-none",
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -57,12 +78,24 @@ export function useDiceGame() {
 export function useCoinflipGame() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const lastBetRef = useRef<number>(0);
 
   return useMutation({
     mutationFn: async (data: CoinflipBetRequest) => {
+      const now = Date.now();
+      if (now - lastBetRef.current < 500) {
+        return null;
+      }
+      lastBetRef.current = now;
+      
+      const idempotencyKey = `coinflip-${now}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const res = await fetch(api.games.coinflip.play.path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -72,16 +105,9 @@ export function useCoinflipGame() {
       return await res.json();
     },
     onSuccess: (data) => {
+      if (data === null) return;
       queryClient.invalidateQueries({ queryKey: [api.games.history.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      
-      if (data.won) {
-        toast({
-          title: "You Won!",
-          description: `Payout: $${data.profit?.toFixed(2)}`,
-          className: "bg-primary text-primary-foreground border-none",
-        });
-      }
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -92,12 +118,24 @@ export function useCoinflipGame() {
 export function useMinesGame() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const lastActionRef = useRef<number>(0);
 
   const start = useMutation({
     mutationFn: async (data: MinesBetRequest) => {
+      const now = Date.now();
+      if (now - lastActionRef.current < 500) {
+        return null;
+      }
+      lastActionRef.current = now;
+      
+      const idempotencyKey = `mines-start-${now}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const res = await fetch(api.games.mines.start.path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -106,7 +144,8 @@ export function useMinesGame() {
       }
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data === null) return;
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (err: Error) => {
@@ -116,6 +155,12 @@ export function useMinesGame() {
 
   const reveal = useMutation({
     mutationFn: async ({ betId, tileIndex }: { betId: number, tileIndex: number }) => {
+      const now = Date.now();
+      if (now - lastActionRef.current < 300) {
+        return null;
+      }
+      lastActionRef.current = now;
+      
       const res = await fetch(api.games.mines.reveal.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,6 +172,9 @@ export function useMinesGame() {
       }
       return await res.json();
     },
+    onSuccess: (data) => {
+      if (data === null) return;
+    },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
@@ -134,6 +182,12 @@ export function useMinesGame() {
 
   const cashout = useMutation({
     mutationFn: async ({ betId }: { betId: number }) => {
+      const now = Date.now();
+      if (now - lastActionRef.current < 500) {
+        return null;
+      }
+      lastActionRef.current = now;
+      
       const res = await fetch(api.games.mines.cashout.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,6 +200,7 @@ export function useMinesGame() {
       return await res.json();
     },
     onSuccess: (data) => {
+      if (data === null) return;
       queryClient.invalidateQueries({ queryKey: [api.games.history.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       

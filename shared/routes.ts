@@ -13,7 +13,83 @@ export const errorSchemas = {
   }),
 };
 
+// Unified bet schema for all games
+export const unifiedBetSchema = z.object({
+  gameType: z.enum(["dice", "coinflip", "mines", "plinko", "roulette", "blackjack", "splitsteal", "pressurevalve"]),
+  betAmount: z.number().min(0.01),
+  gameData: z.record(z.any()).optional(),
+});
+
+export const withdrawRequestSchema = z.object({
+  amount: z.number().min(1),
+  address: z.string().min(1),
+});
+
 export const api = {
+  // Unified bet endpoint
+  bet: {
+    place: {
+      method: "POST" as const,
+      path: "/api/bet",
+      input: unifiedBetSchema,
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          bet: z.custom<typeof bets.$inferSelect>().optional(),
+          outcome: z.any().optional(),
+          newBalance: z.number().optional(),
+          error: z.string().optional(),
+        }),
+        400: errorSchemas.gameError,
+      },
+    },
+    recent: {
+      method: "GET" as const,
+      path: "/api/bets/recent",
+      responses: {
+        200: z.array(z.custom<typeof bets.$inferSelect>()),
+      },
+    },
+  },
+  // Withdrawal endpoint
+  withdraw: {
+    request: {
+      method: "POST" as const,
+      path: "/api/withdraw",
+      input: withdrawRequestSchema,
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          withdrawalId: z.number().optional(),
+          status: z.string().optional(),
+          error: z.string().optional(),
+        }),
+        400: errorSchemas.gameError,
+      },
+    },
+    history: {
+      method: "GET" as const,
+      path: "/api/withdrawals",
+      responses: {
+        200: z.array(z.any()),
+      },
+    },
+  },
+  // Provably fair verification
+  provablyFair: {
+    info: {
+      method: "GET" as const,
+      path: "/api/provably-fair",
+      responses: {
+        200: z.object({
+          serverSeedHash: z.string(),
+          clientSeed: z.string(),
+          nonce: z.number(),
+          instructions: z.string(),
+        }),
+      },
+    },
+  },
   auth: {
     register: {
       method: "POST" as const,
