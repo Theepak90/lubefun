@@ -1,6 +1,12 @@
 import { Link } from "wouter";
-import { Flame } from "lucide-react";
-import gameIconsSprite from "@assets/ChatGPT_Image_Jan_11,_2026,_01_22_32_AM_1768094563596.png";
+import { Flame, Bomb } from "lucide-react";
+
+import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_29_29_AM_1768095699502.png";
+import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_33_56_AM_1768095699503.png";
+import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_41_15_AM_1768095699503.png";
+import spinImg from "@assets/Colourful_daily_spin_with_water_splash_1768095699504.png";
+import plinkoImg from "@assets/Glowing_Plinko_with_electric_water_splash_1768095699504.png";
+import rouletteImg from "@assets/Roulette_wheel_with_glowing_blue_splash_1768095699504.png";
 
 export interface GameInfo {
   id: string;
@@ -12,18 +18,18 @@ export interface GameInfo {
   isNew?: boolean;
 }
 
-const iconPositions: Record<string, { x: number; y: number }> = {
-  dice: { x: 0, y: 0 },
-  coinflip: { x: 33.333, y: 0 },
-  roulette: { x: 66.666, y: 0 },
-  plinko: { x: 100, y: 0 },
-  mines: { x: 0, y: 100 },
-  blackjack: { x: 33.333, y: 100 },
-  spin: { x: 66.666, y: 100 },
+const gameImages: Record<string, string | null> = {
+  dice: diceImg,
+  coinflip: coinflipImg,
+  roulette: rouletteImg,
+  plinko: plinkoImg,
+  blackjack: blackjackImg,
+  spin: spinImg,
+  mines: null,
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
-  const position = iconPositions[game.icon] || { x: 0, y: 0 };
+  const imageUrl = gameImages[game.icon];
   
   return (
     <Link href={game.href}>
@@ -44,16 +50,17 @@ export function GameCard({ game }: { game: GameInfo }) {
         )}
         
         <div className="p-3 flex flex-col items-center">
-          <div 
-            className="w-20 h-20 rounded-xl mb-2 transition-transform group-hover:scale-110 bg-no-repeat"
-            style={{
-              backgroundImage: `url(${gameIconsSprite})`,
-              backgroundSize: "400% 200%",
-              backgroundPosition: `${position.x}% ${position.y}%`,
-            }}
-          />
-          
-          <h3 className="text-sm font-semibold text-white text-center mb-1">{game.name}</h3>
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={game.name}
+              className="w-24 h-24 object-contain mb-2 transition-transform group-hover:scale-110"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-xl bg-green-500/20 flex items-center justify-center mb-2 transition-transform group-hover:scale-110">
+              <Bomb className="w-10 h-10 text-green-400" />
+            </div>
+          )}
           
           {game.players !== undefined && (
             <div className="flex items-center gap-1">
