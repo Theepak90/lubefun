@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { cn } from "@/lib/utils";
-import { Dice5, Coins, Bomb, CircleDot, Triangle, Spade, Gift, Flame } from "lucide-react";
+import { Flame } from "lucide-react";
+import gameIconsSprite from "@assets/ChatGPT_Image_Jan_11,_2026,_01_22_32_AM_1768094563596.png";
 
 export interface GameInfo {
   id: string;
@@ -12,23 +12,23 @@ export interface GameInfo {
   isNew?: boolean;
 }
 
-const iconMap = {
-  dice: { icon: Dice5, color: "text-blue-400", bg: "bg-blue-500/20" },
-  coinflip: { icon: Coins, color: "text-yellow-400", bg: "bg-yellow-500/20" },
-  mines: { icon: Bomb, color: "text-green-400", bg: "bg-green-500/20" },
-  roulette: { icon: CircleDot, color: "text-red-400", bg: "bg-red-500/20" },
-  plinko: { icon: Triangle, color: "text-purple-400", bg: "bg-purple-500/20" },
-  blackjack: { icon: Spade, color: "text-cyan-400", bg: "bg-cyan-500/20" },
-  spin: { icon: Gift, color: "text-amber-400", bg: "bg-amber-500/20" },
+const iconPositions: Record<string, { x: number; y: number }> = {
+  dice: { x: 0, y: 0 },
+  coinflip: { x: 25, y: 0 },
+  roulette: { x: 50, y: 0 },
+  plinko: { x: 75, y: 0 },
+  mines: { x: 0, y: 50 },
+  blackjack: { x: 33, y: 50 },
+  spin: { x: 66, y: 50 },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
-  const { icon: Icon, color, bg } = iconMap[game.icon];
+  const position = iconPositions[game.icon] || { x: 0, y: 0 };
   
   return (
     <Link href={game.href}>
       <div 
-        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#2a3a4a] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-1 min-w-[140px] w-[140px] flex-shrink-0"
+        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[140px] w-[140px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
@@ -43,13 +43,15 @@ export function GameCard({ game }: { game: GameInfo }) {
           </div>
         )}
         
-        <div className="p-4 flex flex-col items-center">
-          <div className={cn(
-            "w-16 h-16 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
-            bg
-          )}>
-            <Icon className={cn("w-8 h-8", color)} />
-          </div>
+        <div className="p-3 flex flex-col items-center">
+          <div 
+            className="w-20 h-20 rounded-xl mb-2 transition-transform group-hover:scale-110 bg-no-repeat"
+            style={{
+              backgroundImage: `url(${gameIconsSprite})`,
+              backgroundSize: "400% 200%",
+              backgroundPosition: `${position.x}% ${position.y}%`,
+            }}
+          />
           
           <h3 className="text-sm font-semibold text-white text-center mb-1">{game.name}</h3>
           
