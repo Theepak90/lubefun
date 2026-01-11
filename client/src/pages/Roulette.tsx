@@ -423,7 +423,7 @@ export default function Roulette() {
         "absolute inset-0 flex items-center justify-center pointer-events-none z-10",
         bouncing && "animate-chip-drop"
       )}>
-        <div className="relative" style={{ width: chipSize, height: chipSize + (chipStack.length - 1) * 4 }}>
+        <div className="relative" style={{ width: chipSize, height: chipSize + (chipStack.length - 1) * 6 }}>
           {chipStack.map((chip, i) => (
             <img 
               key={i}
@@ -433,7 +433,7 @@ export default function Roulette() {
               style={{
                 width: chipSize,
                 height: chipSize,
-                bottom: i * 4,
+                bottom: i * 6,
                 left: 0,
                 zIndex: i,
               }}
@@ -444,7 +444,7 @@ export default function Roulette() {
             style={{
               width: chipSize,
               height: chipSize,
-              bottom: (chipStack.length - 1) * 4,
+              bottom: (chipStack.length - 1) * 6,
               left: 0,
               zIndex: chipStack.length + 1,
             }}
