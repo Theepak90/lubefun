@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { BannerCarousel } from "@/components/BannerCarousel";
-import { LiveWins } from "@/components/LiveWins";
 import { RecentWinsTicker } from "@/components/RecentWinsTicker";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
@@ -90,15 +89,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 min-w-0">
-            <BannerCarousel />
-          </div>
-          
-          <div className="lg:w-48 flex-shrink-0">
-            <LiveWins />
-          </div>
-        </div>
+        <BannerCarousel />
 
         <div className="-mx-4 sm:-mx-6">
           <RecentWinsTicker intervalMin={2000} intervalMax={5000} maxItems={20} />
