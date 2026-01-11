@@ -9,13 +9,13 @@ import { Gamepad2, TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const allGames: GameInfo[] = [
-  { id: "dice", name: "Dice", href: "/dice", icon: "dice", players: 1247, isHot: true },
-  { id: "coinflip", name: "Coinflip", href: "/coinflip", icon: "coinflip", players: 892 },
-  { id: "mines", name: "Mines", href: "/mines", icon: "mines", players: 2156, isHot: true },
-  { id: "roulette", name: "Roulette", href: "/roulette", icon: "roulette", players: 1834 },
-  { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko", players: 743, isNew: true },
-  { id: "blackjack", name: "Blackjack", href: "/blackjack", icon: "blackjack", players: 1567 },
-  { id: "daily-spin", name: "Daily Spin", href: "/rewards", icon: "spin", players: 3421 },
+  { id: "dice", name: "Dice", href: "/dice", icon: "dice", isHot: true },
+  { id: "coinflip", name: "Coinflip", href: "/coinflip", icon: "coinflip" },
+  { id: "mines", name: "Mines", href: "/mines", icon: "mines", isHot: true },
+  { id: "roulette", name: "Roulette", href: "/roulette", icon: "roulette" },
+  { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko", isNew: true },
+  { id: "blackjack", name: "Blackjack", href: "/blackjack", icon: "blackjack" },
+  { id: "daily-spin", name: "Daily Spin", href: "/rewards", icon: "spin" },
 ];
 
 const popularGames = [

@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Flame, Bomb } from "lucide-react";
+import { Flame } from "lucide-react";
 
 import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_29_29_AM_1768095699502.png";
 import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_33_56_AM_1768095699503.png";
@@ -7,6 +7,7 @@ import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_41_15_AM_176809
 import spinImg from "@assets/Colourful_daily_spin_with_water_splash_1768095699504.png";
 import plinkoImg from "@assets/Glowing_Plinko_with_electric_water_splash_1768095699504.png";
 import rouletteImg from "@assets/Roulette_wheel_with_glowing_blue_splash_1768095699504.png";
+import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
 
 export interface GameInfo {
   id: string;
@@ -18,18 +19,27 @@ export interface GameInfo {
   isNew?: boolean;
 }
 
-const gameImages: Record<string, string | null> = {
+const gameImages: Record<string, string> = {
   dice: diceImg,
   coinflip: coinflipImg,
   roulette: rouletteImg,
   plinko: plinkoImg,
   blackjack: blackjackImg,
   spin: spinImg,
-  mines: null,
+  mines: minesImg,
 };
+
+function getDailyRandomPlayers(gameId: string): number {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const seed = gameId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + dayOfYear;
+  const random = Math.sin(seed * 9999) * 10000;
+  return Math.floor(8 + (Math.abs(random) % 209));
+}
 
 export function GameCard({ game }: { game: GameInfo }) {
   const imageUrl = gameImages[game.icon];
+  const playerCount = getDailyRandomPlayers(game.id);
   
   return (
     <Link href={game.href}>
@@ -50,24 +60,16 @@ export function GameCard({ game }: { game: GameInfo }) {
         )}
         
         <div className="p-3 flex flex-col items-center">
-          {imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt={game.name}
-              className="w-44 h-44 object-contain mb-2 transition-transform group-hover:scale-110"
-            />
-          ) : (
-            <div className="w-44 h-44 rounded-xl bg-green-500/20 flex items-center justify-center mb-2 transition-transform group-hover:scale-110">
-              <Bomb className="w-20 h-20 text-green-400" />
-            </div>
-          )}
+          <img 
+            src={imageUrl} 
+            alt={game.name}
+            className="w-44 h-44 object-contain mb-2 transition-transform group-hover:scale-110"
+          />
           
-          {game.players !== undefined && (
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-slate-500">{game.players.toLocaleString()} playing</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] text-slate-500">{playerCount} playing</span>
+          </div>
         </div>
       </div>
     </Link>
