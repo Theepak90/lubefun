@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,9 @@ const GAME_CONFIG = {
   suspenseDelayMs: 1500
 };
 
-type GameState = "idle" | "deciding" | "suspense" | "result";
+type GameState = "idle" | "waitingForPlayerChoice" | "resolving" | "result";
 
-interface RoundData {
-  roundId: number;
-  betAmount: number;
-}
-
-interface ResolveResult {
+interface GameResult {
   playerChoice: "split" | "steal";
   aiChoice: "split" | "steal";
   payout: number;
@@ -46,41 +41,34 @@ export default function SplitOrSteal() {
 
   const [amount, setAmount] = useState<string>("10");
   const [gameState, setGameState] = useState<GameState>("idle");
-  const [roundData, setRoundData] = useState<RoundData | null>(null);
-  const [result, setResult] = useState<ResolveResult | null>(null);
-  const [aiThinking, setAiThinking] = useState(false);
+  const [betAmount, setBetAmount] = useState<number>(0);
+  const [result, setResult] = useState<GameResult | null>(null);
+  const [playerChoice, setPlayerChoice] = useState<"split" | "steal" | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
-  const isLocked = gameState !== "idle";
+  const isLocked = gameState !== "idle" && gameState !== "waitingForPlayerChoice";
 
-  const { mutate: startGame, isPending: isStarting } = useMutation({
-    mutationFn: async (data: { betAmount: number }) => {
-      const res = await apiRequest("POST", "/api/games/splitsteal/start", data);
+  const { mutate: playGame, isPending: isPlaying } = useMutation({
+    mutationFn: async (data: { betAmount: number; playerChoice: "split" | "steal" }) => {
+      console.log('[SplitSteal] Sending play request:', data);
+      const res = await apiRequest("POST", "/api/games/splitsteal", data);
       return res.json();
     },
-    onSuccess: (data: { roundId: number; betAmount: number; balanceAfter: number }) => {
-      setRoundData({ roundId: data.roundId, betAmount: data.betAmount });
-      setGameState("deciding");
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      playSound("flip");
-    },
-    onError: (error) => {
-      console.error('[SplitSteal] Start error:', error);
-      toast({ title: "Error", description: "Failed to start game", duration: 2000 });
-    }
-  });
-
-  const { mutate: resolveGame, isPending: isResolving } = useMutation({
-    mutationFn: async (data: { roundId: number; playerChoice: "split" | "steal" }) => {
-      const res = await apiRequest("POST", "/api/games/splitsteal/resolve", data);
-      return res.json();
-    },
-    onSuccess: (data: ResolveResult) => {
+    onSuccess: (data: GameResult) => {
+      console.log('[SplitSteal] Response received:', data);
+      
       setTimeout(() => {
-        setAiThinking(false);
         setResult(data);
         setGameState("result");
         queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+
+        console.log('[SplitSteal] Final result:', {
+          playerChoice: data.playerChoice,
+          aiChoice: data.aiChoice,
+          payout: data.payout,
+          won: data.won,
+          balanceAfter: data.balanceAfter
+        });
 
         if (data.won) {
           playSound("win");
@@ -101,7 +89,6 @@ export default function SplitOrSteal() {
           });
         }
 
-        const betAmount = roundData?.betAmount || 0;
         const profit = data.payout - betAmount;
         addResult({
           game: "splitsteal",
@@ -113,11 +100,11 @@ export default function SplitOrSteal() {
         recordResult("splitsteal", betAmount, data.payout, data.won);
       }, GAME_CONFIG.suspenseDelayMs);
     },
-    onError: (error) => {
-      console.error('[SplitSteal] Resolve error:', error);
-      setAiThinking(false);
+    onError: (error: Error) => {
+      console.error('[SplitSteal] Play error:', error);
       setGameState("idle");
-      toast({ title: "Error", description: "Failed to resolve game", duration: 2000 });
+      setPlayerChoice(null);
+      toast({ title: "Error", description: error.message || "Failed to play game", duration: 2000 });
     }
   });
 
@@ -131,24 +118,27 @@ export default function SplitOrSteal() {
       toast({ title: "Insufficient balance", description: "You don't have enough balance", duration: 2000 });
       return;
     }
-    startGame({ betAmount: baseAmount });
-  }, [baseAmount, user?.balance, gameState, startGame, toast]);
+    setBetAmount(baseAmount);
+    setGameState("waitingForPlayerChoice");
+    playSound("flip");
+  }, [baseAmount, user?.balance, gameState, playSound, toast]);
 
   const handleChoice = useCallback((choice: "split" | "steal") => {
-    if (gameState !== "deciding" || !roundData) return;
+    if (gameState !== "waitingForPlayerChoice") return;
     
-    setGameState("suspense");
-    setAiThinking(true);
+    console.log('[SplitSteal] Player chose:', choice);
+    setPlayerChoice(choice);
+    setGameState("resolving");
     playSound("flip");
     
-    resolveGame({ roundId: roundData.roundId, playerChoice: choice });
-  }, [gameState, roundData, resolveGame, playSound]);
+    playGame({ betAmount, playerChoice: choice });
+  }, [gameState, betAmount, playGame, playSound]);
 
   const resetGame = () => {
     setGameState("idle");
-    setRoundData(null);
+    setBetAmount(0);
     setResult(null);
-    setAiThinking(false);
+    setPlayerChoice(null);
   };
 
   const setPercent = (percent: number) => {
@@ -229,17 +219,17 @@ export default function SplitOrSteal() {
 
                       <Button
                         onClick={handleStartGame}
-                        disabled={isStarting || !user || baseAmount <= 0}
+                        disabled={!user || baseAmount <= 0}
                         size="lg"
                         className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-12 py-6 text-xl font-bold"
                         data-testid="button-start-game"
                       >
-                        {isStarting ? "Starting..." : `Play ${formatCurrency(baseAmount)}`}
+                        {`Play ${formatCurrency(baseAmount)}`}
                       </Button>
                     </motion.div>
                   )}
 
-                  {gameState === "deciding" && (
+                  {gameState === "waitingForPlayerChoice" && (
                     <motion.div
                       key="deciding"
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -249,7 +239,7 @@ export default function SplitOrSteal() {
                     >
                       <div>
                         <p className="text-2xl font-bold text-white mb-2">Make Your Choice!</p>
-                        <p className="text-slate-400">Pot: {formatCurrency((roundData?.betAmount || 0) * 2)}</p>
+                        <p className="text-slate-400">Pot: {formatCurrency(betAmount * 2)}</p>
                       </div>
                       
                       <div className="flex gap-6">
@@ -278,7 +268,7 @@ export default function SplitOrSteal() {
                     </motion.div>
                   )}
 
-                  {gameState === "suspense" && (
+                  {gameState === "resolving" && (
                     <motion.div
                       key="suspense"
                       initial={{ opacity: 0 }}
@@ -288,10 +278,24 @@ export default function SplitOrSteal() {
                     >
                       <div className="flex items-center justify-center gap-8">
                         <div className="flex flex-col items-center">
-                          <div className="w-20 h-20 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center">
-                            <User className="w-10 h-10 text-blue-400" />
+                          <div className={cn(
+                            "w-20 h-20 rounded-full flex items-center justify-center border-2",
+                            playerChoice === "split" 
+                              ? "bg-green-500/20 border-green-500" 
+                              : "bg-red-500/20 border-red-500"
+                          )}>
+                            {playerChoice === "split" ? (
+                              <Handshake className="w-10 h-10 text-green-400" />
+                            ) : (
+                              <Swords className="w-10 h-10 text-red-400" />
+                            )}
                           </div>
-                          <span className="mt-2 text-sm text-blue-400 font-medium">Choice Made</span>
+                          <span className={cn(
+                            "mt-2 text-sm font-medium",
+                            playerChoice === "split" ? "text-green-400" : "text-red-400"
+                          )}>
+                            {playerChoice?.toUpperCase()}
+                          </span>
                         </div>
                         <span className="text-2xl text-slate-500">VS</span>
                         <div className="flex flex-col items-center">
@@ -383,7 +387,7 @@ export default function SplitOrSteal() {
                           </p>
                         ) : (
                           <p className="text-4xl font-bold text-red-400">
-                            -{formatCurrency(roundData?.betAmount || 0)}
+                            -{formatCurrency(betAmount)}
                           </p>
                         )}
                         <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
@@ -418,7 +422,7 @@ export default function SplitOrSteal() {
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      disabled={isLocked}
+                      disabled={gameState !== "idle"}
                       className="pl-7 bg-slate-800/50 border-slate-700"
                       data-testid="input-bet-amount"
                     />
@@ -432,7 +436,7 @@ export default function SplitOrSteal() {
                       variant="outline"
                       size="sm"
                       onClick={() => setPercent(percent)}
-                      disabled={isLocked}
+                      disabled={gameState !== "idle"}
                       className="text-xs"
                       data-testid={`button-percent-${percent * 100}`}
                     >
@@ -449,7 +453,7 @@ export default function SplitOrSteal() {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">Pot Value</span>
                     <span className="text-yellow-400 font-medium">
-                      {gameState !== "idle" ? formatCurrency((roundData?.betAmount || 0) * 2) : formatCurrency(baseAmount * 2)}
+                      {gameState !== "idle" ? formatCurrency(betAmount * 2) : formatCurrency(baseAmount * 2)}
                     </span>
                   </div>
                 </div>

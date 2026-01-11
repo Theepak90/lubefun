@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealStartSchema, splitStealResolveSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealPlaySchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -305,23 +305,10 @@ export const api = {
       },
     },
     splitsteal: {
-      start: {
+      play: {
         method: "POST" as const,
-        path: "/api/games/splitsteal/start",
-        input: splitStealStartSchema,
-        responses: {
-          200: z.object({
-            roundId: z.number(),
-            betAmount: z.number(),
-            balanceAfter: z.number(),
-          }),
-          400: errorSchemas.gameError,
-        },
-      },
-      resolve: {
-        method: "POST" as const,
-        path: "/api/games/splitsteal/resolve",
-        input: splitStealResolveSchema,
+        path: "/api/games/splitsteal",
+        input: splitStealPlaySchema,
         responses: {
           200: z.object({
             bet: z.custom<typeof bets.$inferSelect>(),

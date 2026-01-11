@@ -166,17 +166,12 @@ export const blackjackActionSchema = z.object({
   betId: z.number(),
 });
 
-export const splitStealStartSchema = z.object({
+export const splitStealPlaySchema = z.object({
   betAmount: z.number().min(0.1),
-});
-
-export const splitStealResolveSchema = z.object({
-  roundId: z.number(),
   playerChoice: z.enum(["split", "steal"]),
 });
 
-export type SplitStealStartRequest = z.infer<typeof splitStealStartSchema>;
-export type SplitStealResolveRequest = z.infer<typeof splitStealResolveSchema>;
+export type SplitStealPlayRequest = z.infer<typeof splitStealPlaySchema>;
 
 // Roulette Live Round Tables
 export const rouletteRounds = pgTable("roulette_rounds", {
