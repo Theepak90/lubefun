@@ -135,16 +135,16 @@ export function RecentWinsTicker({
 
   return (
     <div 
-      className="w-full bg-[#0d1419] py-4"
+      className="w-full bg-[#0f1923] py-5 rounded-xl"
       data-testid="container-recent-wins"
     >
-      <div className="flex items-center gap-2 px-4 mb-4">
-        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-sm font-semibold text-white">Recent Wins</span>
+      <div className="flex items-center gap-2 px-5 mb-5">
+        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-base font-bold text-white">Recent Wins</span>
       </div>
 
       <div className="relative">
-        <div className="flex gap-3 overflow-x-auto px-4 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="flex gap-4 overflow-x-auto px-5 pb-3" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
           <AnimatePresence initial={false}>
             {wins.map((win) => (
@@ -157,8 +157,8 @@ export function RecentWinsTicker({
                 className="flex-shrink-0"
                 data-testid={`card-win-${win.id}`}
               >
-                <div className="flex flex-col items-center w-[80px]">
-                  <div className="w-[80px] h-[100px] rounded-xl overflow-hidden mb-2 bg-[#1a2633] border border-[#2a3a4a]">
+                <div className="flex flex-col items-center w-[100px]">
+                  <div className="w-[100px] h-[130px] rounded-xl overflow-hidden mb-2 bg-[#1a2633] border border-[#2a3a4a] shadow-lg shadow-black/30">
                     <img 
                       src={win.game.image} 
                       alt={win.game.name}
@@ -166,18 +166,18 @@ export function RecentWinsTicker({
                     />
                   </div>
                   
-                  <span className="text-[9px] font-bold text-white text-center leading-tight truncate w-full">
+                  <span className="text-[10px] font-bold text-white text-center leading-tight truncate w-full">
                     {win.game.name}
                   </span>
                   
-                  <div className="flex items-center gap-0.5 mt-0.5">
-                    <Gem className="w-2.5 h-2.5 text-cyan-400" />
-                    <span className="text-[9px] text-slate-400 truncate max-w-[60px]">
+                  <div className="flex items-center gap-0.5 mt-1">
+                    <Gem className="w-3 h-3 text-cyan-400" />
+                    <span className="text-[10px] text-slate-400 truncate max-w-[70px]">
                       {win.username}
                     </span>
                   </div>
                   
-                  <span className="text-xs font-bold text-amber-400 mt-1">
+                  <span className="text-sm font-bold text-amber-400 mt-1">
                     {win.formattedAmount}
                   </span>
                 </div>
