@@ -136,8 +136,8 @@ export async function registerRoutes(
           }
           break;
         case "coinflip":
-          if (!["heads", "tails"].includes(choice.side)) {
-            return res.status(400).json({ success: false, error: "Coinflip requires side (heads/tails)" });
+          if (!["cock", "balls"].includes(choice.side)) {
+            return res.status(400).json({ success: false, error: "Coinflip requires side (cock/balls)" });
           }
           break;
         case "plinko":
@@ -148,8 +148,13 @@ export async function registerRoutes(
           if (!choice.betType) {
             return res.status(400).json({ success: false, error: "Roulette requires betType" });
           }
-          if (choice.betType === "straight" && typeof choice.straightNumber !== "number") {
-            return res.status(400).json({ success: false, error: "Straight bets require straightNumber (0-36)" });
+          if (choice.betType === "straight") {
+            if (choice.straightNumber === undefined || choice.straightNumber === null || typeof choice.straightNumber !== "number") {
+              return res.status(400).json({ success: false, error: "Straight bets require straightNumber (0-36)" });
+            }
+            if (choice.straightNumber < 0 || choice.straightNumber > 36) {
+              return res.status(400).json({ success: false, error: "straightNumber must be between 0 and 36" });
+            }
           }
           break;
         case "splitsteal":
