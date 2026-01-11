@@ -63,7 +63,7 @@ export function GameCard({ game }: { game: GameInfo }) {
           <img 
             src={imageUrl} 
             alt={game.name}
-            className="w-44 h-44 object-contain mb-2 transition-transform group-hover:scale-110"
+            className="w-52 h-52 object-contain mb-2 transition-transform group-hover:scale-110"
           />
           
           <div className="flex items-center gap-1">
