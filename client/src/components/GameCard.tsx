@@ -65,9 +65,9 @@ export function GameCard({ game }: { game: GameInfo }) {
             <img 
               src={imageUrl} 
               alt={game.name}
-              className="w-full h-full object-contain transition-transform group-hover:scale-105"
+              className="absolute inset-0 w-full h-full object-cover scale-125 transition-transform group-hover:scale-[1.3]"
             />
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/50 px-2 py-1 rounded-full">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-[10px] text-slate-300">{playerCount} playing</span>
             </div>
