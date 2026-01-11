@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Shield, RotateCcw, Trash2, RefreshCw, BookOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+import chip50c from "@assets/ChatGPT_Image_Jan_11,_2026,_11_12_58_PM_1768174943548.png";
+import chip1 from "@assets/Water-themed_$1_poker_chip_1768174943550.png";
+import chip5 from "@assets/Water-themed_$5_poker_chip_1768174943550.png";
+import chip10 from "@assets/Water-themed_$10_poker_chip_1768174943551.png";
+import chip20 from "@assets/Water-themed_$20_casino_chip_1768174943551.png";
+import chip100 from "@assets/Poker_chip_with_glowing_water_effects_1768174943552.png";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
@@ -79,17 +86,17 @@ function calculateTotal(cards: number[]): number {
 
 interface ChipValue {
   value: number;
-  color: string;
-  textColor: string;
+  image: string;
+  label: string;
 }
 
 const CHIP_VALUES: ChipValue[] = [
-  { value: 0.5, color: "#ef4444", textColor: "white" },
-  { value: 1, color: "#3b82f6", textColor: "white" },
-  { value: 5, color: "#22c55e", textColor: "white" },
-  { value: 10, color: "#a855f7", textColor: "white" },
-  { value: 20, color: "#f59e0b", textColor: "black" },
-  { value: 100, color: "#1e293b", textColor: "white" },
+  { value: 0.5, image: chip50c, label: "50¢" },
+  { value: 1, image: chip1, label: "$1" },
+  { value: 5, image: chip5, label: "$5" },
+  { value: 10, image: chip10, label: "$10" },
+  { value: 20, image: chip20, label: "$20" },
+  { value: 100, image: chip100, label: "$100" },
 ];
 
 function Chip({ chip, selected, onClick, size = "md" }: { 
@@ -98,28 +105,30 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   onClick?: () => void;
   size?: "sm" | "md";
 }) {
-  const s = size === "sm" ? 32 : 44;
+  const s = size === "sm" ? 36 : 48;
   return (
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full flex items-center justify-center font-bold transition-all border-2",
-        selected ? "ring-2 ring-emerald-400 scale-110 border-white" : "border-white/20",
+        "rounded-full flex items-center justify-center transition-all",
+        selected ? "ring-2 ring-emerald-400 scale-110" : "",
         onClick && "hover:scale-105 active:scale-95"
       )}
       style={{
         width: s,
         height: s,
-        background: `radial-gradient(circle at 30% 30%, ${chip.color}, ${chip.color}dd)`,
-        color: chip.textColor,
         boxShadow: selected 
-          ? `0 0 16px ${chip.color}80, inset 0 2px 4px rgba(255,255,255,0.3)`
-          : "0 3px 6px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.2)",
-        fontSize: size === "sm" ? 11 : 13,
+          ? "0 0 16px rgba(16, 185, 129, 0.5)"
+          : "0 3px 6px rgba(0,0,0,0.4)",
       }}
       data-testid={`chip-${chip.value}`}
     >
-      {chip.value >= 1 ? chip.value : `.5`}
+      <img 
+        src={chip.image} 
+        alt={chip.label} 
+        className="w-full h-full object-contain"
+        draggable={false}
+      />
     </button>
   );
 }

@@ -5,6 +5,13 @@ import { RotateCcw, Volume2, VolumeX, Loader2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { getRouletteColor, ROULETTE_CONFIG } from "@shared/config";
+
+import chip50c from "@assets/ChatGPT_Image_Jan_11,_2026,_11_12_58_PM_1768174943548.png";
+import chip1 from "@assets/Water-themed_$1_poker_chip_1768174943550.png";
+import chip5 from "@assets/Water-themed_$5_poker_chip_1768174943550.png";
+import chip10 from "@assets/Water-themed_$10_poker_chip_1768174943551.png";
+import chip20 from "@assets/Water-themed_$20_casino_chip_1768174943551.png";
+import chip100 from "@assets/Poker_chip_with_glowing_water_effects_1768174943552.png";
 import { useGameHistory } from "@/hooks/use-game-history";
 import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
 import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
@@ -30,7 +37,21 @@ interface SpinResult {
 }
 
 const WHEEL_NUMBERS = ROULETTE_CONFIG.WHEEL_ORDER;
-const CHIP_DENOMINATIONS = [0.20, 1, 2, 10, 50, 200, 1000, 4000];
+
+interface ChipConfig {
+  value: number;
+  image: string;
+  label: string;
+}
+
+const CHIP_CONFIGS: ChipConfig[] = [
+  { value: 0.5, image: chip50c, label: "50¢" },
+  { value: 1, image: chip1, label: "$1" },
+  { value: 5, image: chip5, label: "$5" },
+  { value: 10, image: chip10, label: "$10" },
+  { value: 20, image: chip20, label: "$20" },
+  { value: 100, image: chip100, label: "$100" },
+];
 const SPIN_DURATION = 2000;
 const BALL_ORBIT_DURATION = 1500;
 const BALL_DROP_DURATION = 400;
@@ -345,41 +366,26 @@ export default function Roulette() {
     setPendingBets([]);
   };
 
-  const VegasChip = ({ value, selected, disabled, onClick }: { value: number; selected: boolean; disabled: boolean; onClick: () => void }) => {
-    const chipColors: Record<number, { bg: string; border: string; text: string }> = {
-      0.20: { bg: "bg-slate-300", border: "border-slate-500", text: "text-slate-800" },
-      1: { bg: "bg-blue-600", border: "border-blue-400", text: "text-white" },
-      2: { bg: "bg-emerald-600", border: "border-emerald-400", text: "text-white" },
-      10: { bg: "bg-orange-500", border: "border-orange-300", text: "text-white" },
-      50: { bg: "bg-red-600", border: "border-red-400", text: "text-white" },
-      200: { bg: "bg-purple-600", border: "border-purple-400", text: "text-white" },
-      1000: { bg: "bg-yellow-500", border: "border-yellow-300", text: "text-yellow-950" },
-      4000: { bg: "bg-pink-500", border: "border-pink-300", text: "text-pink-950" },
-    };
-    const colors = chipColors[value] || chipColors[1];
-    const label = value >= 1000 ? `$${value / 1000}k` : value < 1 ? `$0.20` : `$${value}`;
-
+  const VegasChip = ({ chip, selected, disabled, onClick }: { chip: ChipConfig; selected: boolean; disabled: boolean; onClick: () => void }) => {
     return (
       <button
         onClick={onClick}
         disabled={disabled}
-        data-testid={`chip-${value}`}
+        data-testid={`chip-${chip.value}`}
         className={cn(
-          "relative w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150",
-          colors.bg,
-          "border-[3px]", colors.border,
+          "relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-150",
           "shadow-lg",
-          selected && "ring-2 ring-offset-2 ring-offset-[#0d1419] ring-white scale-110",
+          selected && "ring-2 ring-offset-2 ring-offset-[#0d1419] ring-emerald-400 scale-110",
           disabled && "opacity-50 cursor-not-allowed",
           !disabled && !selected && "hover:scale-105 hover:brightness-110"
         )}
       >
-        <div className="absolute inset-1.5 rounded-full border border-dashed border-white/30" />
-        <span className={cn(
-          "relative z-10 font-bold drop-shadow-sm",
-          value >= 1000 ? "text-[9px]" : value >= 100 ? "text-[10px]" : "text-[11px]",
-          colors.text
-        )}>{label}</span>
+        <img 
+          src={chip.image} 
+          alt={chip.label} 
+          className="w-full h-full object-contain"
+          draggable={false}
+        />
       </button>
     );
   };
@@ -824,13 +830,13 @@ export default function Roulette() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              {CHIP_DENOMINATIONS.map((chip) => (
+              {CHIP_CONFIGS.map((chip) => (
                 <VegasChip
-                  key={chip}
-                  value={chip}
-                  selected={selectedChip === chip}
+                  key={chip.value}
+                  chip={chip}
+                  selected={selectedChip === chip.value}
                   disabled={isSpinning}
-                  onClick={() => setSelectedChip(chip)}
+                  onClick={() => setSelectedChip(chip.value)}
                 />
               ))}
             </div>
