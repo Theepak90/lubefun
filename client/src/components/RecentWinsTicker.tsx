@@ -135,7 +135,7 @@ export function RecentWinsTicker({
 
   return (
     <div 
-      className="w-full bg-[#0f1923] py-5 rounded-xl"
+      className="w-full py-5"
       data-testid="container-recent-wins"
     >
       <div className="flex items-center gap-2 px-5 mb-5">
