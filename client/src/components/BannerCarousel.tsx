@@ -4,17 +4,29 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Sparkles, Gift, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import sponsorsBanner from "@assets/ChatGPT_Image_Jan_11,_2026,_05_21_15_AM_1768108884648.png";
 
-const banners = [
+type BannerType = {
+  id: number;
+  title: string;
+  subtitle: string;
+  cta: string;
+  href: string;
+  icon?: typeof Sparkles;
+  gradient?: string;
+  glowColor: string;
+  image?: string;
+};
+
+const banners: BannerType[] = [
   {
     id: 1,
-    title: "Our Sponsors",
-    subtitle: "Check out our amazing sponsors and partners who make this possible",
-    cta: "View Sponsors",
+    title: "",
+    subtitle: "",
+    cta: "",
     href: "/sponsors",
-    icon: Sparkles,
-    gradient: "from-amber-500 via-orange-500 to-red-500",
-    glowColor: "rgba(245, 158, 11, 0.3)"
+    image: sponsorsBanner,
+    glowColor: "rgba(59, 130, 246, 0.3)"
   },
   {
     id: 2,
@@ -110,8 +122,29 @@ export function BannerCarousel() {
   );
 }
 
-function BannerCard({ banner, isActive }: { banner: typeof banners[0]; isActive: boolean }) {
+function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolean }) {
   const Icon = banner.icon;
+  
+  if (banner.image) {
+    return (
+      <Link href={banner.href}>
+        <div 
+          className={cn(
+            "relative h-48 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
+            isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
+          )}
+          style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
+          data-testid={`card-banner-${banner.id}`}
+        >
+          <img 
+            src={banner.image} 
+            alt="Sponsors" 
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </div>
+      </Link>
+    );
+  }
   
   return (
     <Link href={banner.href}>
@@ -131,21 +164,25 @@ function BannerCard({ banner, isActive }: { banner: typeof banners[0]; isActive:
         
         <div className="relative h-full p-6 flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Icon className="w-6 h-6 text-white" />
-            </div>
+            {Icon && (
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+            )}
           </div>
           
           <div>
             <h3 className="text-xl font-bold text-white mb-1">{banner.title}</h3>
             <p className="text-white/70 text-sm mb-3 line-clamp-2">{banner.subtitle}</p>
-            <Button 
-              size="sm" 
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border-0 font-semibold"
-              data-testid={`button-banner-cta-${banner.id}`}
-            >
-              {banner.cta}
-            </Button>
+            {banner.cta && (
+              <Button 
+                size="sm" 
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border-0 font-semibold"
+                data-testid={`button-banner-cta-${banner.id}`}
+              >
+                {banner.cta}
+              </Button>
+            )}
           </div>
         </div>
       </div>
