@@ -83,7 +83,6 @@ export function Layout({ children }: LayoutProps) {
               <img src={logoImg} alt="Lube.com Logo" className="h-28 w-auto object-contain group-hover:scale-105 transition-transform mt-3" />
             </div>
           </Link>
-          <span className="hidden lg:block text-xs text-slate-400 font-medium ml-2">The most based casino</span>
         </div>
 
         {/* Center: Balance + Wallet - absolutely positioned for true centering */}
