@@ -45,7 +45,7 @@ export function GameCard({ game }: { game: GameInfo }) {
   return (
     <Link href={game.href}>
       <div 
-        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[160px] w-[160px] h-[200px] flex-shrink-0"
+        className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 min-w-[160px] w-[160px] h-[200px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
