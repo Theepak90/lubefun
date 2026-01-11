@@ -4,13 +4,13 @@ import { WebSocketServer, WebSocket } from "ws";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema, pressureValveStartSchema, pressureValvePumpSchema, pressureValveCashoutSchema } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber, getShuffledDeck, calculateHandTotal, getCardValue } from "./fairness";
+import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber, getShuffledDeck, calculateHandTotal, getCardValue, getPressureValvePump } from "./fairness";
 import { rouletteOrchestrator } from "./rouletteOrchestrator";
 
 export async function registerRoutes(
@@ -1561,6 +1561,256 @@ export async function registerRoutes(
       success: true,
       amount,
       newBalance: updatedUser.balance,
+    });
+  });
+
+  // === PRESSURE VALVE GAME ===
+  const PRESSURE_VALVE_CASHOUT_FEE = 0.01; // 1% fee on cashout
+  
+  // Calculate burst chance for a given pump number
+  function getBurstChance(pumpNumber: number): number {
+    const baseChance = 0.02; // 2%
+    const rampRate = 0.08; // 8% per pump
+    const maxChance = 0.75; // 75% max
+    return Math.min(baseChance + (pumpNumber * rampRate), maxChance);
+  }
+  
+  // Start a new Pressure Valve game
+  app.post(api.games.pressureValve.start.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    try {
+      const input = pressureValveStartSchema.parse(req.body);
+      if (user.balance < input.betAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+      
+      // Check for existing active game
+      const activeBet = await storage.getActiveBet(user.id, "pressure-valve");
+      if (activeBet) {
+        return res.status(400).json({ message: "Active game in progress. Finish it first." });
+      }
+      
+      // Deduct balance
+      await storage.updateUserBalance(user.id, -input.betAmount);
+      
+      // Create the bet with initial state
+      const bet = await storage.createBet({
+        userId: user.id,
+        game: "pressure-valve",
+        betAmount: input.betAmount,
+        payoutMultiplier: 1.0,
+        profit: null,
+        won: null,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: { 
+          currentMultiplier: 1.0, 
+          pumpCount: 0, 
+          pumpHistory: [],
+          startNonce: user.nonce 
+        },
+        active: true,
+      });
+      
+      res.json({
+        bet,
+        currentMultiplier: 1.0,
+        pumpCount: 0,
+        burstChance: getBurstChance(0),
+      });
+    } catch (err) {
+      res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+  
+  // Pump - try to increase multiplier
+  app.post(api.games.pressureValve.pump.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    try {
+      const input = pressureValvePumpSchema.parse(req.body);
+      const bet = await storage.getBet(input.betId);
+      
+      if (!bet || bet.userId !== user.id) {
+        return res.status(400).json({ message: "Bet not found" });
+      }
+      if (!bet.active) {
+        return res.status(400).json({ message: "Game already finished" });
+      }
+      
+      const result = bet.result as { 
+        currentMultiplier: number; 
+        pumpCount: number; 
+        pumpHistory: Array<{ multiplierJump: number; burst: boolean }>; 
+        startNonce: number 
+      };
+      
+      // Calculate the nonce for this pump
+      const pumpNonce = result.startNonce + result.pumpCount + 1;
+      
+      // Get pump result using provably fair function
+      const pumpResult = getPressureValvePump(
+        bet.serverSeed,
+        bet.clientSeed,
+        pumpNonce,
+        result.pumpCount
+      );
+      
+      // Update pump history
+      const newPumpHistory = [...result.pumpHistory, { 
+        multiplierJump: pumpResult.multiplierJump, 
+        burst: pumpResult.burst 
+      }];
+      
+      if (pumpResult.burst) {
+        // BURST - Player loses everything
+        const updatedBet = await storage.updateBet(bet.id, {
+          active: false,
+          won: false,
+          profit: -bet.betAmount,
+          payoutMultiplier: 0,
+          result: {
+            ...result,
+            currentMultiplier: 0,
+            pumpCount: result.pumpCount + 1,
+            pumpHistory: newPumpHistory,
+            burst: true,
+            finalMultiplier: result.currentMultiplier,
+          },
+        });
+        
+        // Increment nonce
+        await storage.incrementNonce(user.id);
+        
+        res.json({
+          bet: updatedBet,
+          burst: true,
+          currentMultiplier: 0,
+          multiplierJump: 0,
+          pumpCount: result.pumpCount + 1,
+          burstChance: getBurstChance(result.pumpCount),
+          payout: 0,
+        });
+      } else {
+        // SUCCESS - Increase multiplier
+        const newMultiplier = result.currentMultiplier * pumpResult.multiplierJump;
+        const newPumpCount = result.pumpCount + 1;
+        
+        const updatedBet = await storage.updateBet(bet.id, {
+          payoutMultiplier: newMultiplier,
+          result: {
+            ...result,
+            currentMultiplier: newMultiplier,
+            pumpCount: newPumpCount,
+            pumpHistory: newPumpHistory,
+          },
+        });
+        
+        // Increment nonce
+        await storage.incrementNonce(user.id);
+        
+        res.json({
+          bet: updatedBet,
+          burst: false,
+          currentMultiplier: Math.round(newMultiplier * 100) / 100,
+          multiplierJump: pumpResult.multiplierJump,
+          pumpCount: newPumpCount,
+          burstChance: getBurstChance(newPumpCount),
+        });
+      }
+    } catch (err) {
+      res.status(400).json({ message: "Pump failed" });
+    }
+  });
+  
+  // Cashout
+  app.post(api.games.pressureValve.cashout.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    try {
+      const input = pressureValveCashoutSchema.parse(req.body);
+      const bet = await storage.getBet(input.betId);
+      
+      if (!bet || bet.userId !== user.id) {
+        return res.status(400).json({ message: "Bet not found" });
+      }
+      if (!bet.active) {
+        return res.status(400).json({ message: "Game already finished" });
+      }
+      
+      const result = bet.result as { currentMultiplier: number; pumpCount: number; pumpHistory: any[] };
+      
+      if (result.pumpCount === 0) {
+        return res.status(400).json({ message: "Must pump at least once before cashing out" });
+      }
+      
+      // Calculate payout with 1% fee
+      const grossPayout = bet.betAmount * result.currentMultiplier;
+      const fee = grossPayout * PRESSURE_VALVE_CASHOUT_FEE;
+      const netPayout = grossPayout - fee;
+      const profit = netPayout - bet.betAmount;
+      
+      // Update balance
+      await storage.updateUserBalance(user.id, netPayout);
+      
+      // Update bet
+      const updatedBet = await storage.updateBet(bet.id, {
+        active: false,
+        won: true,
+        profit,
+        payoutMultiplier: result.currentMultiplier,
+        result: {
+          ...result,
+          cashedOut: true,
+          grossPayout,
+          fee,
+          netPayout,
+        },
+      });
+      
+      res.json({
+        bet: updatedBet,
+        payout: netPayout,
+        finalMultiplier: result.currentMultiplier,
+        netPayout,
+      });
+    } catch (err) {
+      res.status(400).json({ message: "Cashout failed" });
+    }
+  });
+  
+  // Get active game
+  app.get(api.games.pressureValve.active.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    const activeBet = await storage.getActiveBet(user.id, "pressure-valve");
+    
+    if (!activeBet) {
+      return res.json({
+        bet: null,
+        currentMultiplier: 1.0,
+        pumpCount: 0,
+        burstChance: getBurstChance(0),
+      });
+    }
+    
+    const result = activeBet.result as { currentMultiplier: number; pumpCount: number };
+    
+    res.json({
+      bet: activeBet,
+      currentMultiplier: result.currentMultiplier,
+      pumpCount: result.pumpCount,
+      burstChance: getBurstChance(result.pumpCount),
     });
   });
 

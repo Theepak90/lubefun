@@ -173,6 +173,22 @@ export const splitStealPlaySchema = z.object({
 
 export type SplitStealPlayRequest = z.infer<typeof splitStealPlaySchema>;
 
+export const pressureValveStartSchema = z.object({
+  betAmount: z.number().min(0.1),
+});
+
+export const pressureValvePumpSchema = z.object({
+  betId: z.number(),
+});
+
+export const pressureValveCashoutSchema = z.object({
+  betId: z.number(),
+});
+
+export type PressureValveStartRequest = z.infer<typeof pressureValveStartSchema>;
+export type PressureValvePumpRequest = z.infer<typeof pressureValvePumpSchema>;
+export type PressureValveCashoutRequest = z.infer<typeof pressureValveCashoutSchema>;
+
 // Roulette Live Round Tables
 export const rouletteRounds = pgTable("roulette_rounds", {
   id: serial("id").primaryKey(),

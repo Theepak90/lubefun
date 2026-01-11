@@ -177,3 +177,38 @@ export function calculateHandTotal(cards: number[]): { total: number; soft: bool
   
   return { total, soft };
 }
+
+// Pressure Valve: Returns burst decision and multiplier jump for a pump
+// Uses hash to determine: 1) did it burst? 2) how much multiplier to add?
+export function getPressureValvePump(
+  serverSeed: string,
+  clientSeed: string,
+  nonce: number,
+  pumpNumber: number
+): { burst: boolean; multiplierJump: number } {
+  const hash = getResult(serverSeed, clientSeed, nonce);
+  
+  // Use different parts of hash for burst check and multiplier
+  const burstValue = parseInt(hash.substring(0, 8), 16);
+  const multiplierValue = parseInt(hash.substring(8, 16), 16);
+  
+  // Burst chance: starts at 2% and ramps up to 75% max
+  // Formula: baseChance + (pumpNumber * rampRate), capped at 75%
+  const baseChance = 0.02; // 2%
+  const rampRate = 0.08; // 8% increase per pump
+  const maxChance = 0.75; // 75% max
+  const burstChance = Math.min(baseChance + (pumpNumber * rampRate), maxChance);
+  
+  // Convert to 0-1 range and check
+  const burstRoll = (burstValue % 10000) / 10000;
+  const burst = burstRoll < burstChance;
+  
+  // Multiplier jump: random between 1.4x and 2.0x
+  // Maps 0-0xFFFFFFFF to 1.4-2.0 range
+  const minJump = 1.4;
+  const maxJump = 2.0;
+  const jumpRange = maxJump - minJump;
+  const multiplierJump = minJump + (multiplierValue / 0xFFFFFFFF) * jumpRange;
+  
+  return { burst, multiplierJump: Math.round(multiplierJump * 100) / 100 };
+}

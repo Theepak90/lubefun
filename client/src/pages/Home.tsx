@@ -19,6 +19,7 @@ const allGames: GameInfo[] = [
   { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko" },
   { id: "blackjack", name: "Blackjack", href: "/blackjack", icon: "blackjack" },
   { id: "splitsteal", name: "Split or Steal", href: "/split-or-steal", icon: "splitsteal", isNew: true },
+  { id: "pressure-valve", name: "Pressure Valve", href: "/pressure-valve", icon: "pressure", isNew: true },
   { id: "daily-spin", name: "Daily Spin", href: "/rewards", icon: "spin" },
 ];
 
@@ -47,7 +48,7 @@ export default function Home() {
     
     if (activeFilter === "originals") {
       games = games.filter(g => 
-        ["dice", "coinflip", "mines", "roulette", "plinko", "blackjack", "splitsteal"].includes(g.id)
+        ["dice", "coinflip", "mines", "roulette", "plinko", "blackjack", "splitsteal", "pressure-valve"].includes(g.id)
       );
     }
     

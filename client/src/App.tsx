@@ -16,6 +16,7 @@ import DailySpin from "@/pages/DailySpin";
 import Rewards from "@/pages/Rewards";
 import SplitOrSteal from "@/pages/SplitOrSteal";
 import Sponsors from "@/pages/Sponsors";
+import PressureValve from "@/pages/PressureValve";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/rewards" component={Rewards} />
       <Route path="/split-or-steal" component={SplitOrSteal} />
       <Route path="/sponsors" component={Sponsors} />
+      <Route path="/pressure-valve" component={PressureValve} />
       <Route component={NotFound} />
     </Switch>
   );

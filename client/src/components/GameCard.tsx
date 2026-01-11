@@ -15,7 +15,7 @@ export interface GameInfo {
   id: string;
   name: string;
   href: string;
-  icon: "dice" | "coinflip" | "mines" | "roulette" | "plinko" | "blackjack" | "spin" | "splitsteal";
+  icon: "dice" | "coinflip" | "mines" | "roulette" | "plinko" | "blackjack" | "spin" | "splitsteal" | "pressure";
   players?: number;
   isHot?: boolean;
   isNew?: boolean;
@@ -30,6 +30,7 @@ const gameImages: Record<string, string> = {
   spin: spinImg,
   mines: minesImg,
   splitsteal: splitstealImg,
+  pressure: rouletteImg,
 };
 
 const gameImageStyles: Record<string, { scale: string; hoverScale: string; position?: string }> = {
@@ -41,6 +42,7 @@ const gameImageStyles: Record<string, { scale: string; hoverScale: string; posit
   spin: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
   mines: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
   splitsteal: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  pressure: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {

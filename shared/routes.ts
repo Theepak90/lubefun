@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealPlaySchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealPlaySchema, pressureValveStartSchema, pressureValvePumpSchema, pressureValveCashoutSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -317,6 +317,66 @@ export const api = {
             payout: z.number(),
             won: z.boolean(),
             balanceAfter: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+    },
+    pressureValve: {
+      start: {
+        method: "POST" as const,
+        path: "/api/games/pressure-valve/start",
+        input: pressureValveStartSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            currentMultiplier: z.number(),
+            pumpCount: z.number(),
+            burstChance: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      pump: {
+        method: "POST" as const,
+        path: "/api/games/pressure-valve/pump",
+        input: pressureValvePumpSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            burst: z.boolean(),
+            currentMultiplier: z.number(),
+            multiplierJump: z.number(),
+            pumpCount: z.number(),
+            burstChance: z.number(),
+            payout: z.number().optional(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      cashout: {
+        method: "POST" as const,
+        path: "/api/games/pressure-valve/cashout",
+        input: pressureValveCashoutSchema,
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>(),
+            payout: z.number(),
+            finalMultiplier: z.number(),
+            netPayout: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      active: {
+        method: "GET" as const,
+        path: "/api/games/pressure-valve/active",
+        responses: {
+          200: z.object({
+            bet: z.custom<typeof bets.$inferSelect>().nullable(),
+            currentMultiplier: z.number(),
+            pumpCount: z.number(),
+            burstChance: z.number(),
           }),
           400: errorSchemas.gameError,
         },
