@@ -392,7 +392,7 @@ export default function Roulette() {
 
   const ChipStack = ({ amount, small, bouncing }: { amount: number; small?: boolean; bouncing?: boolean }) => {
     if (amount <= 0) return null;
-    const size = small ? "w-6 h-6" : "w-8 h-8";
+    const size = small ? "w-10 h-10" : "w-14 h-14";
     
     // Find the best matching chip image for the amount
     const getChipImage = (amt: number) => {
