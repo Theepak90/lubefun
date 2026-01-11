@@ -536,7 +536,7 @@ export default function Coinflip() {
                       exit={{ opacity: 0 }}
                       className="text-slate-500 text-sm"
                     >
-                      Pick heads or tails and place your bet
+                      Pick cock or balls and place your bet
                     </motion.span>
                   )}
                 </AnimatePresence>

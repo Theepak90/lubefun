@@ -13,7 +13,7 @@ import originalsLogo from "@assets/ChatGPT_Image_Jan_11,_2026,_05_10_52_AM_17681
 
 const allGames: GameInfo[] = [
   { id: "dice", name: "Dice", href: "/dice", icon: "dice", isHot: true },
-  { id: "coinflip", name: "Coinflip", href: "/coinflip", icon: "coinflip" },
+  { id: "coinflip", name: "Cock or Balls", href: "/coinflip", icon: "coinflip" },
   { id: "mines", name: "Mines", href: "/mines", icon: "mines", isHot: true },
   { id: "roulette", name: "Roulette", href: "/roulette", icon: "roulette" },
   { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko" },

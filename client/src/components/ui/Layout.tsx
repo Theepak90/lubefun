@@ -207,7 +207,7 @@ export function Layout({ children }: LayoutProps) {
                               : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                           )}>
                             <Coins className={cn("w-4 h-4", location === "/coinflip" && "animate-pulse")} />
-                            <span className="font-medium text-sm">Coinflip</span>
+                            <span className="font-medium text-sm">Cock or Balls</span>
                           </div>
                         </Link>
                         <Link href="/split-or-steal">
