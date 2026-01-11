@@ -129,16 +129,16 @@ function PlayingCard({
   if (hidden) {
     return (
       <motion.div 
-        className="w-14 h-20 rounded-lg flex items-center justify-center shadow-xl"
+        className="w-10 h-14 rounded flex items-center justify-center shadow-lg"
         style={{
           background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)",
-          border: "2px solid #2563eb",
+          border: "1.5px solid #2563eb",
         }}
-        initial={{ x: 120, y: -60, opacity: 0, rotateY: 180 }}
+        initial={{ x: 80, y: -40, opacity: 0, rotateY: 180 }}
         animate={{ x: 0, y: 0, opacity: 1, rotateY: 0 }}
         transition={{ type: "spring", stiffness: 120, damping: 14, delay }}
       >
-        <div className="w-8 h-12 rounded border border-blue-400/30 bg-gradient-to-br from-blue-600/40 to-blue-800/40" />
+        <div className="w-6 h-8 rounded-sm border border-blue-400/30 bg-gradient-to-br from-blue-600/40 to-blue-800/40" />
       </motion.div>
     );
   }
@@ -150,19 +150,19 @@ function PlayingCard({
 
   return (
     <motion.div 
-      className="w-14 h-20 rounded-lg bg-white flex flex-col items-center justify-center shadow-xl"
+      className="w-10 h-14 rounded bg-white flex flex-col items-center justify-center shadow-lg"
       style={{
-        border: "2px solid #e5e7eb",
+        border: "1.5px solid #e5e7eb",
         background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
       }}
-      initial={{ x: 120, y: -60, opacity: 0, rotateY: 180 }}
+      initial={{ x: 80, y: -40, opacity: 0, rotateY: 180 }}
       animate={{ x: 0, y: 0, opacity: 1, rotateY: 0 }}
       transition={{ type: "spring", stiffness: 120, damping: 14, delay }}
     >
-      <span className={cn("text-lg font-bold", isRed ? "text-red-500" : "text-gray-800")}>
+      <span className={cn("text-sm font-bold", isRed ? "text-red-500" : "text-gray-800")}>
         {rank}
       </span>
-      <span className={cn("text-base", isRed ? "text-red-500" : "text-gray-800")}>
+      <span className={cn("text-xs", isRed ? "text-red-500" : "text-gray-800")}>
         {suitSymbol}
       </span>
     </motion.div>
@@ -194,7 +194,7 @@ function PlayerSeat({
       isActive && "z-10"
     )}>
       {showCards && cards.length > 0 && (
-        <div className="flex -space-x-6 mb-3">
+        <div className="flex -space-x-4 mb-2">
           {cards.map((card, i) => (
             <PlayingCard key={i} cardIndex={card} delay={i * 0.1} />
           ))}
@@ -203,7 +203,7 @@ function PlayerSeat({
       
       {showCards && total !== undefined && total > 0 && (
         <div className={cn(
-          "absolute -top-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-bold",
+          "absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold",
           total > 21 ? "bg-red-500 text-white" :
           total === 21 ? "bg-emerald-500 text-white" :
           "bg-violet-600 text-white"
@@ -725,16 +725,16 @@ export default function Blackjack() {
                 />
               </div>
 
-              <div className="absolute top-24 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                <div className="flex -space-x-5">
+              <div className="absolute top-20 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
+                <div className="flex -space-x-4">
                   {visibleDealerCards.length === 0 && gamePhase === "BETTING" && (
                     <>
                       <div 
-                        className="w-14 h-20 rounded-lg border-2 border-dashed opacity-30"
+                        className="w-10 h-14 rounded border-2 border-dashed opacity-30"
                         style={{ borderColor: "#6366f1" }}
                       />
                       <div 
-                        className="w-14 h-20 rounded-lg border-2 border-dashed opacity-30"
+                        className="w-10 h-14 rounded border-2 border-dashed opacity-30"
                         style={{ borderColor: "#6366f1" }}
                       />
                     </>
@@ -750,7 +750,7 @@ export default function Blackjack() {
                 </div>
                 {visibleDealerCards.length > 0 && (
                   <div className={cn(
-                    "mt-2 px-3 py-1 rounded-full text-sm font-bold",
+                    "mt-1.5 px-2 py-0.5 rounded-full text-xs font-bold",
                     dealerRevealed && dealerTotal > 21 ? "bg-red-500 text-white" :
                     "bg-violet-600 text-white"
                   )}>
@@ -765,7 +765,7 @@ export default function Blackjack() {
                     <motion.div
                       key={statusText}
                       className={cn(
-                        "px-6 py-3 rounded-xl text-center font-bold text-lg",
+                        "px-4 py-2 rounded-lg text-center font-bold text-sm",
                         resultText === "blackjack" || resultText === "win" 
                           ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
                           : resultText === "bust" || resultText === "lose"
