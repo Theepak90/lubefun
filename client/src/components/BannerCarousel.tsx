@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Sparkles, Gift, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import sponsorsBanner from "@assets/image_(7)_1768109198050.jpg";
+import giveawayBanner from "@assets/Join_our_Discord_X_and_win!_1768109423876.png";
 
 type BannerType = {
   id: number;
@@ -16,6 +17,7 @@ type BannerType = {
   gradient?: string;
   glowColor: string;
   image?: string;
+  external?: boolean;
 };
 
 const banners: BannerType[] = [
@@ -30,13 +32,13 @@ const banners: BannerType[] = [
   },
   {
     id: 2,
-    title: "Weekly Raffle",
-    subtitle: "Enter our weekly raffle for a chance to win the grand prize",
-    cta: "View More",
-    href: "/",
-    icon: Trophy,
-    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
-    glowColor: "rgba(16, 185, 129, 0.3)"
+    title: "",
+    subtitle: "",
+    cta: "",
+    href: "https://x.com/Rtoorich",
+    image: giveawayBanner,
+    glowColor: "rgba(59, 130, 246, 0.3)",
+    external: true
   }
 ];
 
@@ -128,24 +130,32 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
   const Icon = banner.icon;
   
   if (banner.image) {
-    return (
-      <Link href={banner.href}>
-        <div 
-          className={cn(
-            "relative h-64 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 bg-[#0a4d8c]",
-            isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
-          )}
-          style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
-          data-testid={`card-banner-${banner.id}`}
-        >
-          <img 
-            src={banner.image} 
-            alt="Sponsors" 
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        </div>
-      </Link>
+    const content = (
+      <div 
+        className={cn(
+          "relative h-64 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 bg-[#0a4d8c]",
+          isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
+        )}
+        style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
+        data-testid={`card-banner-${banner.id}`}
+      >
+        <img 
+          src={banner.image} 
+          alt="Banner" 
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      </div>
     );
+    
+    if (banner.external) {
+      return (
+        <a href={banner.href} target="_blank" rel="noopener noreferrer">
+          {content}
+        </a>
+      );
+    }
+    
+    return <Link href={banner.href}>{content}</Link>;
   }
   
   return (
