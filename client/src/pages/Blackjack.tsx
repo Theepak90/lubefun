@@ -759,7 +759,7 @@ export default function Blackjack() {
                 </AnimatePresence>
               </div>
 
-              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
                 <PlayerSeat
                   username={username}
                   total={playerTotal}
@@ -770,8 +770,8 @@ export default function Blackjack() {
                 />
               </div>
 
-              {gamePhase === "BETTING" && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+              {gamePhase === "BETTING" && betAmount > 0 && (
+                <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10">
                   <div 
                     className="w-24 h-16 rounded-xl flex items-center justify-center"
                     style={{
@@ -811,7 +811,14 @@ export default function Blackjack() {
                           key={chip.value}
                           chip={chip}
                           selected={selectedChip.value === chip.value}
-                          onClick={() => setSelectedChip(chip)}
+                          onClick={() => {
+                            setSelectedChip(chip);
+                            const newBet = Math.round((betAmount + chip.value) * 100) / 100;
+                            if (newBet <= balance) {
+                              setBetAmount(newBet);
+                              playSound("chipDrop");
+                            }
+                          }}
                           size="sm"
                         />
                       ))}
