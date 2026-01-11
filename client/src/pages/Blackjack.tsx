@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Shield, RotateCcw, Trash2, RefreshCw, Minus, Plus, BookOpen, Share2, User } from "lucide-react";
+import { Shield, RotateCcw, Trash2, RefreshCw, BookOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
@@ -389,18 +389,6 @@ export default function Blackjack() {
   const balance = user?.balance || 0;
   const canDeal = betAmount >= 0.5 && betAmount <= balance && gamePhase === "BETTING";
   const canRebet = lastBet > 0 && lastBet <= balance;
-
-  const addChip = () => {
-    const newBet = Math.round((betAmount + selectedChip.value) * 100) / 100;
-    if (newBet <= balance) {
-      setBetAmount(newBet);
-      playSound("chipDrop");
-    }
-  };
-
-  const removeChip = () => {
-    setBetAmount(Math.max(0, Math.round((betAmount - selectedChip.value) * 100) / 100));
-  };
 
   const clearBet = () => {
     setBetAmount(0);
@@ -824,68 +812,37 @@ export default function Blackjack() {
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={removeChip}
-                          disabled={betAmount <= 0}
-                          className="w-8 h-8 rounded-lg bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center hover:bg-slate-600 transition-colors"
-                          data-testid="button-bet-minus"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <div className="px-4 py-2 rounded-lg bg-slate-800 min-w-[100px] text-center">
-                          <span className="font-mono font-bold text-lg text-emerald-400">
-                            ${betAmount.toFixed(2)}
-                          </span>
-                        </div>
-                        <button
-                          onClick={addChip}
-                          disabled={betAmount + selectedChip.value > balance}
-                          className="w-8 h-8 rounded-lg bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center hover:bg-slate-600 transition-colors"
-                          data-testid="button-bet-plus"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-xs text-slate-500">Balance</span>
-                        <div className="font-mono text-lg text-emerald-400">${balance.toFixed(2)}</div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearBet}
+                        disabled={betAmount === 0}
+                        className="border-slate-600 text-slate-400 h-10 px-3"
+                        data-testid="button-clear"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                      {canRebet && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={clearBet}
-                          disabled={betAmount === 0}
+                          onClick={() => setBetAmount(lastBet)}
                           className="border-slate-600 text-slate-400 h-10 px-3"
-                          data-testid="button-clear"
+                          data-testid="button-repeat"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <RotateCcw className="w-4 h-4" />
                         </Button>
-                        {canRebet && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setBetAmount(lastBet)}
-                            className="border-slate-600 text-slate-400 h-10 px-3"
-                            data-testid="button-repeat"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button
-                          size="default"
-                          className="h-10 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold text-base"
-                          onClick={handleDeal}
-                          disabled={!canDeal || isBusy}
-                          data-testid="button-deal"
-                        >
-                          Deal
-                        </Button>
-                      </div>
+                      )}
+                      <Button
+                        size="default"
+                        className="h-10 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold text-base"
+                        onClick={handleDeal}
+                        disabled={!canDeal || isBusy}
+                        data-testid="button-deal"
+                      >
+                        Deal
+                      </Button>
                     </div>
                   </motion.div>
                 )}
