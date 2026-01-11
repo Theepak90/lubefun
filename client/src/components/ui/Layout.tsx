@@ -72,11 +72,11 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body">
       {/* Header */}
-      <header className="h-14 border-b border-[#1e2a36] bg-[#0f1923]/95 backdrop-blur-md fixed top-0 w-full z-50 flex items-center justify-between px-4 lg:px-6">
+      <header className="h-16 border-b border-[#1e2a36] bg-[#0f1923]/95 backdrop-blur-md fixed top-0 w-full z-50 flex items-center justify-between px-4 lg:px-6">
         {/* Left: Logo + Mobile Menu */}
         <div className="flex items-center gap-2 flex-shrink-0 h-full">
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden w-8 h-8 text-slate-400 hover:text-white hover:bg-white/5">
-            <Menu className="w-4 h-4" />
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden w-9 h-9 text-slate-400 hover:text-white hover:bg-white/5">
+            <Menu className="w-5 h-5" />
           </Button>
           <Link href="/">
             <div className="flex items-center cursor-pointer group h-full">
@@ -93,19 +93,19 @@ export function Layout({ children }: LayoutProps) {
         )}
 
         {/* Right: User Icons or Auth Buttons */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 h-full">
+        <div className="flex items-center gap-2 flex-shrink-0 h-full">
           {/* Sound Toggle */}
           <button 
             onClick={toggleSound}
             title={soundEnabled ? "Mute sounds" : "Enable sounds"}
             className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center transition-all border",
+              "w-9 h-9 rounded-lg flex items-center justify-center transition-all border",
               soundEnabled 
                 ? "bg-[#1a2633] text-emerald-400 border-emerald-500/30 hover:border-emerald-500/50" 
                 : "bg-[#1a2633] text-slate-500 border-[#2a3a4a] hover:text-slate-300 hover:border-[#3a4a5a]"
             )}
           >
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
           
           {user ? (
@@ -113,23 +113,23 @@ export function Layout({ children }: LayoutProps) {
               <RewardsDropdown />
               <DailySpinDropdown />
               <button 
-                className="w-8 h-8 rounded-lg bg-[#1a2633] text-slate-400 hover:text-white border border-[#2a3a4a] hover:border-[#3a4a5a] flex items-center justify-center transition-all" 
+                className="w-9 h-9 rounded-lg bg-[#1a2633] text-slate-400 hover:text-white border border-[#2a3a4a] hover:border-[#3a4a5a] flex items-center justify-center transition-all" 
                 title={user.username}
               >
-                <UserIcon className="w-3.5 h-3.5" />
+                <UserIcon className="w-4 h-4" />
               </button>
               <button 
                 onClick={() => logout()} 
                 title="Logout" 
-                className="w-8 h-8 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all"
+                className="w-9 h-9 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={openLogin} className="font-medium text-slate-300 hover:text-white h-8 px-3 text-sm">Log In</Button>
-              <Button size="sm" onClick={openRegister} className="font-semibold bg-emerald-500 hover:bg-emerald-400 h-8 px-4 text-sm">Register</Button>
+              <Button variant="ghost" size="sm" onClick={openLogin} className="font-medium text-slate-300 hover:text-white h-9 px-4 text-sm">Log In</Button>
+              <Button size="sm" onClick={openRegister} className="font-semibold bg-emerald-500 hover:bg-emerald-400 h-9 px-5 text-sm">Register</Button>
             </>
           )}
         </div>
@@ -148,10 +148,10 @@ export function Layout({ children }: LayoutProps) {
         )}
       </AnimatePresence>
 
-      <div className="flex pt-14 min-h-screen">
+      <div className="flex pt-16 min-h-screen">
         {/* Sidebar */}
         <aside className={cn(
-          "fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 bg-[#0f1923] border-r border-[#1e2a36] z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
+          "fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-[#0f1923] border-r border-[#1e2a36] z-40 transition-transform duration-300 lg:translate-x-0 flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="p-4 flex-1 overflow-y-auto">
