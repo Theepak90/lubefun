@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Sparkles, Gift, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import sponsorsBanner from "@assets/image_1768118927718.png";
+import sponsorsBanner from "@assets/image_1768119365857.png";
 import giveawayBanner from "@assets/image_1768118093805.png";
 
 type BannerType = {
