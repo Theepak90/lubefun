@@ -36,17 +36,17 @@ export function WalletDropdown() {
 
   return (
     <div ref={dropdownRef} className="relative">
-      <div className="flex items-center gap-0.5 p-0.5 bg-[#0a0f14] rounded-xl border border-[#1a2530] shadow-lg shadow-black/30">
+      <div className="flex items-center gap-1">
         {/* Balance Pill */}
         <div 
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 bg-gradient-to-b from-[#1a2633] to-[#141c24] px-3.5 py-1.5 rounded-lg border border-[#2a3a4a]/50 cursor-pointer hover:from-[#1e2a38] hover:to-[#182028] transition-all"
+          className="flex items-center gap-2 bg-[#1a2633] px-4 py-2 rounded-l-xl cursor-pointer hover:bg-[#1e2a38] transition-all border border-[#2a3a4a]/50 border-r-0"
         >
-          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-sm shadow-amber-500/20">
-            <span className="text-[8px] font-bold text-amber-900">$</span>
-          </div>
-          <span className="font-mono font-semibold text-white text-xs tracking-wide">{user.balance.toFixed(2)}</span>
-          <svg className={`w-3 h-3 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
+          </svg>
+          <span className="font-semibold text-white text-sm">${user.balance.toFixed(2)}</span>
+          <svg className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -54,11 +54,11 @@ export function WalletDropdown() {
         {/* Wallet Button */}
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 px-3.5 py-1.5 rounded-lg font-semibold text-white text-xs shadow-sm shadow-emerald-600/30 transition-all hover:shadow-md hover:shadow-emerald-500/40 border border-emerald-400/20"
+          className="flex items-center gap-2 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 px-5 py-2 rounded-r-xl font-bold text-white text-sm shadow-lg shadow-emerald-600/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40"
           data-testid="button-wallet"
         >
-          <Wallet className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Wallet</span>
+          <Wallet className="w-4 h-4" />
+          <span>Wallet</span>
         </button>
       </div>
 
