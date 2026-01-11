@@ -16,7 +16,9 @@ import {
   Spade,
   CircleDot,
   Triangle,
-  Handshake
+  Handshake,
+  ChevronDown,
+  Gauge
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSound } from "@/hooks/use-sound";
@@ -41,6 +43,7 @@ export function Layout({ children }: LayoutProps) {
   const [isAuthOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isFairnessOpen, setFairnessOpen] = useState(false);
+  const [isFunSpecialsOpen, setFunSpecialsOpen] = useState(true);
   
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -174,6 +177,51 @@ export function Layout({ children }: LayoutProps) {
                   </div>
                 </Link>
               ))}
+              
+              {/* FUN SPECIALS Collapsible */}
+              <div className="mt-2">
+                <div 
+                  onClick={() => setFunSpecialsOpen(!isFunSpecialsOpen)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-secondary/50 hover:text-foreground cursor-pointer transition-all duration-200"
+                >
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <ChevronDown className={cn(
+                      "w-4 h-4 transition-transform duration-200",
+                      isFunSpecialsOpen ? "rotate-0" : "-rotate-90"
+                    )} />
+                  </div>
+                  <span className="font-semibold">Fun Specials</span>
+                  <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase tracking-wide">
+                    NEW
+                  </span>
+                </div>
+                
+                <AnimatePresence>
+                  {isFunSpecialsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pl-4 space-y-1">
+                        <Link href="/pressure-valve">
+                          <div className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
+                            location === "/pressure-valve" 
+                              ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]" 
+                              : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                          )}>
+                            <Gauge className={cn("w-4 h-4", location === "/pressure-valve" && "animate-pulse")} />
+                            <span className="font-medium text-sm">Pressure Valve</span>
+                          </div>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             <div className="mt-8 space-y-1">
