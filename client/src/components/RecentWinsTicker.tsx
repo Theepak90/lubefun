@@ -1,6 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Zap, Trophy, Dice1, Target, Layers, Spade, CircleDot } from "lucide-react";
+import { Flame, Zap, Trophy } from "lucide-react";
+
+import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_02_04_41_AM_1768097091093.png";
+import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_18_24_AM_1768106559756.png";
+import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_29_05_AM_1768106559757.png";
+import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_1768106559758.png";
+import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
+import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
 
 interface WinEvent {
   id: string;
@@ -15,7 +22,7 @@ interface WinEvent {
 interface GameConfig {
   id: string;
   name: string;
-  icon: typeof Dice1;
+  image: string;
   color: string;
   minWin: number;
   maxWin: number;
@@ -23,19 +30,18 @@ interface GameConfig {
 }
 
 interface RecentWinsTickerProps {
-  speed?: number;
   intervalMin?: number;
   intervalMax?: number;
   maxItems?: number;
 }
 
 const GAMES: GameConfig[] = [
-  { id: "dice", name: "Dice", icon: Dice1, color: "#3b82f6", minWin: 0.5, maxWin: 25, bigWinThreshold: 15 },
-  { id: "mines", name: "Mines", icon: Target, color: "#f59e0b", minWin: 1, maxWin: 100, bigWinThreshold: 50 },
-  { id: "coinflip", name: "Cock or Balls", icon: CircleDot, color: "#10b981", minWin: 1, maxWin: 50, bigWinThreshold: 30 },
-  { id: "roulette", name: "Roulette", icon: CircleDot, color: "#ef4444", minWin: 2, maxWin: 150, bigWinThreshold: 75 },
-  { id: "plinko", name: "Plinko", icon: Layers, color: "#8b5cf6", minWin: 0.1, maxWin: 500, bigWinThreshold: 100 },
-  { id: "blackjack", name: "Blackjack", icon: Spade, color: "#06b6d4", minWin: 5, maxWin: 200, bigWinThreshold: 100 },
+  { id: "dice", name: "Dice", image: diceImg, color: "#3b82f6", minWin: 0.5, maxWin: 25, bigWinThreshold: 15 },
+  { id: "mines", name: "Mines", image: minesImg, color: "#f59e0b", minWin: 1, maxWin: 100, bigWinThreshold: 50 },
+  { id: "coinflip", name: "Cock or Balls", image: coinflipImg, color: "#10b981", minWin: 1, maxWin: 50, bigWinThreshold: 30 },
+  { id: "roulette", name: "Roulette", image: rouletteImg, color: "#ef4444", minWin: 2, maxWin: 150, bigWinThreshold: 75 },
+  { id: "plinko", name: "Plinko", image: plinkoImg, color: "#8b5cf6", minWin: 0.1, maxWin: 500, bigWinThreshold: 100 },
+  { id: "blackjack", name: "Blackjack", image: blackjackImg, color: "#06b6d4", minWin: 5, maxWin: 200, bigWinThreshold: 100 },
 ];
 
 const NAME_PARTS = [
@@ -108,26 +114,16 @@ function generateWin(): WinEvent {
 }
 
 export function RecentWinsTicker({
-  speed = 30,
   intervalMin = 2000,
   intervalMax = 6000,
-  maxItems = 20
+  maxItems = 15
 }: RecentWinsTickerProps) {
   const [wins, setWins] = useState<WinEvent[]>([]);
-  const [isPaused, setIsPaused] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number | null>(null);
-  const offsetRef = useRef(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const prefersReducedMotion = typeof window !== 'undefined' 
-    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches 
-    : false;
 
   useEffect(() => {
     const initial: WinEvent[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 8; i++) {
       initial.push(generateWin());
     }
     setWins(initial);
@@ -136,8 +132,8 @@ export function RecentWinsTicker({
       const delay = intervalMin + Math.random() * (intervalMax - intervalMin);
       timeoutRef.current = setTimeout(() => {
         setWins(prev => {
-          const newWins = [...prev, generateWin()];
-          return newWins.slice(-maxItems);
+          const newWins = [generateWin(), ...prev];
+          return newWins.slice(0, maxItems);
         });
         scheduleNext();
       }, delay);
@@ -151,36 +147,6 @@ export function RecentWinsTicker({
       }
     };
   }, [intervalMin, intervalMax, maxItems]);
-
-  const animate = useCallback(() => {
-    if (isPaused || prefersReducedMotion) {
-      animationRef.current = requestAnimationFrame(animate);
-      return;
-    }
-
-    offsetRef.current += speed / 60;
-    
-    if (scrollRef.current) {
-      scrollRef.current.style.transform = `translateX(-${offsetRef.current}px)`;
-      
-      const firstChild = scrollRef.current.firstElementChild as HTMLElement;
-      if (firstChild && offsetRef.current > firstChild.offsetWidth + 16) {
-        offsetRef.current -= firstChild.offsetWidth + 16;
-        setWins(prev => prev.slice(1));
-      }
-    }
-
-    animationRef.current = requestAnimationFrame(animate);
-  }, [isPaused, speed, prefersReducedMotion]);
-
-  useEffect(() => {
-    animationRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [animate]);
 
   const getBadgeStyles = (badge: WinEvent["badge"]) => {
     switch (badge) {
@@ -213,7 +179,7 @@ export function RecentWinsTicker({
       className="w-full overflow-hidden bg-gradient-to-r from-[#0a1015] via-[#0d1419] to-[#0a1015] border-y border-[#1a2530] py-3"
       data-testid="container-recent-wins"
     >
-      <div className="flex items-center gap-3 px-4 mb-2">
+      <div className="flex items-center gap-3 px-4 mb-3">
         <div className="flex items-center gap-1.5">
           <Trophy className="w-4 h-4 text-amber-400" />
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Recent Wins</span>
@@ -222,65 +188,54 @@ export function RecentWinsTicker({
         <span className="text-[10px] text-slate-600 italic">Demo</span>
       </div>
 
-      <div 
-        ref={containerRef}
-        className="relative"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#0a1015] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#0a1015] to-transparent z-10 pointer-events-none" />
+      <div className="relative px-4">
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0a1015] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0a1015] to-transparent z-10 pointer-events-none" />
         
-        <div 
-          ref={scrollRef}
-          className="flex gap-4 px-4"
-          style={{ willChange: 'transform' }}
-        >
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence initial={false}>
-            {wins.map((win) => {
-              const GameIcon = win.game.icon;
-              return (
-                <motion.div
-                  key={win.id}
-                  initial={{ opacity: 0, scale: 0.8, x: 50 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex-shrink-0 group"
-                  data-testid={`card-win-${win.id}`}
+            {wins.map((win) => (
+              <motion.div
+                key={win.id}
+                initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.3 }}
+                className="flex-shrink-0 group"
+                data-testid={`card-win-${win.id}`}
+              >
+                <div 
+                  className="relative flex items-center gap-3 px-3 py-2 rounded-xl bg-[#0f1923]/90 backdrop-blur-sm border border-[#1e2a36] transition-all duration-200 hover:border-[#3a4a5a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30"
+                  style={{ 
+                    boxShadow: win.badge === "MEGA" ? `0 0 20px ${win.game.color}30` : undefined 
+                  }}
                 >
-                  <div 
-                    className="relative flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#0f1923]/90 backdrop-blur-sm border border-[#1e2a36] transition-all duration-200 hover:border-[#3a4a5a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30"
-                    style={{ 
-                      boxShadow: win.badge === "MEGA" ? `0 0 20px ${win.game.color}30` : undefined 
-                    }}
-                  >
-                    {win.badge && (
-                      <div className={`absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold ${getBadgeStyles(win.badge)}`}>
-                        {getBadgeIcon(win.badge)}
-                        <span>{win.badge}</span>
-                      </div>
-                    )}
-
-                    <div 
-                      className="w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
-                      style={{ backgroundColor: `${win.game.color}20` }}
-                    >
-                      <GameIcon className="w-5 h-5" style={{ color: win.game.color }} />
+                  {win.badge && (
+                    <div className={`absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold ${getBadgeStyles(win.badge)}`}>
+                      {getBadgeIcon(win.badge)}
+                      <span>{win.badge}</span>
                     </div>
+                  )}
 
-                    <div className="flex flex-col min-w-[80px]">
-                      <span className="text-[10px] text-slate-500 truncate max-w-[80px]">{win.game.name}</span>
-                      <span className="text-xs font-medium text-slate-300 truncate max-w-[80px]">{win.username}</span>
-                    </div>
-
-                    <div className="flex flex-col items-end">
-                      <span className="text-sm font-bold text-emerald-400">{win.formattedAmount}</span>
-                    </div>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                    <img 
+                      src={win.game.image} 
+                      alt={win.game.name}
+                      className="w-full h-full object-cover scale-150"
+                    />
                   </div>
-                </motion.div>
-              );
-            })}
+
+                  <div className="flex flex-col min-w-[70px]">
+                    <span className="text-[10px] text-slate-500 truncate">{win.game.name}</span>
+                    <span className="text-xs font-medium text-slate-300 truncate">{win.username}</span>
+                  </div>
+
+                  <div className="flex flex-col items-end pl-2">
+                    <span className="text-sm font-bold text-emerald-400">{win.formattedAmount}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </AnimatePresence>
         </div>
       </div>
