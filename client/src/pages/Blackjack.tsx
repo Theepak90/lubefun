@@ -210,7 +210,7 @@ function PlayerSeat({
       
       {showCards && total !== undefined && total > 0 && (
         <div className={cn(
-          "absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold",
+          "absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold",
           total > 21 ? "bg-red-500 text-white" :
           total === 21 ? "bg-emerald-500 text-white" :
           "bg-violet-600 text-white"
