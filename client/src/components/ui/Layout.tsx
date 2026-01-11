@@ -68,7 +68,6 @@ export function Layout({ children }: LayoutProps) {
     { icon: Spade, label: "Blackjack", href: "/blackjack" },
     { icon: CircleDot, label: "Roulette", href: "/roulette" },
     { icon: Triangle, label: "Plinko", href: "/plinko" },
-    { icon: Handshake, label: "Split or Steal", href: "/split-or-steal", badge: "FUN" },
   ];
 
   return (
@@ -206,6 +205,17 @@ export function Layout({ children }: LayoutProps) {
                       className="overflow-hidden"
                     >
                       <div className="pl-4 space-y-1">
+                        <Link href="/split-or-steal">
+                          <div className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
+                            location === "/split-or-steal" 
+                              ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]" 
+                              : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                          )}>
+                            <Handshake className={cn("w-4 h-4", location === "/split-or-steal" && "animate-pulse")} />
+                            <span className="font-medium text-sm">Split or Steal</span>
+                          </div>
+                        </Link>
                         <Link href="/pressure-valve">
                           <div className={cn(
                             "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
