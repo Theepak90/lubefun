@@ -35,15 +35,15 @@ const gameImages: Record<string, string> = {
 };
 
 const gameImageStyles: Record<string, { scale: string; hoverScale: string; position?: string }> = {
-  dice: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  coinflip: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]", position: "object-center" },
-  roulette: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  plinko: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  blackjack: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  spin: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  mines: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  splitsteal: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
-  pressure: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]" },
+  dice: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  coinflip: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]", position: "object-bottom" },
+  roulette: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  plinko: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  blackjack: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  spin: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  mines: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  splitsteal: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  pressure: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
