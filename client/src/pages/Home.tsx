@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { LiveWins } from "@/components/LiveWins";
+import { RecentWinsTicker } from "@/components/RecentWinsTicker";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
 import { GameInfo } from "@/components/GameCard";
@@ -97,6 +98,10 @@ export default function Home() {
           <div className="lg:w-48 flex-shrink-0">
             <LiveWins />
           </div>
+        </div>
+
+        <div className="-mx-4 sm:-mx-6">
+          <RecentWinsTicker speed={40} intervalMin={2000} intervalMax={5000} maxItems={25} />
         </div>
 
         <SearchFilters 
