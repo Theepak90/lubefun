@@ -58,7 +58,7 @@ export function GameCard({ game }: { game: GameInfo }) {
             <img 
               src={imageUrl} 
               alt={game.name}
-              className="w-full h-full object-contain scale-125 transition-transform group-hover:scale-[1.3]"
+              className="w-full h-full object-cover scale-[1.6] transition-transform group-hover:scale-[1.7]"
             />
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
