@@ -31,6 +31,12 @@ interface BlackjackState {
   payout?: number;
 }
 
+type GamePhase = "BETTING" | "DEALING" | "PLAYER_TURN" | "DEALER_TURN" | "SETTLEMENT" | "ROUND_COMPLETE";
+
+const DEAL_CARD_DELAY = 350;
+const ACTION_DELAY = 500;
+const DEALER_REVEAL_DELAY = 600;
+
 interface HandBet {
   main: number;
   perfectPairs: number;
@@ -908,6 +914,14 @@ export default function Blackjack() {
   const [activeSeatIndex, setActiveSeatIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  const [gamePhase, setGamePhase] = useState<GamePhase>("BETTING");
+  const [statusText, setStatusText] = useState("Place your bets");
+  const [roundId, setRoundId] = useState(() => `round-${Date.now()}`);
+  const [isInputBlocked, setIsInputBlocked] = useState(false);
+  const [visiblePlayerCards, setVisiblePlayerCards] = useState<number[]>([]);
+  const [visibleDealerCards, setVisibleDealerCards] = useState<number[]>([]);
+  const [isDealerRevealed, setIsDealerRevealed] = useState(false);
 
   const totalBet = Object.values(seatBets).reduce((sum, h) => 
     sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0
@@ -915,6 +929,9 @@ export default function Blackjack() {
   
   const isPlaying = gameState?.status === "playing";
   const isCompleted = gameState?.status === "completed";
+  
+  const canRebet = Object.keys(lastSeatBets).length > 0 && 
+    Object.values(lastSeatBets).reduce((sum, h) => sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0) <= (user?.balance || 0);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -1086,8 +1103,7 @@ export default function Blackjack() {
       const res = await apiRequest("POST", "/api/games/blackjack/deal", { betAmount });
       return res.json() as Promise<BlackjackState>;
     },
-    onSuccess: (data) => {
-      // Deep copy seatBets for repeat functionality
+    onSuccess: async (data) => {
       const copiedBets: Record<number, HandBet> = {};
       for (const [key, bet] of Object.entries(seatBets)) {
         copiedBets[Number(key)] = {
@@ -1100,40 +1116,103 @@ export default function Blackjack() {
         };
       }
       setLastSeatBets(copiedBets);
-      setGameState(data);
       setActiveSeatIndex(selectedSeats[0] ?? null);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
-      // Play card deal sounds with delays
-      setTimeout(() => playSound("cardDeal"), 100);
-      setTimeout(() => playSound("cardDeal"), 300);
-      setTimeout(() => playSound("cardDeal"), 500);
-      setTimeout(() => playSound("cardDeal"), 700);
+      setGamePhase("DEALING");
+      setStatusText("Dealing...");
+      setIsInputBlocked(true);
+      setVisiblePlayerCards([]);
+      setVisibleDealerCards([]);
+      setIsDealerRevealed(false);
+      
+      const playerCards = data.playerCards || [];
+      const dealerCards = data.dealerCards || [];
+      
+      for (let i = 0; i < 4; i++) {
+        await new Promise(r => setTimeout(r, DEAL_CARD_DELAY));
+        playSound("cardDeal");
+        
+        if (i === 0 && playerCards[0] !== undefined) {
+          setVisiblePlayerCards([playerCards[0]]);
+        } else if (i === 1) {
+          setVisibleDealerCards([-1]);
+        } else if (i === 2 && playerCards[1] !== undefined) {
+          setVisiblePlayerCards(prev => [...prev, playerCards[1]]);
+        } else if (i === 3 && dealerCards[0] !== undefined) {
+          setVisibleDealerCards([dealerCards[0]]);
+        }
+      }
+      
+      await new Promise(r => setTimeout(r, ACTION_DELAY));
+      setGameState(data);
       
       if (data.status === "completed" && data.outcome) {
+        await handleDealerReveal(data);
         handleGameComplete(data);
+      } else {
+        setGamePhase("PLAYER_TURN");
+        setStatusText("Your turn");
+        setIsInputBlocked(false);
       }
     },
     onError: (error: any) => {
+      setGamePhase("BETTING");
+      setStatusText("Place your bets");
+      setIsInputBlocked(false);
       toast({ title: "Error", description: error.message || "Failed to deal", variant: "destructive" });
     },
   });
+  
+  const handleDealerReveal = async (data: BlackjackState) => {
+    setGamePhase("DEALER_TURN");
+    setStatusText("Dealer reveals...");
+    setIsInputBlocked(true);
+    
+    await new Promise(r => setTimeout(r, DEALER_REVEAL_DELAY));
+    setIsDealerRevealed(true);
+    
+    if (data.dealerCards) {
+      setVisibleDealerCards(data.dealerCards);
+    }
+    
+    const dealerCards = data.dealerCards || [];
+    for (let i = 2; i < dealerCards.length; i++) {
+      await new Promise(r => setTimeout(r, DEAL_CARD_DELAY));
+      playSound("cardDeal");
+      setStatusText("Dealer hits...");
+    }
+    
+    await new Promise(r => setTimeout(r, ACTION_DELAY));
+  };
 
   const hitMutation = useMutation({
     mutationFn: async (betId: number) => {
       const res = await apiRequest("POST", "/api/games/blackjack/hit", { betId });
       return res.json() as Promise<BlackjackState>;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      setIsInputBlocked(true);
+      await new Promise(r => setTimeout(r, 150));
       playSound("cardDeal");
+      
+      if (data.playerCards) {
+        setVisiblePlayerCards(data.playerCards);
+      }
+      
+      await new Promise(r => setTimeout(r, ACTION_DELAY));
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
       if (data.status === "completed" && data.outcome) {
+        await handleDealerReveal(data);
         handleGameComplete(data);
+      } else {
+        setIsInputBlocked(false);
       }
     },
     onError: (error: any) => {
+      setIsInputBlocked(false);
       toast({ title: "Error", description: error.message || "Failed to hit", variant: "destructive" });
     },
   });
@@ -1143,12 +1222,17 @@ export default function Blackjack() {
       const res = await apiRequest("POST", "/api/games/blackjack/stand", { betId });
       return res.json() as Promise<BlackjackState>;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      setIsInputBlocked(true);
+      setStatusText("Dealer's turn...");
+      
+      await handleDealerReveal(data);
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       handleGameComplete(data);
     },
     onError: (error: any) => {
+      setIsInputBlocked(false);
       toast({ title: "Error", description: error.message || "Failed to stand", variant: "destructive" });
     },
   });
@@ -1158,17 +1242,34 @@ export default function Blackjack() {
       const res = await apiRequest("POST", "/api/games/blackjack/double", { betId });
       return res.json() as Promise<BlackjackState>;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      setIsInputBlocked(true);
+      setStatusText("Doubling down...");
+      
+      await new Promise(r => setTimeout(r, 150));
+      playSound("cardDeal");
+      
+      if (data.playerCards) {
+        setVisiblePlayerCards(data.playerCards);
+      }
+      
+      await new Promise(r => setTimeout(r, ACTION_DELAY));
+      await handleDealerReveal(data);
+      
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       handleGameComplete(data);
     },
     onError: (error: any) => {
+      setIsInputBlocked(false);
       toast({ title: "Error", description: error.message || "Failed to double", variant: "destructive" });
     },
   });
 
   const handleGameComplete = (data: BlackjackState) => {
+    setGamePhase("SETTLEMENT");
+    setStatusText("Settling bets...");
+    
     const outcomeLabel = data.outcome === "blackjack" ? "Blackjack!" :
                          data.outcome === "win" ? "Win" :
                          data.outcome === "push" ? "Push" : "Lose";
@@ -1180,14 +1281,17 @@ export default function Blackjack() {
     const isPush = data.outcome === "push";
     const payout = won ? betAmount + profit : (isPush ? betAmount : 0);
     
-    // Play win/lose sound
     setTimeout(() => {
       if (won) {
         playSound("win");
       } else if (!isPush) {
         playSound("lose");
       }
-    }, 500);
+      
+      setGamePhase("ROUND_COMPLETE");
+      setStatusText(outcomeLabel);
+      setIsInputBlocked(false);
+    }, 600);
     
     if (!isPush) {
       recordResult("blackjack", betAmount, payout, won);
@@ -1196,14 +1300,14 @@ export default function Blackjack() {
     if (isPush) {
       toast({
         description: `Push - Bet returned ${formatCurrency(betAmount)}`,
-        duration: 1000,
+        duration: 2000,
       });
     } else {
       toast({
         description: won 
           ? `You won ${formatCurrency(payout)} (profit ${formatCurrency(profit)})`
           : `You lost ${formatCurrency(betAmount)} (profit ${formatCurrency(-betAmount)})`,
-        duration: 1000,
+        duration: 2000,
       });
     }
     
@@ -1249,8 +1353,37 @@ export default function Blackjack() {
 
   const handleNewHand = () => {
     setGameState(null);
-    clearBets();
+    setVisiblePlayerCards([]);
+    setVisibleDealerCards([]);
+    setIsDealerRevealed(false);
+    setGamePhase("BETTING");
+    setStatusText("Place your bets");
+    setRoundId(`round-${Date.now()}`);
     queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
+  };
+  
+  const handleRebet = () => {
+    if (!canRebet) return;
+    handleNewHand();
+    
+    const copiedBets: Record<number, HandBet> = {};
+    for (const [key, bet] of Object.entries(lastSeatBets)) {
+      copiedBets[Number(key)] = {
+        main: bet.main,
+        perfectPairs: bet.perfectPairs,
+        twentyOnePlus3: bet.twentyOnePlus3,
+        mainChips: [...bet.mainChips],
+        ppChips: [...bet.ppChips],
+        plus3Chips: [...bet.plus3Chips],
+      };
+    }
+    setSeatBets(copiedBets);
+    setSelectedSeats(Object.keys(lastSeatBets).map(Number));
+  };
+  
+  const handleClearAndNewHand = () => {
+    handleNewHand();
+    clearBets();
   };
 
   const handleSitDown = (seatIndex: number) => {
@@ -1295,40 +1428,89 @@ export default function Blackjack() {
 
           <div className="relative rounded-3xl overflow-x-auto shadow-2xl">
             <div 
-              className="relative h-[500px] min-w-[600px] md:min-w-0"
+              className="relative h-[520px] min-w-[640px] md:min-w-0"
               style={{
-                background: "radial-gradient(ellipse 120% 100% at 50% 0%, #1a2a3c 0%, #0f1a2a 50%, #0a1219 100%)"
+                background: "radial-gradient(ellipse 130% 110% at 50% -10%, #0c1829 0%, #060d14 100%)"
               }}
             >
               <div 
-                className="absolute inset-x-0 bottom-0 h-[85%]"
+                className="absolute inset-x-0 bottom-0 h-[88%]"
                 style={{
-                  background: "linear-gradient(to top, #0d2840 0%, #123352 50%, #1a4065 100%)",
-                  clipPath: "ellipse(85% 100% at 50% 100%)",
+                  background: `
+                    radial-gradient(ellipse 60% 40% at 50% 30%, rgba(26, 78, 120, 0.3) 0%, transparent 70%),
+                    linear-gradient(to top, #0a3a2a 0%, #0d4a35 30%, #0f5c42 60%, #117a55 100%)
+                  `,
+                  clipPath: "ellipse(88% 100% at 50% 100%)",
                 }}
               />
               
               <div 
-                className="absolute inset-x-0 bottom-0 h-[85%] pointer-events-none"
+                className="absolute inset-x-0 bottom-0 h-[88%] pointer-events-none"
                 style={{
-                  clipPath: "ellipse(85% 100% at 50% 100%)",
-                  boxShadow: "inset 0 0 0 10px #b8963c, inset 0 0 0 14px #a0843a, inset 0 0 30px rgba(0,0,0,0.6)",
-                }}
-              />
-              
-              <div 
-                className="absolute inset-x-[14px] bottom-0 h-[calc(85%-14px)]"
-                style={{
-                  background: "linear-gradient(180deg, #1a4065 0%, #123352 100%)",
-                  clipPath: "ellipse(85% 100% at 50% 100%)",
+                  clipPath: "ellipse(88% 100% at 50% 100%)",
                 }}
               >
-                <div className="absolute inset-0 opacity-10"
+                <div 
+                  className="absolute inset-0"
                   style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+                    boxShadow: `
+                      inset 0 0 0 12px #c9a227,
+                      inset 0 0 0 16px #a88520,
+                      inset 0 0 0 18px rgba(201, 162, 39, 0.3),
+                      inset 0 0 60px rgba(0,0,0,0.5),
+                      inset 0 -20px 40px rgba(0,0,0,0.3)
+                    `,
+                  }}
+                />
+                <div 
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-[70%] h-1"
+                  style={{
+                    background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%)",
                   }}
                 />
               </div>
+              
+              <div 
+                className="absolute inset-x-[18px] bottom-0 h-[calc(88%-18px)]"
+                style={{
+                  background: `
+                    radial-gradient(ellipse 50% 35% at 50% 25%, rgba(34, 139, 90, 0.2) 0%, transparent 70%),
+                    linear-gradient(180deg, #0d5c42 0%, #0a4a35 50%, #083a2a 100%)
+                  `,
+                  clipPath: "ellipse(88% 100% at 50% 100%)",
+                }}
+              >
+                <div className="absolute inset-0 opacity-[0.06]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+                  }}
+                />
+                <div 
+                  className="absolute inset-0"
+                  style={{
+                    background: "radial-gradient(ellipse 100% 100% at 50% 100%, rgba(0,0,0,0.2) 0%, transparent 70%)",
+                  }}
+                />
+              </div>
+              
+              {(gamePhase === "DEALING" || gamePhase === "DEALER_TURN" || gamePhase === "SETTLEMENT") && (
+                <motion.div 
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  key={statusText}
+                >
+                  <div 
+                    className="px-5 py-2.5 rounded-xl backdrop-blur-sm text-white/90 text-sm font-medium tracking-wide"
+                    style={{
+                      background: "rgba(0, 0, 0, 0.65)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+                    }}
+                  >
+                    {statusText}
+                  </div>
+                </motion.div>
+              )}
               
               <div className="absolute top-3 right-8 flex items-center gap-2 z-10">
                 <div className="relative">
@@ -1347,26 +1529,27 @@ export default function Blackjack() {
                 </div>
                 <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Dealer</span>
                 
-                {gameState && gameState.dealerCards && gameState.dealerCards.length > 0 && (
+                {visibleDealerCards.length > 0 && (
                   <div className="flex gap-1 mt-3">
-                    {isCompleted ? (
-                      gameState.dealerCards.map((card, i) => (
-                        <PlayingCard key={i} cardIndex={card} delay={i * 0.1} />
-                      ))
-                    ) : (
-                      <>
-                        <PlayingCard cardIndex={0} hidden delay={0} />
-                        {gameState.dealerCards.map((card, i) => (
-                          <PlayingCard key={i} cardIndex={card} delay={(i + 1) * 0.1} />
-                        ))}
-                      </>
-                    )}
+                    {visibleDealerCards.map((card, i) => (
+                      <PlayingCard 
+                        key={`dealer-${i}-${card}`}
+                        cardIndex={card === -1 ? 0 : card} 
+                        hidden={card === -1 && !isDealerRevealed}
+                        delay={i * 0.1} 
+                      />
+                    ))}
                   </div>
                 )}
-                {gameState && gameState.dealerCards && gameState.dealerCards.length > 0 && (
+                {visibleDealerCards.length > 0 && (
                   <div className="mt-2 px-3 py-1 bg-slate-800/80 rounded-full">
                     <span className="text-sm font-mono font-bold text-white">
-                      {isCompleted ? dealerTotal : `${gameState.dealerShowing || getCardValue(gameState.dealerCards[0])}`}
+                      {isDealerRevealed 
+                        ? calculateTotal(visibleDealerCards.filter(c => c !== -1))
+                        : visibleDealerCards.filter(c => c !== -1).length > 0 
+                          ? getCardValue(visibleDealerCards.find(c => c !== -1) || 0)
+                          : "?"
+                      }
                     </span>
                   </div>
                 )}
@@ -1384,9 +1567,9 @@ export default function Blackjack() {
                       position={pos}
                       isSelected={isSelected}
                       onSelect={() => !isPlaying && handleSitDown(idx)}
-                      cards={isActiveSeat && gameState?.playerCards ? gameState.playerCards : undefined}
-                      total={isActiveSeat && gameState?.playerCards ? playerTotal : undefined}
-                      isActive={isActiveSeat && isPlaying}
+                      cards={isActiveSeat && visiblePlayerCards.length > 0 ? visiblePlayerCards : undefined}
+                      total={isActiveSeat && visiblePlayerCards.length > 0 ? calculateTotal(visiblePlayerCards) : undefined}
+                      isActive={isActiveSeat && (isPlaying || isCompleted)}
                       outcome={isActiveSeat && isCompleted ? gameState?.outcome : undefined}
                       mainBet={bet.main}
                       ppBet={bet.perfectPairs}
@@ -1514,7 +1697,7 @@ export default function Blackjack() {
                         size="lg"
                         className="h-12 px-8 bg-amber-500 hover:bg-amber-400 font-bold"
                         onClick={handleHit}
-                        disabled={isBusy}
+                        disabled={isBusy || isInputBlocked}
                         data-testid="button-hit"
                       >
                         Hit
@@ -1523,7 +1706,7 @@ export default function Blackjack() {
                         size="lg"
                         className="h-12 px-8 bg-slate-600 hover:bg-slate-500 font-bold"
                         onClick={handleStand}
-                        disabled={isBusy}
+                        disabled={isBusy || isInputBlocked}
                         data-testid="button-stand"
                       >
                         Stand
@@ -1534,7 +1717,7 @@ export default function Blackjack() {
                           variant="outline"
                           className="h-12 px-8 border-slate-500 text-white font-bold"
                           onClick={handleDouble}
-                          disabled={isBusy || (user?.balance || 0) < (activeSeatIndex !== null ? (seatBets[activeSeatIndex]?.main || 0) : 0)}
+                          disabled={isBusy || isInputBlocked || (user?.balance || 0) < (activeSeatIndex !== null ? (seatBets[activeSeatIndex]?.main || 0) : 0)}
                           data-testid="button-double"
                         >
                           Double
@@ -1546,31 +1729,80 @@ export default function Blackjack() {
                   {isCompleted && (
                     <motion.div 
                       key="completed"
-                      className="flex items-center justify-center gap-4 w-full"
+                      className="flex items-center justify-between gap-4 w-full"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <div className={cn(
-                        "px-6 py-2 rounded-lg font-bold text-lg",
-                        gameState?.outcome === "blackjack" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
-                        gameState?.outcome === "win" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
-                        gameState?.outcome === "push" ? "bg-slate-500/20 text-slate-300 border border-slate-500/40" :
-                        "bg-red-500/20 text-red-400 border border-red-500/40"
-                      )}>
-                        {gameState?.outcome === "blackjack" ? "BLACKJACK!" :
-                         gameState?.outcome === "win" ? "YOU WIN!" :
-                         gameState?.outcome === "push" ? "PUSH" : "DEALER WINS"}
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "px-5 py-2 rounded-lg font-bold text-base",
+                          gameState?.outcome === "blackjack" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
+                          gameState?.outcome === "win" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
+                          gameState?.outcome === "push" ? "bg-slate-500/20 text-slate-300 border border-slate-500/40" :
+                          "bg-red-500/20 text-red-400 border border-red-500/40"
+                        )}>
+                          {gameState?.outcome === "blackjack" ? "BLACKJACK!" :
+                           gameState?.outcome === "win" ? "YOU WIN!" :
+                           gameState?.outcome === "push" ? "PUSH" : "DEALER WINS"}
+                        </div>
+                        {gameState?.bet?.profit !== undefined && gameState?.bet?.profit !== 0 && (
+                          <span className={cn(
+                            "text-sm font-mono font-bold",
+                            gameState.bet.profit > 0 ? "text-emerald-400" : "text-red-400"
+                          )}>
+                            {gameState.bet.profit > 0 ? "+" : ""}{formatCurrency(gameState.bet.profit)}
+                          </span>
+                        )}
                       </div>
-                      <Button
-                        size="lg"
-                        className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
-                        onClick={handleNewHand}
-                        data-testid="button-new-hand"
-                      >
-                        New Hand
-                      </Button>
+                      
+                      <div className="flex items-center gap-3">
+                        {canRebet && (
+                          <div className="text-right mr-2">
+                            <div className="text-[10px] text-slate-500 uppercase">Last Bet</div>
+                            <div className="text-sm font-mono font-bold text-amber-400">
+                              ${Object.values(lastSeatBets).reduce((sum, h) => sum + h.main + h.perfectPairs + h.twentyOnePlus3, 0).toFixed(2)}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="h-11 px-6 border-slate-600 text-slate-300 font-medium"
+                          onClick={handleClearAndNewHand}
+                          data-testid="button-clear-bet"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Clear
+                        </Button>
+                        
+                        <Button
+                          size="lg"
+                          className={cn(
+                            "h-11 px-6 font-bold",
+                            canRebet 
+                              ? "bg-amber-500 hover:bg-amber-400 text-black" 
+                              : "bg-slate-600 text-slate-400"
+                          )}
+                          onClick={handleRebet}
+                          disabled={!canRebet}
+                          data-testid="button-rebet"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Rebet
+                        </Button>
+                        
+                        <Button
+                          size="lg"
+                          className="h-11 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
+                          onClick={handleNewHand}
+                          data-testid="button-new-hand"
+                        >
+                          New Hand
+                        </Button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

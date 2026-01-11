@@ -1,0 +1,58 @@
+Upgrade the Blackjack game to feel smooth, realistic, and premium.
+
+1) Make the table look better (visual polish)
+
+Improve felt texture: subtle noise/grain, soft vignette, gentle spotlight in center, richer blue/green felt gradient.
+
+Add table depth: inner shadow on the table rim, soft highlight line on the top arc, better gold rails.
+
+Add subtle ambient particles (very faint) + slow moving light sweep (optional).
+
+Keep everything clean (no clutter), modern casino look.
+
+2) Make gameplay pacing feel “real”
+
+Right now rounds happen too fast. Add a round timeline with natural delays:
+
+Deal animation: cards slide from shoe to positions with easing + slight rotation + bounce settle.
+
+Delay between card deals (e.g. 250–450ms each card).
+
+Delay after player action before dealer acts (e.g. 400–700ms).
+
+Dealer reveals hole card with a flip animation (300–500ms).
+
+Dealer hits with the same cadence as real.
+
+Show small status text: “Dealing…”, “Dealer checks…”, “Dealer hits…”, “Round complete”.
+
+3) Keep last bet on table after round reset
+
+When the round ends (win/lose/push/blackjack), do NOT clear the bet immediately.
+
+Keep chip stack on the betting spot and show a “Rebet” button.
+
+If the user still has enough balance, automatically keep the last bet amount pre-selected for the next round (chips remain visually).
+
+If balance is insufficient, gray out the chips and show “Insufficient balance” and require lowering bet.
+
+Add “Clear Bet” button to remove chips manually.
+
+4) Prevent glitchy state resets
+
+Implement a finite state machine for blackjack states:
+BETTING -> DEALING -> PLAYER_TURN -> DEALER_TURN -> SETTLEMENT -> BETTING
+
+Block inputs that don’t belong to the current state (no double hit, no bet changes mid-hand, no rapid spam clicking).
+
+Use a single roundId and ignore late animations/results from previous rounds.
+
+5) Deliverables
+
+Update UI components and CSS for premium table.
+
+Add card animation component (CSS transitions or requestAnimationFrame).
+
+Add lastBetAmount persistence and “Rebet” flow.
+
+Keep existing balance logic but improve UX so it feels slow
