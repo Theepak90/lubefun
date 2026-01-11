@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { users, bets, rouletteRounds, rouletteBets, type User, type InsertUser, type Bet, type InsertBet, type RouletteRound, type RouletteBet } from "@shared/schema";
-import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { users, bets, rouletteRounds, rouletteBets, transactions, withdrawals, idempotencyKeys, type User, type InsertUser, type Bet, type InsertBet, type RouletteRound, type RouletteBet, type Transaction, type Withdrawal, type IdempotencyKey } from "@shared/schema";
+import { eq, desc, and, gte, sql, lt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -45,6 +45,26 @@ export interface IStorage {
   getUserRouletteBetsForRound(userId: number, roundId: number): Promise<RouletteBet[]>;
   updateRouletteBet(id: number, updates: Partial<RouletteBet>): Promise<RouletteBet>;
   resolveRouletteBets(roundId: number, winningNumber: number): Promise<void>;
+  
+  // Transaction Methods
+  createTransaction(tx: Partial<Transaction>): Promise<Transaction>;
+  getUserTransactions(userId: number, limit?: number): Promise<Transaction[]>;
+  
+  // Withdrawal Methods
+  createWithdrawal(withdrawal: Partial<Withdrawal>): Promise<Withdrawal>;
+  getWithdrawal(id: number): Promise<Withdrawal | undefined>;
+  getUserWithdrawals(userId: number, limit?: number): Promise<Withdrawal[]>;
+  updateWithdrawal(id: number, updates: Partial<Withdrawal>): Promise<Withdrawal>;
+  
+  // Idempotency Methods
+  getIdempotencyKey(key: string): Promise<IdempotencyKey | undefined>;
+  createIdempotencyKey(data: Partial<IdempotencyKey>): Promise<IdempotencyKey>;
+  deleteExpiredIdempotencyKeys(): Promise<number>;
+  
+  // User Balance Methods
+  updateAvailableBalance(id: number, amount: number): Promise<User>;
+  lockBalance(id: number, amount: number): Promise<User>;
+  unlockBalance(id: number, amount: number): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -339,6 +359,96 @@ export class DatabaseStorage implements IStorage {
       default:
         return { won: false, multiplier: 0 };
     }
+  }
+  
+  async createTransaction(tx: Partial<Transaction>): Promise<Transaction> {
+    const [newTx] = await db.insert(transactions).values(tx as any).returning();
+    return newTx;
+  }
+  
+  async getUserTransactions(userId: number, limit = 50): Promise<Transaction[]> {
+    return db.select().from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(desc(transactions.createdAt))
+      .limit(limit);
+  }
+  
+  async createWithdrawal(withdrawal: Partial<Withdrawal>): Promise<Withdrawal> {
+    const [newWithdrawal] = await db.insert(withdrawals).values(withdrawal as any).returning();
+    return newWithdrawal;
+  }
+  
+  async getWithdrawal(id: number): Promise<Withdrawal | undefined> {
+    const [withdrawal] = await db.select().from(withdrawals).where(eq(withdrawals.id, id));
+    return withdrawal;
+  }
+  
+  async getUserWithdrawals(userId: number, limit = 20): Promise<Withdrawal[]> {
+    return db.select().from(withdrawals)
+      .where(eq(withdrawals.userId, userId))
+      .orderBy(desc(withdrawals.createdAt))
+      .limit(limit);
+  }
+  
+  async updateWithdrawal(id: number, updates: Partial<Withdrawal>): Promise<Withdrawal> {
+    const [updated] = await db.update(withdrawals)
+      .set(updates)
+      .where(eq(withdrawals.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async getIdempotencyKey(key: string): Promise<IdempotencyKey | undefined> {
+    const [record] = await db.select().from(idempotencyKeys)
+      .where(eq(idempotencyKeys.key, key));
+    return record;
+  }
+  
+  async createIdempotencyKey(data: Partial<IdempotencyKey>): Promise<IdempotencyKey> {
+    const [record] = await db.insert(idempotencyKeys).values(data as any).returning();
+    return record;
+  }
+  
+  async deleteExpiredIdempotencyKeys(): Promise<number> {
+    const result = await db.delete(idempotencyKeys)
+      .where(lt(idempotencyKeys.expiresAt, new Date()));
+    return 0;
+  }
+  
+  async updateAvailableBalance(id: number, amount: number): Promise<User> {
+    const result = await db.execute(sql`
+      UPDATE users 
+      SET available_balance = available_balance + ${amount},
+          balance = balance + ${amount}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+    return result.rows[0] as User;
+  }
+  
+  async lockBalance(id: number, amount: number): Promise<User> {
+    const result = await db.execute(sql`
+      UPDATE users 
+      SET available_balance = available_balance - ${amount},
+          locked_balance = locked_balance + ${amount}
+      WHERE id = ${id} AND available_balance >= ${amount}
+      RETURNING *
+    `);
+    if (result.rows.length === 0) {
+      throw new Error("Insufficient balance or user not found");
+    }
+    return result.rows[0] as User;
+  }
+  
+  async unlockBalance(id: number, amount: number): Promise<User> {
+    const result = await db.execute(sql`
+      UPDATE users 
+      SET available_balance = available_balance + ${amount},
+          locked_balance = locked_balance - ${amount}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+    return result.rows[0] as User;
   }
 }
 

@@ -1,14 +1,27 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, doublePrecision, varchar, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ==================== GAME CONSTANTS ====================
+export const HOUSE_EDGE = 0.04; // 4% house edge
+export const RTP = 0.96; // 96% Return to Player
+export const MIN_BET = 0.10;
+export const MAX_BET = 10000;
+export const MAX_PAYOUT = 100000; // Max payout per bet
+export const MAX_BETS_PER_MINUTE = 60; // Rate limiting
+export const WITHDRAWAL_MANUAL_REVIEW_THRESHOLD = 1000;
+export const DAILY_WITHDRAWAL_LIMIT = 10000;
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  balance: doublePrecision("balance").default(1000).notNull(), // Play money
+  balance: doublePrecision("balance").default(1000).notNull(), // Deprecated - use availableBalance
+  availableBalance: doublePrecision("available_balance").default(1000).notNull(),
+  lockedBalance: doublePrecision("locked_balance").default(0).notNull(),
   clientSeed: text("client_seed").notNull(),
   serverSeed: text("server_seed").notNull(), // Current active seed (hidden hash usually shown)
+  serverSeedHash: text("server_seed_hash"), // Hash of server seed shown to user
   nonce: integer("nonce").default(0).notNull(),
   lastBonusClaim: timestamp("last_bonus_claim"),
   lastWheelSpin: timestamp("last_wheel_spin"),
@@ -16,7 +29,55 @@ export const users = pgTable("users", {
   lastWeeklyBonus: timestamp("last_weekly_bonus"),
   lastMonthlyBonus: timestamp("last_monthly_bonus"),
   lastRakebackClaim: timestamp("last_rakeback_claim"),
+  lastBetAt: timestamp("last_bet_at"),
+  betsThisMinute: integer("bets_this_minute").default(0).notNull(),
+  betsMinuteReset: timestamp("bets_minute_reset"),
+  dailyWithdrawalTotal: doublePrecision("daily_withdrawal_total").default(0).notNull(),
+  dailyWithdrawalReset: timestamp("daily_withdrawal_reset"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==================== TRANSACTIONS LEDGER ====================
+export const transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  type: text("type").notNull(), // 'bet_wager', 'bet_payout', 'bonus', 'deposit', 'withdrawal', 'lock', 'unlock'
+  amount: doublePrecision("amount").notNull(), // Positive for credits, negative for debits
+  balanceBefore: doublePrecision("balance_before").notNull(),
+  balanceAfter: doublePrecision("balance_after").notNull(),
+  referenceType: text("reference_type"), // 'bet', 'withdrawal', 'bonus'
+  referenceId: integer("reference_id"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==================== IDEMPOTENCY KEYS ====================
+export const idempotencyKeys = pgTable("idempotency_keys", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 255 }).notNull().unique(),
+  userId: integer("user_id").notNull(),
+  response: jsonb("response"),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// ==================== WITHDRAWALS ====================
+export const withdrawals = pgTable("withdrawals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  currency: text("currency").default("PLAY").notNull(),
+  network: text("network"),
+  address: text("address"),
+  status: text("status").default("PENDING").notNull(), // PENDING, APPROVED, SENT, FAILED, CANCELLED
+  requiresManualReview: boolean("requires_manual_review").default(false).notNull(),
+  reviewedBy: integer("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  txHash: text("tx_hash"),
+  failureReason: text("failure_reason"),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
 });
 
 // Lootbox prizes with stable IDs and weights (higher weight = more common)
@@ -86,20 +147,25 @@ export const REWARDS_CONFIG = {
 export const bets = pgTable("bets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  game: text("game").notNull(), // "dice", "coinflip", "mines"
+  game: text("game").notNull(), // "dice", "coinflip", "mines", etc.
   betAmount: doublePrecision("bet_amount").notNull(),
   payoutMultiplier: doublePrecision("payout_multiplier"),
+  payout: doublePrecision("payout").default(0), // Actual payout amount
   profit: doublePrecision("profit"), // Positive for win, negative for loss
   won: boolean("won"),
   
   // Provably Fair Data
   clientSeed: text("client_seed").notNull(),
-  serverSeed: text("server_seed").notNull(), // The seed used for this bet
+  serverSeed: text("server_seed").notNull(), // The seed used for this bet (revealed after bet)
+  serverSeedHash: text("server_seed_hash"), // Hash shown before bet
   nonce: integer("nonce").notNull(),
+  rngProof: text("rng_proof"), // HMAC result for verification
   
   // Game specific state/result
+  gameChoice: jsonb("game_choice"), // User's choice (target, side, minesCount, etc.)
   result: jsonb("result").notNull(), // e.g., { roll: 50.5 } or { mines: [1,2,3], revealed: [] }
   active: boolean("active").default(false), // For multi-step games like Mines
+  idempotencyKey: varchar("idempotency_key", { length: 255 }),
   
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -119,6 +185,15 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Bet = typeof bets.$inferSelect;
 export type InsertBet = z.infer<typeof insertBetSchema>;
+export type Transaction = typeof transactions.$inferSelect;
+export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type Withdrawal = typeof withdrawals.$inferSelect;
+
+// Withdrawal status enum
+export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'SENT' | 'FAILED' | 'CANCELLED';
+
+// Transaction type enum
+export type TransactionType = 'bet_wager' | 'bet_payout' | 'bonus' | 'deposit' | 'withdrawal' | 'lock' | 'unlock';
 
 // Game Specific Schemas
 export const diceBetSchema = z.object({

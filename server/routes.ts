@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema, pressureValveStartSchema, pressureValvePumpSchema, pressureValveCashoutSchema } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema, pressureValveStartSchema, pressureValvePumpSchema, pressureValveCashoutSchema, MIN_BET, MAX_BET, RTP, HOUSE_EDGE } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
@@ -12,6 +12,9 @@ import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import { generateClientSeed, generateServerSeed, getDiceRoll, getCoinflipResult, getMines, getPlinkoPath, getRouletteNumber, getShuffledDeck, calculateHandTotal, getCardValue, getPressureValvePump } from "./fairness";
 import { rouletteOrchestrator } from "./rouletteOrchestrator";
+import { placeBet, startMultiStepGame, cashoutMultiStepGame, loseMultiStepGame, generateIdempotencyKey } from "./services/betService";
+import { computeOutcome, generateMinePositions, checkMineHit, hashServerSeed } from "./services/computeOutcome";
+import { requestWithdrawal, cancelWithdrawal, getUserWithdrawals } from "./services/withdrawalService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -140,101 +143,69 @@ export async function registerRoutes(
 
   // === Game Routes ===
   
-  // DICE
+  // DICE - Server-authoritative with betService
   app.post(api.games.dice.play.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const user = await storage.getUser(req.user!.id);
-    if (!user) return res.sendStatus(401);
     
     try {
       const input = diceBetSchema.parse(req.body);
-      if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
       
-      // Multiplier Calc with configurable house edge
-      // RTP = 1 - HOUSE_EDGE (e.g., 98% RTP with 2% edge)
-      // Multiplier = (100 / winChance) * RTP
-      
-      const winChance = input.condition === "above" ? (100 - input.target) : input.target;
-      const baseMultiplier = 100 / winChance;
-      const multiplier = baseMultiplier * GAME_CONFIG.RTP; 
-      
-      // Deduct balance
-      await storage.updateUserBalance(user.id, -input.betAmount);
-      
-      // Calculate Result
-      const roll = getDiceRoll(user.serverSeed, user.clientSeed, user.nonce);
-      await storage.incrementNonce(user.id);
-      
-      const won = input.condition === "above" ? roll > input.target : roll < input.target;
-      const profit = won ? (input.betAmount * multiplier) - input.betAmount : -input.betAmount;
-      const payout = won ? (input.betAmount * multiplier) : 0;
-      
-      if (won) {
-        await storage.updateUserBalance(user.id, payout);
-      }
-      
-      const bet = await storage.createBet({
-        userId: user.id,
-        game: "dice",
-        betAmount: input.betAmount,
-        payoutMultiplier: multiplier,
-        profit,
-        won,
-        clientSeed: user.clientSeed,
-        serverSeed: user.serverSeed,
-        nonce: user.nonce,
-        result: { roll, target: input.target, condition: input.condition },
-        active: false
+      const result = await placeBet({
+        userId: req.user!.id,
+        gameId: "dice",
+        wager: input.betAmount,
+        choice: {
+          target: input.target,
+          condition: input.condition,
+        },
+        idempotencyKey,
       });
       
-      res.json(bet);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      res.json({
+        ...result.bet,
+        newBalance: result.newBalance,
+        outcome: result.outcome,
+      });
     } catch (err) {
+      console.error("[Dice] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
     }
   });
 
-  // COINFLIP
+  // COINFLIP - Server-authoritative with betService
   app.post(api.games.coinflip.play.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const user = await storage.getUser(req.user!.id);
-    if (!user) return res.sendStatus(401);
 
     try {
       const input = coinflipBetSchema.parse(req.body);
-      if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
-
-      // Coinflip: 50% chance, 2x base payout with house edge
-      const multiplier = 2 * GAME_CONFIG.RTP; // e.g., 1.96 with 2% edge
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
       
-      await storage.updateUserBalance(user.id, -input.betAmount);
-      
-      const result = getCoinflipResult(user.serverSeed, user.clientSeed, user.nonce);
-      await storage.incrementNonce(user.id);
-      
-      const won = result === input.side;
-      const profit = won ? (input.betAmount * multiplier) - input.betAmount : -input.betAmount;
-      const payout = won ? (input.betAmount * multiplier) : 0;
-
-      if (won) {
-        await storage.updateUserBalance(user.id, payout);
-      }
-
-      const bet = await storage.createBet({
-        userId: user.id,
-        game: "coinflip",
-        betAmount: input.betAmount,
-        payoutMultiplier: multiplier,
-        profit,
-        won,
-        clientSeed: user.clientSeed,
-        serverSeed: user.serverSeed,
-        nonce: user.nonce,
-        result: { flip: result, chosen: input.side },
-        active: false
+      const result = await placeBet({
+        userId: req.user!.id,
+        gameId: "coinflip",
+        wager: input.betAmount,
+        choice: {
+          side: input.side,
+        },
+        idempotencyKey,
       });
-
-      res.json(bet);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      res.json({
+        ...result.bet,
+        newBalance: result.newBalance,
+        outcome: result.outcome,
+      });
     } catch (err) {
+      console.error("[Coinflip] Error:", err);
       res.status(400).json({ message: "Invalid bet" });
     }
   });
