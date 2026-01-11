@@ -16,6 +16,8 @@ import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useToast } from "@/hooks/use-toast";
+import coinHeadsImg from "@assets/ChatGPT_Image_Jan_11,_2026,_12_07_41_AM_1768090073879.png";
+import coinTailsImg from "@assets/ChatGPT_Image_Jan_11,_2026,_12_07_44_AM_1768090071784.png";
 
 const FLIP_DURATION = 1.4;
 const FLIP_ROTATIONS = 6;
@@ -460,29 +462,31 @@ export default function Coinflip() {
                   >
                     {/* Front (Heads) */}
                     <div 
-                      className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                      className="absolute inset-0 rounded-full overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
                       style={{ 
-                        backfaceVisibility: "hidden",
-                        background: "linear-gradient(145deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%)"
+                        backfaceVisibility: "hidden"
                       }}
                     >
-                      <div className="w-36 h-36 rounded-full border-2 border-yellow-600/40 flex items-center justify-center bg-gradient-to-br from-yellow-400/20 to-transparent">
-                        <span className="text-3xl font-bold text-yellow-900/80 tracking-wide">HEADS</span>
-                      </div>
+                      <img 
+                        src={coinHeadsImg} 
+                        alt="Heads" 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
 
                     {/* Back (Tails) */}
                     <div 
-                      className="absolute inset-0 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5),inset_0_-4px_10px_rgba(0,0,0,0.2),inset_0_4px_10px_rgba(255,255,255,0.3)]"
+                      className="absolute inset-0 rounded-full overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
                       style={{ 
                         backfaceVisibility: "hidden",
-                        transform: "rotateX(180deg)",
-                        background: "linear-gradient(145deg, #cbd5e1 0%, #94a3b8 50%, #64748b 100%)"
+                        transform: "rotateX(180deg)"
                       }}
                     >
-                      <div className="w-36 h-36 rounded-full border-2 border-slate-500/40 flex items-center justify-center bg-gradient-to-br from-slate-300/20 to-transparent">
-                        <span className="text-3xl font-bold text-slate-700/80 tracking-wide">TAILS</span>
-                      </div>
+                      <img 
+                        src={coinTailsImg} 
+                        alt="Tails" 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   </motion.div>
                 </motion.div>
