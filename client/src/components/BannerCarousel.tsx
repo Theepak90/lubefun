@@ -8,16 +8,6 @@ import { motion, AnimatePresence } from "framer-motion";
 const banners = [
   {
     id: 1,
-    title: "New Release",
-    subtitle: "Experience our latest games with enhanced graphics and bigger wins",
-    cta: "Play Now",
-    href: "/dice",
-    icon: Sparkles,
-    gradient: "from-purple-600 via-blue-600 to-cyan-500",
-    glowColor: "rgba(139, 92, 246, 0.3)"
-  },
-  {
-    id: 2,
     title: "Daily Spin",
     subtitle: "Spin the wheel every day for free credits and exclusive rewards",
     cta: "Open Lootbox",
@@ -27,7 +17,7 @@ const banners = [
     glowColor: "rgba(245, 158, 11, 0.3)"
   },
   {
-    id: 3,
+    id: 2,
     title: "Weekly Raffle",
     subtitle: "Enter our weekly raffle for a chance to win the grand prize",
     cta: "View More",
