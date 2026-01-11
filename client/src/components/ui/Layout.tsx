@@ -78,7 +78,7 @@ export function Layout({ children }: LayoutProps) {
           </Button>
           <Link href="/">
             <div className="flex items-center cursor-pointer group h-full">
-              <img src={logoImg} alt="Lube.fun Logo" className="h-20 w-auto object-contain group-hover:scale-105 transition-transform" />
+              <img src={logoImg} alt="Lube.fun Logo" className="h-28 w-auto object-contain group-hover:scale-105 transition-transform" />
             </div>
           </Link>
         </div>
