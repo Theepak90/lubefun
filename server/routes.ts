@@ -287,17 +287,21 @@ export async function registerRoutes(
       // Deduct bet immediately
       await storage.updateUserBalance(user.id, -input.betAmount);
       
-      // Create round
+      // Reserve nonce for this round (increment immediately to prevent reuse)
+      const reservedNonce = user.nonce;
+      await storage.incrementNonce(user.id);
+      
+      // Create round with reserved nonce
       const roundId = splitStealRoundCounter++;
       splitStealRounds.set(roundId, {
         userId: user.id,
         betAmount: input.betAmount,
-        nonce: user.nonce
+        nonce: reservedNonce
       });
 
       const updatedUser = await storage.getUser(user.id);
       
-      console.log('[SplitSteal] Round started:', { roundId, betAmount: input.betAmount, userId: user.id });
+      console.log('[SplitSteal] Round started:', { roundId, betAmount: input.betAmount, userId: user.id, reservedNonce });
 
       res.json({
         roundId,
@@ -373,8 +377,7 @@ export async function registerRoutes(
 
       const profit = payout - betAmount;
 
-      // Increment nonce
-      await storage.incrementNonce(user.id);
+      // Nonce was already incremented at start - no need to increment again
 
       // Credit winnings if any
       if (payout > 0) {

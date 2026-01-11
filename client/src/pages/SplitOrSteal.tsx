@@ -184,7 +184,7 @@ export default function SplitOrSteal() {
               Game theory showdown against AI
             </p>
           </div>
-          <ProfitTrackerWidget game="splitsteal" />
+          <ProfitTrackerWidget gameId="splitsteal" />
         </div>
 
         <div className="grid lg:grid-cols-[1fr,320px] gap-6">
