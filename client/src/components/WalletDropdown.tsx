@@ -45,7 +45,7 @@ export function WalletDropdown() {
           <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
           </svg>
-          <span className="font-semibold text-white text-sm">${user.balance.toFixed(2)}</span>
+          <span className="font-semibold text-white text-sm">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           <svg className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
           </svg>
@@ -88,7 +88,7 @@ export function WalletDropdown() {
                   </button>
                 </div>
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-white font-mono">${user.balance.toFixed(2)}</span>
+                  <span className="text-3xl font-bold text-white font-mono">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <span className="text-sm text-slate-500 ml-1">play credits</span>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
