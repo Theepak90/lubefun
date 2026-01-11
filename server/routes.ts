@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema } from "@shared/schema";
@@ -291,7 +292,6 @@ export async function registerRoutes(
       await storage.updateUserBalance(user.id, -betAmount);
 
       // Determine AI choice using provably fair randomness
-      const crypto = require('crypto');
       const hash = crypto
         .createHmac('sha256', user.serverSeed)
         .update(`${user.clientSeed}:${user.nonce}:splitsteal`)
