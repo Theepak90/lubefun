@@ -119,7 +119,7 @@ export function LiveWins() {
         </span>
       </div>
       
-      <div className="space-y-0.5 max-h-[120px] overflow-hidden">
+      <div className="space-y-0.5 max-h-[280px] overflow-hidden">
         <AnimatePresence initial={false}>
           {wins.map((win) => (
             <motion.div
