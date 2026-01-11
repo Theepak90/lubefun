@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Sparkles, Gift, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import sponsorsBanner from "@assets/image_1768119403926.png";
-import giveawayBanner from "@assets/image_1768118093805.png";
+import giveawayBanner from "@assets/image_1768120993737.png";
 
 type BannerType = {
   id: number;
