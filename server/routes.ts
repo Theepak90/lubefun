@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealBetSchema } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
@@ -233,6 +233,71 @@ export async function registerRoutes(
       });
 
       res.json(bet);
+    } catch (err) {
+      res.status(400).json({ message: "Invalid bet" });
+    }
+  });
+
+  // SPLIT OR STEAL
+  app.post(api.games.splitsteal.play.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = splitStealBetSchema.parse(req.body);
+      if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
+
+      await storage.updateUserBalance(user.id, -input.betAmount);
+      
+      // Calculate outcome using provably fair randomness
+      const hash = require('crypto')
+        .createHmac('sha256', user.serverSeed)
+        .update(`${user.clientSeed}:${user.nonce}:splitsteal`)
+        .digest('hex');
+      
+      const roll = parseInt(hash.substring(0, 8), 16) / 0xffffffff;
+      
+      // Split chance: ~49% to maintain 2% house edge
+      // With 1.96x payout: EV = 0.49 * 1.96 = 0.9604 (3.96% house edge)
+      const splitChance = 0.49;
+      const isSplit = roll < splitChance;
+      
+      // Weighted payout multiplier (1.92 - 2.0) to add variety
+      const payoutHash = parseInt(hash.substring(8, 16), 16) / 0xffffffff;
+      const baseMultiplier = 1.92 + (payoutHash * 0.08); // 1.92 to 2.0
+      const multiplier = isSplit ? baseMultiplier : 0;
+      
+      await storage.incrementNonce(user.id);
+      
+      const payout = isSplit ? input.betAmount * multiplier : 0;
+      const profit = payout - input.betAmount;
+
+      if (isSplit) {
+        await storage.updateUserBalance(user.id, payout);
+      }
+
+      const bet = await storage.createBet({
+        userId: user.id,
+        game: "splitsteal",
+        betAmount: input.betAmount,
+        payoutMultiplier: multiplier,
+        profit,
+        won: isSplit,
+        clientSeed: user.clientSeed,
+        serverSeed: user.serverSeed,
+        nonce: user.nonce,
+        result: { outcome: isSplit ? "split" : "steal", roll, multiplier },
+        active: false
+      });
+
+      res.json({
+        bet,
+        outcome: isSplit ? "split" : "steal",
+        multiplier,
+        payout,
+        won: isSplit
+      });
     } catch (err) {
       res.status(400).json({ message: "Invalid bet" });
     }

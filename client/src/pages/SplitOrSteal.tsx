@@ -15,27 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-const HOUSE_EDGE = 0.02;
-const SPLIT_CHANCE_MIN = 0.58;
-const SPLIT_CHANCE_MAX = 0.62;
-const SPLIT_PAYOUT_MIN = 1.8;
-const SPLIT_PAYOUT_MAX = 2.4;
 const SUSPENSE_DURATION = 4000;
-
-function getWeightedSplitChance(): number {
-  return SPLIT_CHANCE_MIN + Math.random() * (SPLIT_CHANCE_MAX - SPLIT_CHANCE_MIN);
-}
-
-function getWeightedPayout(): number {
-  const r = Math.random();
-  if (r < 0.6) {
-    return SPLIT_PAYOUT_MIN + Math.random() * 0.3;
-  } else if (r < 0.9) {
-    return SPLIT_PAYOUT_MIN + 0.3 + Math.random() * 0.2;
-  } else {
-    return SPLIT_PAYOUT_MAX - Math.random() * 0.2;
-  }
-}
 
 interface FakeWin {
   id: number;
@@ -125,19 +105,20 @@ export default function SplitOrSteal() {
       setPotValue(currentPot);
     }, 50);
 
-    const splitChance = getWeightedSplitChance();
-    const isSplit = Math.random() < splitChance;
-    const multiplier = isSplit ? getWeightedPayout() : 0;
-    const winAmount = isSplit ? baseAmount * multiplier : 0;
+    const currentAmount = baseAmount;
 
     placeBet({ betAmount: baseAmount }, {
-      onSettled: () => {
+      onSuccess: (data: { outcome: "split" | "steal"; payout: number; multiplier: number; won: boolean }) => {
         suspenseRef.current = setTimeout(() => {
           if (potIntervalRef.current) clearInterval(potIntervalRef.current);
           
+          const isSplit = data.outcome === "split";
+          const winAmount = data.payout;
+          const multiplier = data.multiplier;
+          
           setPotValue(finalPot);
           setPhase("result");
-          setOutcome(isSplit ? "split" : "steal");
+          setOutcome(data.outcome);
           setPayout(winAmount);
 
           if (isSplit) {
@@ -153,25 +134,35 @@ export default function SplitOrSteal() {
             playSound("lose");
             toast({
               title: "STEAL!",
-              description: `The house took ${formatCurrency(baseAmount)}`,
+              description: `The house took ${formatCurrency(currentAmount)}`,
               duration: 2000,
             });
           }
 
-          const profit = isSplit ? winAmount - baseAmount : -baseAmount;
+          const profit = isSplit ? winAmount - currentAmount : -currentAmount;
           addResult({
             game: "splitsteal",
-            betAmount: baseAmount,
+            betAmount: currentAmount,
             won: isSplit,
             profit: profit,
             detail: isSplit ? `SPLIT! Won ${multiplier.toFixed(2)}x` : "STEAL - House wins"
           });
-          recordResult("splitsteal", baseAmount, winAmount, isSplit);
+          recordResult("splitsteal", currentAmount, winAmount, isSplit);
 
           setTimeout(() => {
             setIsPlaying(false);
           }, 500);
         }, SUSPENSE_DURATION);
+      },
+      onError: () => {
+        if (potIntervalRef.current) clearInterval(potIntervalRef.current);
+        setPhase("idle");
+        setIsPlaying(false);
+        toast({
+          title: "Error",
+          description: "Failed to place bet. Please try again.",
+          duration: 2000,
+        });
       }
     });
   }, [baseAmount, user?.balance, isPlaying, playSound, placeBet, addResult, recordResult, toast]);
@@ -254,7 +245,7 @@ export default function SplitOrSteal() {
                 </Label>
                 <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5">
                   <span className="font-mono font-semibold text-emerald-400 text-sm">
-                    ${(baseAmount * 2).toFixed(2)} - ${(baseAmount * SPLIT_PAYOUT_MAX).toFixed(2)}
+                    ${(baseAmount * 1.92).toFixed(2)} - ${(baseAmount * 2.0).toFixed(2)}
                   </span>
                 </div>
               </div>

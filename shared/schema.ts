@@ -166,6 +166,10 @@ export const blackjackActionSchema = z.object({
   betId: z.number(),
 });
 
+export const splitStealBetSchema = z.object({
+  betAmount: z.number().min(0.1),
+});
+
 // Roulette Live Round Tables
 export const rouletteRounds = pgTable("roulette_rounds", {
   id: serial("id").primaryKey(),
@@ -226,3 +230,4 @@ export type PlinkoBetRequest = z.infer<typeof plinkoBetSchema>;
 export type RouletteBetRequest = z.infer<typeof rouletteBetSchema>;
 export type BlackjackDealRequest = z.infer<typeof blackjackDealSchema>;
 export type BlackjackActionRequest = z.infer<typeof blackjackActionSchema>;
+export type SplitStealBetRequest = z.infer<typeof splitStealBetSchema>;
