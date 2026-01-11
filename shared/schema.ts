@@ -243,19 +243,19 @@ export const blackjackDealSchema = z.object({
   sideBets: sideBetsSchema,
 });
 
-// Side bet payouts
+// Side bet payouts (multiplier = total return including stake, e.g., 26 means 25:1 odds)
 export const SIDE_BET_PAYOUTS = {
   perfectPairs: {
-    perfect: 25, // Same rank and suit
-    colored: 12, // Same rank and color
-    mixed: 6,    // Same rank, different color
+    perfect: 26, // Same rank and suit (25:1 odds)
+    colored: 13, // Same rank and color (12:1 odds)
+    mixed: 7,    // Same rank, different color (6:1 odds)
   },
   twentyOnePlus3: {
-    suitedTrips: 100, // Three of same rank and suit
-    straightFlush: 40,
-    threeOfAKind: 30,
-    straight: 10,
-    flush: 5,
+    suitedTrips: 101, // Three of same rank and suit (100:1 odds)
+    straightFlush: 41, // (40:1 odds)
+    threeOfAKind: 31,  // (30:1 odds)
+    straight: 11,      // (10:1 odds)
+    flush: 6,          // (5:1 odds)
   },
 } as const;
 

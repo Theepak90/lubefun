@@ -980,6 +980,7 @@ Your bets are verifiable after the server seed is revealed.
   }
 
   // Helper: Evaluate Perfect Pairs side bet
+  // Returns multiplier as total return (includes stake), e.g., 26 = 25:1 odds
   function evaluatePerfectPairs(card1: number, card2: number): { result: string | null, multiplier: number } {
     const rank1 = Math.floor(card1 / 4);
     const rank2 = Math.floor(card2 / 4);
@@ -992,20 +993,21 @@ Your bets are verifiable after the server seed is revealed.
     
     // Same rank - it's a pair
     if (suit1 === suit2) {
-      return { result: "perfect", multiplier: 25 }; // Perfect pair (same suit)
+      return { result: "Perfect Pair", multiplier: 26 }; // 25:1 odds
     }
     
     // Check if same color (0,2 are black, 1,3 are red)
     const color1 = suit1 % 2;
     const color2 = suit2 % 2;
     if (color1 === color2) {
-      return { result: "colored", multiplier: 12 }; // Colored pair
+      return { result: "Colored Pair", multiplier: 13 }; // 12:1 odds
     }
     
-    return { result: "mixed", multiplier: 6 }; // Mixed pair
+    return { result: "Mixed Pair", multiplier: 7 }; // 6:1 odds
   }
   
   // Helper: Evaluate 21+3 side bet (player's 2 cards + dealer upcard)
+  // Returns multiplier as total return (includes stake)
   function evaluate21Plus3(card1: number, card2: number, dealerUpcard: number): { result: string | null, multiplier: number } {
     const cards = [card1, card2, dealerUpcard];
     const ranks = cards.map(c => Math.floor(c / 4));
@@ -1022,29 +1024,29 @@ Your bets are verifiable after the server seed is revealed.
                          // Q-K-A straight (Q is 10, K is 11, A is 0)
                          (sortedRanks[0] === 0 && sortedRanks[1] === 10 && sortedRanks[2] === 11);
     
-    // Suited trips (three of a kind, same suit)
+    // Suited trips (three of a kind, same suit) - highest priority
     if (allSameRank && allSameSuit) {
-      return { result: "suitedTrips", multiplier: 100 };
+      return { result: "Suited Trips", multiplier: 101 }; // 100:1 odds
     }
     
     // Straight flush
     if (isSequential && allSameSuit) {
-      return { result: "straightFlush", multiplier: 40 };
+      return { result: "Straight Flush", multiplier: 41 }; // 40:1 odds
     }
     
     // Three of a kind
     if (allSameRank) {
-      return { result: "threeOfAKind", multiplier: 30 };
+      return { result: "Three of a Kind", multiplier: 31 }; // 30:1 odds
     }
     
     // Straight
     if (isSequential) {
-      return { result: "straight", multiplier: 10 };
+      return { result: "Straight", multiplier: 11 }; // 10:1 odds
     }
     
     // Flush
     if (allSameSuit) {
-      return { result: "flush", multiplier: 5 };
+      return { result: "Flush", multiplier: 6 }; // 5:1 odds
     }
     
     return { result: null, multiplier: 0 };
@@ -1143,6 +1145,7 @@ Your bets are verifiable after the server seed is revealed.
       
       if (sideBets.perfectPairs > 0) {
         const ppResult = evaluatePerfectPairs(playerCards[0], playerCards[1]);
+        // Multiplier is total return (includes stake), e.g., 26 means 25:1 odds
         const ppPayout = sideBets.perfectPairs * ppResult.multiplier;
         sideBetResults.perfectPairs = { result: ppResult.result, payout: ppPayout };
         sideBetPayout += ppPayout;
@@ -1151,6 +1154,7 @@ Your bets are verifiable after the server seed is revealed.
       if (sideBets.twentyOnePlus3 > 0) {
         // Dealer upcard is the second dealer card (index 1)
         const t3Result = evaluate21Plus3(playerCards[0], playerCards[1], dealerCards[1]);
+        // Multiplier is total return (includes stake)
         const t3Payout = sideBets.twentyOnePlus3 * t3Result.multiplier;
         sideBetResults.twentyOnePlus3 = { result: t3Result.result, payout: t3Payout };
         sideBetPayout += t3Payout;

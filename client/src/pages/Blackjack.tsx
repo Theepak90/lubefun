@@ -18,6 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useSound } from "@/hooks/use-sound";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface SideBetResults {
+  perfectPairs?: { result: string | null; payout: number };
+  twentyOnePlus3?: { result: string | null; payout: number };
+}
+
 interface BlackjackState {
   bet: any;
   playerCards: number[];
@@ -29,6 +34,8 @@ interface BlackjackState {
   canDouble: boolean;
   outcome?: string;
   payout?: number;
+  sideBetResults?: SideBetResults;
+  sideBetPayout?: number;
 }
 
 type GamePhase = "BETTING" | "DEALING" | "PLAYER_TURN" | "DEALER" | "SETTLEMENT" | "COMPLETE";
@@ -364,6 +371,12 @@ export default function Blackjack() {
   const [betAmount, setBetAmount] = useState(0);
   const [selectedChip, setSelectedChip] = useState<ChipValue | null>(CHIP_VALUES[0]);
   const [seatActive, setSeatActive] = useState(false);
+  const [draggingChip, setDraggingChip] = useState<ChipValue | null>(null);
+  
+  // Side bets
+  const [perfectPairsBet, setPerfectPairsBet] = useState(0);
+  const [twentyOnePlus3Bet, setTwentyOnePlus3Bet] = useState(0);
+  const [sideBetResults, setSideBetResults] = useState<SideBetResults | null>(null);
   
   const [gamePhase, setGamePhase] = useState<GamePhase>("BETTING");
   const [gameState, setGameState] = useState<BlackjackState | null>(null);
@@ -375,21 +388,25 @@ export default function Blackjack() {
   const [resultText, setResultText] = useState("");
   
   const [lastBet, setLastBet] = useState(0);
+  const [lastSideBets, setLastSideBets] = useState({ perfectPairs: 0, twentyOnePlus3: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
   
   const balance = user?.balance || 0;
-  const canDeal = betAmount >= 0.5 && betAmount <= balance && gamePhase === "BETTING";
-  const canRebet = lastBet > 0 && lastBet <= balance;
+  const totalBet = betAmount + perfectPairsBet + twentyOnePlus3Bet;
+  const canDeal = betAmount >= 0.5 && totalBet <= balance && gamePhase === "BETTING";
+  const canRebet = lastBet > 0 && (lastBet + lastSideBets.perfectPairs + lastSideBets.twentyOnePlus3) <= balance;
 
   const clearBet = () => {
     setBetAmount(0);
+    setPerfectPairsBet(0);
+    setTwentyOnePlus3Bet(0);
     setSeatActive(false);
   };
 
   const dealMutation = useMutation({
-    mutationFn: async (bet: number) => {
-      const res = await apiRequest("POST", "/api/games/blackjack/deal", { betAmount: bet });
+    mutationFn: async (params: { betAmount: number; sideBets: { perfectPairs: number; twentyOnePlus3: number } }) => {
+      const res = await apiRequest("POST", "/api/games/blackjack/deal", params);
       return res.json() as Promise<BlackjackState>;
     },
   });
@@ -421,17 +438,27 @@ export default function Blackjack() {
     setIsProcessing(true);
     
     setLastBet(betAmount);
+    setLastSideBets({ perfectPairs: perfectPairsBet, twentyOnePlus3: twentyOnePlus3Bet });
     setGamePhase("DEALING");
     setStatusText("Dealing cards...");
     setResultText("");
     setDealerRevealed(false);
     setVisiblePlayerCards([]);
     setVisibleDealerCards([]);
+    setSideBetResults(null);
     
     try {
-      const data = await dealMutation.mutateAsync(betAmount);
+      const data = await dealMutation.mutateAsync({
+        betAmount,
+        sideBets: { perfectPairs: perfectPairsBet, twentyOnePlus3: twentyOnePlus3Bet }
+      });
       setGameState(data);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      // Store side bet results
+      if (data.sideBetResults) {
+        setSideBetResults(data.sideBetResults);
+      }
       
       const playerCards = data.playerCards || [];
       const dealerCards = data.dealerCards || [];
@@ -447,6 +474,18 @@ export default function Blackjack() {
       }
       
       await new Promise(r => setTimeout(r, ACTION_DELAY));
+      
+      // Show side bet results
+      if (data.sideBetResults) {
+        const pp = data.sideBetResults.perfectPairs;
+        const t3 = data.sideBetResults.twentyOnePlus3;
+        if (pp?.payout && pp.payout > 0) {
+          toast({ title: `Perfect Pairs: ${pp.result}!`, description: `Won $${pp.payout.toFixed(2)}` });
+        }
+        if (t3?.payout && t3.payout > 0) {
+          toast({ title: `21+3: ${t3.result}!`, description: `Won $${t3.payout.toFixed(2)}` });
+        }
+      }
       
       if (data.status === "completed") {
         await revealAndSettle(data);
@@ -598,6 +637,9 @@ export default function Blackjack() {
     setStatusText("");
     setResultText("");
     setBetAmount(0);
+    setPerfectPairsBet(0);
+    setTwentyOnePlus3Bet(0);
+    setSideBetResults(null);
     setSeatActive(false);
     queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
   };
@@ -605,6 +647,8 @@ export default function Blackjack() {
   const handleRebet = () => {
     if (canRebet) {
       setBetAmount(lastBet);
+      setPerfectPairsBet(lastSideBets.perfectPairs);
+      setTwentyOnePlus3Bet(lastSideBets.twentyOnePlus3);
       setSeatActive(true);
     }
     setGamePhase("BETTING");
@@ -614,6 +658,7 @@ export default function Blackjack() {
     setDealerRevealed(false);
     setStatusText("");
     setResultText("");
+    setSideBetResults(null);
     queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
   };
 
@@ -782,7 +827,43 @@ export default function Blackjack() {
                 </AnimatePresence>
               </div>
 
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+              {/* Side bet and main bet circles */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-end gap-2 z-10">
+                {/* Perfect Pairs - Left side bet */}
+                <motion.div
+                  className={cn(
+                    "w-14 h-14 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all",
+                    perfectPairsBet > 0 ? "ring-2 ring-amber-400" : "hover:ring-1 hover:ring-violet-400/50"
+                  )}
+                  style={{
+                    background: perfectPairsBet > 0
+                      ? "linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.1) 100%)"
+                      : "linear-gradient(135deg, rgba(30, 21, 53, 0.6) 0%, rgba(42, 30, 74, 0.4) 100%)",
+                    border: "2px dashed rgba(139, 92, 246, 0.4)",
+                  }}
+                  onClick={() => {
+                    if (gamePhase === "BETTING" && selectedChip) {
+                      const newBet = Math.round((perfectPairsBet + selectedChip.value) * 100) / 100;
+                      if (totalBet + selectedChip.value <= balance) {
+                        setPerfectPairsBet(newBet);
+                        playSound("chipDrop");
+                      }
+                    }
+                  }}
+                  whileHover={gamePhase === "BETTING" ? { scale: 1.05 } : undefined}
+                  data-testid="side-bet-perfect-pairs"
+                >
+                  {perfectPairsBet > 0 ? (
+                    <span className="text-xs font-mono font-bold text-amber-300">${perfectPairsBet}</span>
+                  ) : (
+                    <span className="text-[8px] text-violet-400 text-center leading-tight">Perfect<br/>Pairs</span>
+                  )}
+                  {sideBetResults?.perfectPairs?.result && (
+                    <span className="text-[7px] text-emerald-400 mt-0.5">{sideBetResults.perfectPairs.result}</span>
+                  )}
+                </motion.div>
+
+                {/* Main bet - Center */}
                 <PlayerSeat
                   total={playerTotal}
                   betAmount={betAmount}
@@ -795,7 +876,7 @@ export default function Blackjack() {
                       setSeatActive(true);
                     } else if (selectedChip) {
                       const newBet = Math.round((betAmount + selectedChip.value) * 100) / 100;
-                      if (newBet <= balance) {
+                      if (totalBet - betAmount + newBet <= balance) {
                         setBetAmount(newBet);
                         playSound("chipDrop");
                       }
@@ -803,6 +884,40 @@ export default function Blackjack() {
                   }}
                   isPlaying={gamePhase !== "BETTING"}
                 />
+
+                {/* 21+3 - Right side bet */}
+                <motion.div
+                  className={cn(
+                    "w-14 h-14 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all",
+                    twentyOnePlus3Bet > 0 ? "ring-2 ring-cyan-400" : "hover:ring-1 hover:ring-violet-400/50"
+                  )}
+                  style={{
+                    background: twentyOnePlus3Bet > 0
+                      ? "linear-gradient(135deg, rgba(34, 211, 238, 0.3) 0%, rgba(34, 211, 238, 0.1) 100%)"
+                      : "linear-gradient(135deg, rgba(30, 21, 53, 0.6) 0%, rgba(42, 30, 74, 0.4) 100%)",
+                    border: "2px dashed rgba(139, 92, 246, 0.4)",
+                  }}
+                  onClick={() => {
+                    if (gamePhase === "BETTING" && selectedChip) {
+                      const newBet = Math.round((twentyOnePlus3Bet + selectedChip.value) * 100) / 100;
+                      if (totalBet + selectedChip.value <= balance) {
+                        setTwentyOnePlus3Bet(newBet);
+                        playSound("chipDrop");
+                      }
+                    }
+                  }}
+                  whileHover={gamePhase === "BETTING" ? { scale: 1.05 } : undefined}
+                  data-testid="side-bet-21-plus-3"
+                >
+                  {twentyOnePlus3Bet > 0 ? (
+                    <span className="text-xs font-mono font-bold text-cyan-300">${twentyOnePlus3Bet}</span>
+                  ) : (
+                    <span className="text-[8px] text-violet-400 text-center leading-tight">21+3</span>
+                  )}
+                  {sideBetResults?.twentyOnePlus3?.result && (
+                    <span className="text-[7px] text-emerald-400 mt-0.5">{sideBetResults.twentyOnePlus3.result}</span>
+                  )}
+                </motion.div>
               </div>
             </div>
 
