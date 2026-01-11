@@ -56,7 +56,7 @@ export default function Home() {
     return games;
   }, [searchQuery, activeFilter]);
 
-  const showFilteredResults = searchQuery || activeFilter !== "all";
+  const showFilteredResults = searchQuery.length > 0 || activeFilter !== "all";
 
   return (
     <Layout>

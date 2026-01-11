@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard, GameInfo } from "./GameCard";
-import { cn } from "@/lib/utils";
 
 interface GameRowProps {
   title: string;
