@@ -9,7 +9,7 @@ import spinImg from "@assets/Daily_Spin_game_card_design_1768106559757.png";
 import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_1768106559758.png";
 import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
 import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
-import splitstealImg from "@assets/Split_or_steal__the_challenge_begins_1768107077724.png";
+import splitstealImg from "@assets/Split_or_steal_showdown_1768107711468.png";
 
 export interface GameInfo {
   id: string;
@@ -40,7 +40,7 @@ const gameImageStyles: Record<string, { scale: string; hoverScale: string; posit
   blackjack: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
   spin: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
   mines: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
-  splitsteal: { scale: "scale-[1.1]", hoverScale: "group-hover:scale-[1.2]" },
+  splitsteal: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
