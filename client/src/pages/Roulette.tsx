@@ -392,19 +392,42 @@ export default function Roulette() {
 
   const ChipStack = ({ amount, small, bouncing }: { amount: number; small?: boolean; bouncing?: boolean }) => {
     if (amount <= 0) return null;
-    const size = small ? "w-5 h-5" : "w-7 h-7";
+    const size = small ? "w-6 h-6" : "w-8 h-8";
+    
+    // Find the best matching chip image for the amount
+    const getChipImage = (amt: number) => {
+      // Find the largest chip that divides into the amount
+      const sortedChips = [...CHIP_CONFIGS].sort((a, b) => b.value - a.value);
+      for (const chip of sortedChips) {
+        if (amt >= chip.value) {
+          return chip.image;
+        }
+      }
+      return CHIP_CONFIGS[0].image; // default to smallest chip
+    };
+    
+    const chipImage = getChipImage(amount);
     const displayAmount = amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount >= 1 ? amount.toFixed(0) : amount.toFixed(2);
+    
     return (
       <div className={cn(
         "absolute inset-0 flex items-center justify-center pointer-events-none z-10",
         bouncing && "animate-chip-drop"
       )}>
-        <div className={cn(
-          size,
-          "rounded-full bg-yellow-400 border-2 border-yellow-600 flex items-center justify-center font-bold text-yellow-950 shadow-md",
-          small ? "text-[7px]" : "text-[9px]"
-        )}>
-          {displayAmount}
+        <div className={cn(size, "relative")}>
+          <img 
+            src={chipImage} 
+            alt={`$${amount}`} 
+            className="w-full h-full object-contain drop-shadow-lg"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={cn(
+              "font-bold text-white drop-shadow-md",
+              small ? "text-[6px]" : "text-[8px]"
+            )}>
+              ${displayAmount}
+            </span>
+          </div>
         </div>
       </div>
     );
