@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Sparkles, Gift, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import sponsorsBanner from "@assets/ChatGPT_Image_Jan_11,_2026,_05_21_15_AM_1768108884648.png";
+import sponsorsBanner from "@assets/image_(7)_1768109198050.jpg";
 
 type BannerType = {
   id: number;
@@ -130,7 +130,7 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
       <Link href={banner.href}>
         <div 
           className={cn(
-            "relative h-48 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
+            "relative h-64 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
             isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
           )}
           style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
@@ -150,7 +150,7 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
     <Link href={banner.href}>
       <div 
         className={cn(
-          "relative h-48 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
+          "relative h-64 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300",
           isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
         )}
         style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
