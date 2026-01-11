@@ -66,7 +66,6 @@ export function Layout({ children }: LayoutProps) {
     { icon: CircleDot, label: "Roulette", href: "/roulette" },
     { icon: Triangle, label: "Plinko", href: "/plinko" },
     { icon: Handshake, label: "Split or Steal", href: "/split-or-steal", badge: "FUN" },
-    { icon: RotateCw, label: "Daily Spin", href: "/daily-spin" },
   ];
 
   return (
@@ -179,6 +178,17 @@ export function Layout({ children }: LayoutProps) {
 
             <div className="mt-8 space-y-1">
               <div className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Account</div>
+              <Link href="/daily-spin">
+                <div className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer mb-1",
+                  location === "/daily-spin" 
+                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]" 
+                    : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                )}>
+                  <RotateCw className={cn("w-5 h-5", location === "/daily-spin" && "animate-pulse")} />
+                  <span className="font-semibold">Daily Spin</span>
+                </div>
+              </Link>
               <div 
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-secondary/50 hover:text-foreground cursor-pointer transition-colors"
                 onClick={() => setFairnessOpen(true)}
