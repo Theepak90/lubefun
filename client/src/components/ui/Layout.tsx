@@ -65,7 +65,7 @@ export function Layout({ children }: LayoutProps) {
     { icon: Spade, label: "Blackjack", href: "/blackjack" },
     { icon: CircleDot, label: "Roulette", href: "/roulette" },
     { icon: Triangle, label: "Plinko", href: "/plinko" },
-    { icon: Handshake, label: "Split or Steal", href: "/split-or-steal" },
+    { icon: Handshake, label: "Split or Steal", href: "/split-or-steal", badge: "FUN" },
     { icon: RotateCw, label: "Daily Spin", href: "/daily-spin" },
   ];
 
@@ -167,6 +167,11 @@ export function Layout({ children }: LayoutProps) {
                   )}>
                     <item.icon className={cn("w-5 h-5", location === item.href && "animate-pulse")} />
                     <span className="font-semibold">{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-gradient-to-r from-pink-500 to-purple-500 text-white uppercase tracking-wide">
+                        {item.badge}
+                      </span>
+                    )}
                   </div>
                 </Link>
               ))}
