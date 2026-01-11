@@ -76,7 +76,6 @@ export default function SplitOrSteal() {
   
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const potIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingResultRef = useRef<{ outcome: "split" | "steal"; payout: number; multiplier: number } | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
   const multiplierRange = getEffectiveMultiplierRange();
@@ -105,7 +104,11 @@ export default function SplitOrSteal() {
   }, []);
 
   const playGame = useCallback(() => {
-    if (isLocked) return;
+    // Use ref to prevent double-clicks during state transition
+    if (gameState !== "idle") {
+      console.log('[SplitSteal UI] Blocked - game not idle, state:', gameState);
+      return;
+    }
     if (baseAmount <= 0) {
       toast({ title: "Invalid bet", description: "Bet must be greater than 0", duration: 2000 });
       return;
@@ -121,16 +124,21 @@ export default function SplitOrSteal() {
       balanceBefore: user?.balance
     });
 
-    // Lock UI and set running state
+    // Lock UI immediately and set running state
     setGameState("running");
     setOutcome(null);
     setPotValue(0);
     setPayout(0);
     setLastBetAmount(baseAmount);
+    setMultiplierUsed(0);
     playSound("flip");
 
+    // Track when the game started for proper timing
+    const gameStartTime = Date.now();
+    const suspenseDuration = GAME_CONFIG.suspenseDurationMs;
+
     // Start countdown (4 seconds = 4000ms)
-    const totalSeconds = Math.ceil(GAME_CONFIG.suspenseDurationMs / 1000);
+    const totalSeconds = Math.ceil(suspenseDuration / 1000);
     setCountdown(totalSeconds);
     
     const countdownInterval = setInterval(() => {
@@ -147,7 +155,7 @@ export default function SplitOrSteal() {
     // Pot animation
     const finalPot = baseAmount;
     let currentPot = 0;
-    const potStep = finalPot / (GAME_CONFIG.suspenseDurationMs / 50);
+    const potStep = finalPot / (suspenseDuration / 50);
     
     potIntervalRef.current = setInterval(() => {
       currentPot = Math.min(currentPot + potStep + (Math.random() * potStep * 0.5), finalPot * 1.2);
@@ -159,8 +167,8 @@ export default function SplitOrSteal() {
     // Place bet - balance deducted on server immediately
     placeBet({ betAmount: baseAmount }, {
       onSuccess: (data: { outcome: "split" | "steal"; payout: number; multiplier: number; won: boolean; balanceAfter?: number }) => {
-        // Store result, reveal after countdown
-        pendingResultRef.current = {
+        // Store result for reveal
+        const result = {
           outcome: data.outcome,
           payout: data.payout,
           multiplier: data.multiplier
@@ -174,13 +182,16 @@ export default function SplitOrSteal() {
           balanceAfter: data.balanceAfter
         });
 
-        // Wait for countdown to finish before revealing
+        // Calculate remaining time to wait based on when game started
+        const elapsed = Date.now() - gameStartTime;
+        const remainingTime = Math.max(0, suspenseDuration - elapsed);
+        
+        console.log('[SplitSteal UI] Waiting', remainingTime, 'ms before reveal');
+
+        // Wait for remaining countdown time before revealing
         setTimeout(() => {
           if (potIntervalRef.current) clearInterval(potIntervalRef.current);
           if (countdownRef.current) clearInterval(countdownRef.current);
-          
-          const result = pendingResultRef.current;
-          if (!result) return;
 
           const isSplit = result.outcome === "split";
           const winAmount = result.payout;
@@ -230,9 +241,7 @@ export default function SplitOrSteal() {
             detail: isSplit ? `SPLIT! Won ${multiplier.toFixed(2)}x` : "STEAL - House wins"
           });
           recordResult("splitsteal", currentAmount, winAmount, isSplit);
-          
-          pendingResultRef.current = null;
-        }, GAME_CONFIG.suspenseDurationMs);
+        }, remainingTime);
       },
       onError: (error) => {
         console.error('[SplitSteal UI] Error:', error);
@@ -247,7 +256,7 @@ export default function SplitOrSteal() {
         });
       }
     });
-  }, [baseAmount, user?.balance, isLocked, playSound, placeBet, addResult, recordResult, toast, queryClient]);
+  }, [baseAmount, user?.balance, gameState, playSound, placeBet, addResult, recordResult, toast, queryClient]);
 
   const resetGame = () => {
     // DEBUG: Log reset
@@ -258,7 +267,6 @@ export default function SplitOrSteal() {
     setPayout(0);
     setMultiplierUsed(0);
     setCountdown(0);
-    pendingResultRef.current = null;
   };
 
   const setPercent = (percent: number) => {
@@ -552,7 +560,7 @@ export default function SplitOrSteal() {
                             +${payout.toFixed(2)}
                           </p>
                           <p className="text-sm text-slate-400 mt-1">
-                            You split the pot!
+                            You split the pot! ({multiplierUsed.toFixed(2)}x)
                           </p>
                         </>
                       ) : (
