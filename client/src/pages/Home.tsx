@@ -5,8 +5,10 @@ import { LiveWins } from "@/components/LiveWins";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
 import { GameInfo } from "@/components/GameCard";
-import { Gamepad2, TrendingUp, Sparkles } from "lucide-react";
+import { Gamepad2, TrendingUp, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "wouter";
+import newReleaseBg from "@assets/f05eea61-9bf2-4880-820b-f2a0acec5fea_1768107746554.png";
 
 const allGames: GameInfo[] = [
   { id: "dice", name: "Dice", href: "/dice", icon: "dice", isHot: true },
@@ -100,6 +102,37 @@ export default function Home() {
           onFilterChange={setActiveFilter}
           activeFilter={activeFilter}
         />
+
+        <section className="mb-6" data-testid="section-new-release">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-yellow-400" />
+            <h2 className="text-lg font-bold text-white">New Release</h2>
+          </div>
+          <Link href="/split-or-steal">
+            <div 
+              className="relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 h-40"
+              style={{
+                backgroundImage: `url(${newReleaseBg})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
+              <div className="absolute inset-0 flex items-center justify-between px-8">
+                <div>
+                  <span className="inline-block px-2 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-md text-emerald-400 text-xs font-bold mb-2">NEW</span>
+                  <h3 className="text-2xl font-bold text-white">Split or Steal</h3>
+                  <p className="text-slate-300 text-sm">Test your trust in a multiplayer showdown!</p>
+                </div>
+                <div className="hidden sm:block">
+                  <button className="px-6 py-2 bg-primary hover:bg-primary/80 text-white font-semibold rounded-lg transition-colors">
+                    Play Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </section>
 
         {showFilteredResults ? (
           <section>
