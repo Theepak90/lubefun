@@ -1,7 +1,7 @@
 export const GAME_CONFIG = {
-  HOUSE_EDGE: 0.02,
-  HOUSE_EDGE_PERCENT: 2,
-  RTP: 0.98,
+  HOUSE_EDGE: 0.04,
+  HOUSE_EDGE_PERCENT: 4,
+  RTP: 0.96,
 };
 
 export function getMultiplierWithEdge(baseMultiplier: number): number {

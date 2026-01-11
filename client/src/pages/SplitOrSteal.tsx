@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Flame, Snowflake, RotateCcw, Zap } from "lucide-react";
+import { Handshake, Swords, RotateCcw, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfitTracker, formatCurrency } from "@/hooks/use-profit-tracker";
@@ -17,42 +17,23 @@ import { apiRequest } from "@/lib/queryClient";
 
 const GAME_CONFIG = {
   houseEdge: 0.04,
-  splitChance: 0.60,
-  minMultiplier: 1.8,
-  maxMultiplier: 2.4,
-  suspenseDurationMs: 4000
+  splitBonus: 0.06,
+  suspenseDelayMs: 1500
 };
 
-const getEffectiveMultiplierRange = () => ({
-  min: GAME_CONFIG.minMultiplier * (1 - GAME_CONFIG.houseEdge),
-  max: GAME_CONFIG.maxMultiplier * (1 - GAME_CONFIG.houseEdge)
-});
+type GameState = "idle" | "deciding" | "suspense" | "result";
 
-type GameState = "idle" | "running" | "result";
-
-interface FakeWin {
-  id: number;
-  username: string;
-  amount: number;
-  outcome: "split" | "steal";
-  timestamp: number;
+interface RoundData {
+  roundId: number;
+  betAmount: number;
 }
 
-const fakeNames = [
-  "CryptoKing", "LuckyAce", "DiamondHands", "MoonShot", "WhaleWatch",
-  "GoldenRush", "SilverFox", "NeonNinja", "PixelPirate", "ByteBoss",
-  "CosmicWin", "TurboGambler", "VegasVibes", "JackpotJoe", "RiskyBiz"
-];
-
-function generateFakeWin(): FakeWin {
-  const isWin = Math.random() > 0.4;
-  return {
-    id: Date.now() + Math.random(),
-    username: fakeNames[Math.floor(Math.random() * fakeNames.length)] + Math.floor(Math.random() * 999),
-    amount: Math.floor(5 + Math.random() * 200),
-    outcome: isWin ? "split" : "steal",
-    timestamp: Date.now()
-  };
+interface ResolveResult {
+  playerChoice: "split" | "steal";
+  aiChoice: "split" | "steal";
+  payout: number;
+  won: boolean;
+  balanceAfter: number;
 }
 
 export default function SplitOrSteal() {
@@ -65,50 +46,83 @@ export default function SplitOrSteal() {
 
   const [amount, setAmount] = useState<string>("10");
   const [gameState, setGameState] = useState<GameState>("idle");
-  const [outcome, setOutcome] = useState<"split" | "steal" | null>(null);
-  const [potValue, setPotValue] = useState(0);
-  const [payout, setPayout] = useState(0);
-  const [multiplierUsed, setMultiplierUsed] = useState(0);
-  const [countdown, setCountdown] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [fakeWins, setFakeWins] = useState<FakeWin[]>([]);
-  const [lastBetAmount, setLastBetAmount] = useState(0);
-  
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
-  const potIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [roundData, setRoundData] = useState<RoundData | null>(null);
+  const [result, setResult] = useState<ResolveResult | null>(null);
+  const [aiThinking, setAiThinking] = useState(false);
 
   const baseAmount = parseFloat(amount || "0");
-  const multiplierRange = getEffectiveMultiplierRange();
-  const isLocked = gameState === "running";
+  const isLocked = gameState !== "idle";
 
-  const { mutate: placeBet } = useMutation({
+  const { mutate: startGame, isPending: isStarting } = useMutation({
     mutationFn: async (data: { betAmount: number }) => {
-      const res = await apiRequest("POST", "/api/games/splitsteal", data);
+      const res = await apiRequest("POST", "/api/games/splitsteal/start", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { roundId: number; betAmount: number; balanceAfter: number }) => {
+      setRoundData({ roundId: data.roundId, betAmount: data.betAmount });
+      setGameState("deciding");
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      playSound("flip");
+    },
+    onError: (error) => {
+      console.error('[SplitSteal] Start error:', error);
+      toast({ title: "Error", description: "Failed to start game", duration: 2000 });
     }
   });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.6) {
-        setFakeWins(prev => {
-          const newWins = [generateFakeWin(), ...prev].slice(0, 5);
-          return newWins;
-        });
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const { mutate: resolveGame, isPending: isResolving } = useMutation({
+    mutationFn: async (data: { roundId: number; playerChoice: "split" | "steal" }) => {
+      const res = await apiRequest("POST", "/api/games/splitsteal/resolve", data);
+      return res.json();
+    },
+    onSuccess: (data: ResolveResult) => {
+      setTimeout(() => {
+        setAiThinking(false);
+        setResult(data);
+        setGameState("result");
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
 
-  const playGame = useCallback(() => {
-    // Use ref to prevent double-clicks during state transition
-    if (gameState !== "idle") {
-      console.log('[SplitSteal UI] Blocked - game not idle, state:', gameState);
-      return;
+        if (data.won) {
+          playSound("win");
+          toast({
+            title: data.playerChoice === "split" && data.aiChoice === "split" ? "Both Split!" : "You Stole!",
+            description: `You won ${formatCurrency(data.payout)}!`,
+            duration: 2000,
+          });
+        } else {
+          playSound("lose");
+          const message = data.playerChoice === "steal" && data.aiChoice === "steal" 
+            ? "Both stole - nobody wins!" 
+            : "AI stole your share!";
+          toast({
+            title: "You Lost!",
+            description: message,
+            duration: 2000,
+          });
+        }
+
+        const betAmount = roundData?.betAmount || 0;
+        const profit = data.payout - betAmount;
+        addResult({
+          game: "splitsteal",
+          betAmount,
+          won: data.won,
+          profit,
+          detail: `${data.playerChoice.toUpperCase()} vs ${data.aiChoice.toUpperCase()}`
+        });
+        recordResult("splitsteal", betAmount, data.payout, data.won);
+      }, GAME_CONFIG.suspenseDelayMs);
+    },
+    onError: (error) => {
+      console.error('[SplitSteal] Resolve error:', error);
+      setAiThinking(false);
+      setGameState("idle");
+      toast({ title: "Error", description: "Failed to resolve game", duration: 2000 });
     }
+  });
+
+  const handleStartGame = useCallback(() => {
+    if (gameState !== "idle") return;
     if (baseAmount <= 0) {
       toast({ title: "Invalid bet", description: "Bet must be greater than 0", duration: 2000 });
       return;
@@ -117,496 +131,363 @@ export default function SplitOrSteal() {
       toast({ title: "Insufficient balance", description: "You don't have enough balance", duration: 2000 });
       return;
     }
+    startGame({ betAmount: baseAmount });
+  }, [baseAmount, user?.balance, gameState, startGame, toast]);
 
-    // DEBUG: Log bet and balance before
-    console.log('[SplitSteal UI] Starting game:', {
-      betAmount: baseAmount,
-      balanceBefore: user?.balance
-    });
-
-    // Lock UI immediately and set running state
-    setGameState("running");
-    setOutcome(null);
-    setPotValue(0);
-    setPayout(0);
-    setLastBetAmount(baseAmount);
-    setMultiplierUsed(0);
+  const handleChoice = useCallback((choice: "split" | "steal") => {
+    if (gameState !== "deciding" || !roundData) return;
+    
+    setGameState("suspense");
+    setAiThinking(true);
     playSound("flip");
-
-    // Track when the game started for proper timing
-    const gameStartTime = Date.now();
-    const suspenseDuration = GAME_CONFIG.suspenseDurationMs;
-
-    // Start countdown (4 seconds = 4000ms)
-    const totalSeconds = Math.ceil(suspenseDuration / 1000);
-    setCountdown(totalSeconds);
     
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    countdownRef.current = countdownInterval;
-
-    // Pot animation
-    const finalPot = baseAmount;
-    let currentPot = 0;
-    const potStep = finalPot / (suspenseDuration / 50);
-    
-    potIntervalRef.current = setInterval(() => {
-      currentPot = Math.min(currentPot + potStep + (Math.random() * potStep * 0.5), finalPot * 1.2);
-      setPotValue(currentPot);
-    }, 50);
-
-    const currentAmount = baseAmount;
-
-    // Place bet - balance deducted on server immediately
-    placeBet({ betAmount: baseAmount }, {
-      onSuccess: (data: { outcome: "split" | "steal"; payout: number; multiplier: number; won: boolean; balanceAfter?: number }) => {
-        // Store result for reveal
-        const result = {
-          outcome: data.outcome,
-          payout: data.payout,
-          multiplier: data.multiplier
-        };
-
-        // DEBUG: Log server response
-        console.log('[SplitSteal UI] Server response:', {
-          outcome: data.outcome,
-          multiplier: data.multiplier?.toFixed(4),
-          payout: data.payout?.toFixed(2),
-          balanceAfter: data.balanceAfter
-        });
-
-        // Calculate remaining time to wait based on when game started
-        const elapsed = Date.now() - gameStartTime;
-        const remainingTime = Math.max(0, suspenseDuration - elapsed);
-        
-        console.log('[SplitSteal UI] Waiting', remainingTime, 'ms before reveal');
-
-        // Wait for remaining countdown time before revealing
-        setTimeout(() => {
-          if (potIntervalRef.current) clearInterval(potIntervalRef.current);
-          if (countdownRef.current) clearInterval(countdownRef.current);
-
-          const isSplit = result.outcome === "split";
-          const winAmount = result.payout;
-          const multiplier = result.multiplier;
-          
-          // DEBUG: Log final result
-          console.log('[SplitSteal UI] Revealing result:', {
-            outcome: result.outcome,
-            payout: winAmount,
-            multiplier: multiplier
-          });
-
-          setPotValue(finalPot);
-          setGameState("result");
-          setOutcome(result.outcome);
-          setPayout(winAmount);
-          setMultiplierUsed(multiplier);
-          setCountdown(0);
-
-          // Invalidate user query to refresh balance
-          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-
-          if (isSplit) {
-            setStreak(prev => prev + 1);
-            playSound("win");
-            toast({
-              title: "SPLIT!",
-              description: `You won ${formatCurrency(winAmount)}!`,
-              duration: 2000,
-            });
-          } else {
-            setStreak(prev => Math.min(0, prev - 1));
-            playSound("lose");
-            toast({
-              title: "STEAL!",
-              description: `The house took ${formatCurrency(currentAmount)}`,
-              duration: 2000,
-            });
-          }
-
-          const profit = isSplit ? winAmount - currentAmount : -currentAmount;
-          addResult({
-            game: "splitsteal",
-            betAmount: currentAmount,
-            won: isSplit,
-            profit: profit,
-            detail: isSplit ? `SPLIT! Won ${multiplier.toFixed(2)}x` : "STEAL - House wins"
-          });
-          recordResult("splitsteal", currentAmount, winAmount, isSplit);
-        }, remainingTime);
-      },
-      onError: (error) => {
-        console.error('[SplitSteal UI] Error:', error);
-        if (potIntervalRef.current) clearInterval(potIntervalRef.current);
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        setGameState("idle");
-        setCountdown(0);
-        toast({
-          title: "Error",
-          description: "Failed to place bet. Please try again.",
-          duration: 2000,
-        });
-      }
-    });
-  }, [baseAmount, user?.balance, gameState, playSound, placeBet, addResult, recordResult, toast, queryClient]);
+    resolveGame({ roundId: roundData.roundId, playerChoice: choice });
+  }, [gameState, roundData, resolveGame, playSound]);
 
   const resetGame = () => {
-    // DEBUG: Log reset
-    console.log('[SplitSteal UI] Resetting game');
     setGameState("idle");
-    setOutcome(null);
-    setPotValue(0);
-    setPayout(0);
-    setMultiplierUsed(0);
-    setCountdown(0);
+    setRoundData(null);
+    setResult(null);
+    setAiThinking(false);
   };
 
   const setPercent = (percent: number) => {
     if (!user) return;
-    setAmount((user.balance * percent).toFixed(2));
+    const newAmount = Math.floor(user.balance * percent * 100) / 100;
+    setAmount(newAmount.toFixed(2));
   };
 
-  const halve = () => setAmount((prev) => (parseFloat(prev) / 2).toFixed(2));
-  const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
+  const getOutcomeExplanation = () => {
+    if (!result) return "";
+    const { playerChoice, aiChoice } = result;
+    if (playerChoice === "split" && aiChoice === "split") {
+      return `Both chose to SPLIT! You get your bet back plus a ${(GAME_CONFIG.splitBonus * 100).toFixed(0)}% bonus.`;
+    }
+    if (playerChoice === "steal" && aiChoice === "split") {
+      return `You STOLE while AI chose SPLIT! You take the entire pot (minus ${(GAME_CONFIG.houseEdge * 100).toFixed(0)}% house edge).`;
+    }
+    if (playerChoice === "split" && aiChoice === "steal") {
+      return `You chose SPLIT but AI STOLE everything! You lost your bet.`;
+    }
+    return `Both chose to STEAL! When everyone's greedy, nobody wins.`;
+  };
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="bg-[#0d1419] border border-[#1a2530] rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
-          
-          <div className="flex flex-col lg:flex-row">
-            
-            <div className="lg:w-72 shrink-0 bg-[#111921] border-b lg:border-b-0 lg:border-r border-[#1a2530] p-5">
-              
-              <div className="space-y-2 mb-5">
-                <div className="flex justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  <Label className="text-slate-500">Bet Amount</Label>
-                  <span>${parseFloat(amount || "0").toFixed(2)}</span>
-                </div>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Split or Steal
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Game theory showdown against AI
+            </p>
+          </div>
+          <ProfitTrackerWidget game="splitsteal" />
+        </div>
+
+        <div className="grid lg:grid-cols-[1fr,320px] gap-6">
+          <div className="bg-[#0d1821] rounded-2xl border border-[#1e2a36] overflow-hidden">
+            <div className="p-6">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-8 min-h-[400px] flex flex-col items-center justify-center relative">
                 
-                <div className="flex gap-1 bg-[#0d1419] p-1 rounded-lg border border-[#1a2530]">
-                  <Input 
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="border-none bg-transparent h-9 focus-visible:ring-0 font-mono font-semibold text-white text-sm"
-                    min={0.1}
-                    step={0.1}
-                    max={1000}
-                    disabled={isLocked}
-                    data-testid="input-bet-amount"
-                  />
-                  <button 
-                    className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
-                    onClick={halve}
-                    disabled={isLocked}
-                  >
-                    ½
-                  </button>
-                  <button 
-                    className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
-                    onClick={double}
-                    disabled={isLocked}
-                  >
-                    2x
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[0.1, 0.25, 0.5, 1].map((pct) => (
-                    <button 
-                      key={pct} 
-                      className="py-1.5 rounded-md bg-[#1a2530]/50 hover:bg-[#1a2530] text-[10px] font-semibold text-slate-500 hover:text-white transition-all border border-transparent hover:border-[#2a3a4a] disabled:opacity-50"
-                      onClick={() => setPercent(pct)}
-                      disabled={isLocked}
+                <AnimatePresence mode="wait">
+                  {gameState === "idle" && (
+                    <motion.div
+                      key="idle"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="text-center space-y-6"
                     >
-                      {pct === 1 ? "Max" : `${pct * 100}%`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-5">
-                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Potential Win (Split)
-                </Label>
-                <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5">
-                  <span className="font-mono font-semibold text-emerald-400 text-sm">
-                    ${(baseAmount * multiplierRange.min).toFixed(2)} - ${(baseAmount * multiplierRange.max).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-5">
-                <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Win Chance
-                </Label>
-                <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5 flex justify-between">
-                  <span className="font-mono font-semibold text-cyan-400 text-sm">
-                    ~60% Split
-                  </span>
-                  <span className="font-mono font-semibold text-red-400 text-sm">
-                    ~40% Steal
-                  </span>
-                </div>
-              </div>
-
-              {streak !== 0 && (
-                <div className={cn(
-                  "mb-5 p-3 rounded-lg border flex items-center gap-2",
-                  streak > 0 
-                    ? "bg-orange-500/10 border-orange-500/30" 
-                    : "bg-blue-500/10 border-blue-500/30"
-                )}>
-                  {streak > 0 ? (
-                    <>
-                      <Flame className="w-4 h-4 text-orange-400" />
-                      <span className="text-sm font-semibold text-orange-400">
-                        {streak} Win Streak!
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Snowflake className="w-4 h-4 text-blue-400" />
-                      <span className="text-sm font-semibold text-blue-400">
-                        Cold streak...
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <Button 
-                size="lg" 
-                className={cn(
-                  "w-full h-12 text-sm font-bold shadow-lg transition-all active:scale-[0.98]",
-                  gameState === "result" 
-                    ? "bg-cyan-500 hover:bg-cyan-400 shadow-cyan-500/20"
-                    : "bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 shadow-emerald-500/20"
-                )} 
-                onClick={gameState === "result" ? resetGame : playGame}
-                disabled={isLocked || !user || baseAmount > (user?.balance || 0)}
-                data-testid="button-play"
-              >
-                {gameState === "result" ? (
-                  <>
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Play Again
-                  </>
-                ) : isLocked ? (
-                  <>
-                    <Zap className="w-4 h-4 mr-2 animate-pulse" />
-                    {countdown > 0 ? `${countdown}s...` : "Revealing..."}
-                  </>
-                ) : user ? (
-                  "SPLIT OR STEAL"
-                ) : (
-                  "Login to Play"
-                )}
-              </Button>
-            </div>
-
-            <div className="flex-1 p-5 lg:p-8 relative flex flex-col items-center justify-center min-h-[500px]">
-              
-              <div className="absolute top-4 right-4 flex items-center gap-2">
-                <ProfitTrackerWidget gameId="splitsteal" />
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a2530] rounded-full border border-[#2a3a4a]">
-                  <Shield className="w-3 h-3 text-emerald-400" />
-                  <span className="text-[10px] font-medium text-emerald-400">Provably Fair</span>
-                </div>
-              </div>
-
-              <AnimatePresence mode="wait">
-                {gameState === "idle" && (
-                  <motion.div
-                    key="idle"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="flex flex-col items-center gap-6"
-                  >
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 blur-3xl rounded-full" />
-                      <div className="relative flex gap-4">
-                        <div className="w-32 h-40 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex flex-col items-center justify-center shadow-xl shadow-emerald-500/30">
-                          <span className="text-4xl mb-2">🤝</span>
-                          <span className="text-lg font-bold text-white">SPLIT</span>
-                          <span className="text-xs text-emerald-200">You Win</span>
+                      <div className="flex items-center justify-center gap-8">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-blue-500/20 border-2 border-blue-500/50 flex items-center justify-center">
+                            <User className="w-10 h-10 text-blue-400" />
+                          </div>
+                          <span className="mt-2 text-sm text-slate-400">You</span>
                         </div>
-                        <div className="w-32 h-40 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex flex-col items-center justify-center shadow-xl shadow-red-500/30">
-                          <span className="text-4xl mb-2">💀</span>
-                          <span className="text-lg font-bold text-white">STEAL</span>
-                          <span className="text-xs text-red-200">House Wins</span>
+                        <span className="text-2xl text-slate-500">VS</span>
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center">
+                            <Bot className="w-10 h-10 text-red-400" />
+                          </div>
+                          <span className="mt-2 text-sm text-slate-400">AI Opponent</span>
                         </div>
                       </div>
-                    </div>
-                    <p className="text-slate-400 text-sm text-center max-w-xs">
-                      Place your bet and hope for a SPLIT! The house might STEAL it all...
-                    </p>
-                  </motion.div>
-                )}
+                      
+                      <div className="space-y-2 max-w-md">
+                        <p className="text-slate-300 text-lg font-medium">How to Play</p>
+                        <div className="text-sm text-slate-400 space-y-1 text-left">
+                          <p className="flex gap-2"><Handshake className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Both SPLIT:</strong> You win {((1 + GAME_CONFIG.splitBonus) * 100).toFixed(0)}% of your bet</span></p>
+                          <p className="flex gap-2"><Swords className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" /> <span><strong>You STEAL, AI SPLITS:</strong> You win {((2 * (1 - GAME_CONFIG.houseEdge)) * 100).toFixed(0)}% of your bet</span></p>
+                          <p className="flex gap-2"><Swords className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" /> <span><strong>You SPLIT, AI STEALS:</strong> You lose everything</span></p>
+                          <p className="flex gap-2"><Swords className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" /> <span><strong>Both STEAL:</strong> Nobody wins</span></p>
+                        </div>
+                      </div>
 
-                {gameState === "running" && (
-                  <motion.div
-                    key="suspense"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center gap-6"
-                  >
-                    <motion.div 
-                      className="text-6xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent"
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 0.5, repeat: Infinity }}
-                    >
-                      ${potValue.toFixed(2)}
+                      <Button
+                        onClick={handleStartGame}
+                        disabled={isStarting || !user || baseAmount <= 0}
+                        size="lg"
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-12 py-6 text-xl font-bold"
+                        data-testid="button-start-game"
+                      >
+                        {isStarting ? "Starting..." : `Play ${formatCurrency(baseAmount)}`}
+                      </Button>
                     </motion.div>
-                    
-                    <div className="relative w-64 h-64">
-                      <motion.div
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                          background: "conic-gradient(from 0deg, #10b981, #06b6d4, #10b981)"
-                        }}
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      />
-                      <div className="absolute inset-2 rounded-full bg-[#0d1419] flex items-center justify-center">
-                        <motion.div
-                          className="text-4xl"
-                          animate={{ 
-                            rotateY: [0, 180, 360],
-                            scale: [1, 1.2, 1]
-                          }}
-                          transition={{ duration: 0.8, repeat: Infinity }}
-                        >
-                          🎰
-                        </motion.div>
-                      </div>
-                    </div>
+                  )}
 
-                    <div className="text-center">
-                      {countdown > 0 && (
-                        <motion.div
-                          className="text-5xl font-bold text-cyan-400 mb-2"
-                          key={countdown}
-                          initial={{ scale: 1.5, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.3 }}
+                  {gameState === "deciding" && (
+                    <motion.div
+                      key="deciding"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="text-center space-y-8"
+                    >
+                      <div>
+                        <p className="text-2xl font-bold text-white mb-2">Make Your Choice!</p>
+                        <p className="text-slate-400">Pot: {formatCurrency((roundData?.betAmount || 0) * 2)}</p>
+                      </div>
+                      
+                      <div className="flex gap-6">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleChoice("split")}
+                          className="w-40 h-40 rounded-2xl bg-gradient-to-br from-green-500/20 to-green-600/20 border-2 border-green-500/50 flex flex-col items-center justify-center gap-3 hover:border-green-400 hover:bg-green-500/30 transition-all"
+                          data-testid="button-split"
                         >
-                          {countdown}
-                        </motion.div>
-                      )}
-                      <motion.p 
-                        className="text-slate-400 text-lg font-semibold"
+                          <Handshake className="w-16 h-16 text-green-400" />
+                          <span className="text-xl font-bold text-green-400">SPLIT</span>
+                        </motion.button>
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleChoice("steal")}
+                          className="w-40 h-40 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/20 border-2 border-red-500/50 flex flex-col items-center justify-center gap-3 hover:border-red-400 hover:bg-red-500/30 transition-all"
+                          data-testid="button-steal"
+                        >
+                          <Swords className="w-16 h-16 text-red-400" />
+                          <span className="text-xl font-bold text-red-400">STEAL</span>
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {gameState === "suspense" && (
+                    <motion.div
+                      key="suspense"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-center space-y-6"
+                    >
+                      <div className="flex items-center justify-center gap-8">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center">
+                            <User className="w-10 h-10 text-blue-400" />
+                          </div>
+                          <span className="mt-2 text-sm text-blue-400 font-medium">Choice Made</span>
+                        </div>
+                        <span className="text-2xl text-slate-500">VS</span>
+                        <div className="flex flex-col items-center">
+                          <motion.div 
+                            className="w-20 h-20 rounded-full bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center"
+                            animate={{ rotate: [0, 10, -10, 0] }}
+                            transition={{ duration: 0.5, repeat: Infinity }}
+                          >
+                            <Bot className="w-10 h-10 text-red-400" />
+                          </motion.div>
+                          <span className="mt-2 text-sm text-slate-400">Thinking...</span>
+                        </div>
+                      </div>
+                      
+                      <motion.p
+                        className="text-xl text-slate-300"
                         animate={{ opacity: [0.5, 1, 0.5] }}
                         transition={{ duration: 1, repeat: Infinity }}
                       >
-                        Split or Steal...?
+                        AI is deciding...
                       </motion.p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {gameState === "result" && outcome && (
-                  <motion.div
-                    key="result"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
-                    className="flex flex-col items-center gap-6"
-                  >
-                    <motion.div
-                      className={cn(
-                        "w-48 h-48 rounded-3xl flex flex-col items-center justify-center shadow-2xl",
-                        outcome === "split" 
-                          ? "bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-emerald-500/50"
-                          : "bg-gradient-to-br from-red-500 to-orange-500 shadow-red-500/50"
-                      )}
-                      initial={{ rotateY: 180 }}
-                      animate={{ rotateY: 0 }}
-                      transition={{ duration: 0.6 }}
-                    >
-                      <motion.span 
-                        className="text-6xl mb-2"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.3, type: "spring" }}
-                      >
-                        {outcome === "split" ? "🤝" : "💀"}
-                      </motion.span>
-                      <span className="text-2xl font-bold text-white uppercase">
-                        {outcome}!
-                      </span>
                     </motion.div>
+                  )}
 
+                  {gameState === "result" && result && (
                     <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="text-center"
+                      key="result"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-center space-y-6"
                     >
-                      {outcome === "split" ? (
-                        <>
-                          <p className="text-3xl font-bold text-emerald-400">
-                            +${payout.toFixed(2)}
-                          </p>
-                          <p className="text-sm text-slate-400 mt-1">
-                            You split the pot! ({multiplierUsed.toFixed(2)}x)
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-3xl font-bold text-red-400">
-                            -${lastBetAmount.toFixed(2)}
-                          </p>
-                          <p className="text-sm text-slate-400 mt-1">
-                            The house stole your bet!
-                          </p>
-                        </>
-                      )}
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="bg-[#111921]/80 backdrop-blur rounded-lg border border-[#1a2530] p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap className="w-3 h-3 text-yellow-400" />
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase">Live Activity</span>
-                  </div>
-                  <div className="space-y-1 max-h-20 overflow-hidden">
-                    <AnimatePresence>
-                      {fakeWins.slice(0, 3).map((win) => (
-                        <motion.div
-                          key={win.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          className="flex items-center justify-between text-xs"
-                        >
-                          <span className="text-slate-400">{win.username}</span>
-                          <span className={cn(
-                            "font-mono font-semibold",
-                            win.outcome === "split" ? "text-emerald-400" : "text-red-400"
+                      <div className="flex items-center justify-center gap-8">
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-24 h-24 rounded-2xl flex flex-col items-center justify-center gap-1",
+                            result.playerChoice === "split" 
+                              ? "bg-green-500/20 border-2 border-green-500" 
+                              : "bg-red-500/20 border-2 border-red-500"
                           )}>
-                            {win.outcome === "split" ? "+" : "-"}${win.amount.toFixed(2)}
-                          </span>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                            {result.playerChoice === "split" ? (
+                              <Handshake className="w-10 h-10 text-green-400" />
+                            ) : (
+                              <Swords className="w-10 h-10 text-red-400" />
+                            )}
+                            <span className={cn(
+                              "text-sm font-bold uppercase",
+                              result.playerChoice === "split" ? "text-green-400" : "text-red-400"
+                            )}>
+                              {result.playerChoice}
+                            </span>
+                          </div>
+                          <span className="mt-2 text-sm text-slate-400">You</span>
+                        </div>
+                        
+                        <span className="text-2xl text-slate-500">VS</span>
+                        
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-24 h-24 rounded-2xl flex flex-col items-center justify-center gap-1",
+                            result.aiChoice === "split" 
+                              ? "bg-green-500/20 border-2 border-green-500" 
+                              : "bg-red-500/20 border-2 border-red-500"
+                          )}>
+                            {result.aiChoice === "split" ? (
+                              <Handshake className="w-10 h-10 text-green-400" />
+                            ) : (
+                              <Swords className="w-10 h-10 text-red-400" />
+                            )}
+                            <span className={cn(
+                              "text-sm font-bold uppercase",
+                              result.aiChoice === "split" ? "text-green-400" : "text-red-400"
+                            )}>
+                              {result.aiChoice}
+                            </span>
+                          </div>
+                          <span className="mt-2 text-sm text-slate-400">AI</span>
+                        </div>
+                      </div>
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        {result.won ? (
+                          <p className="text-4xl font-bold text-green-400">
+                            +{formatCurrency(result.payout)}
+                          </p>
+                        ) : (
+                          <p className="text-4xl font-bold text-red-400">
+                            -{formatCurrency(roundData?.betAmount || 0)}
+                          </p>
+                        )}
+                        <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
+                          {getOutcomeExplanation()}
+                        </p>
+                      </motion.div>
+
+                      <Button
+                        onClick={resetGame}
+                        size="lg"
+                        className="bg-slate-700 hover:bg-slate-600"
+                        data-testid="button-play-again"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Play Again
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-[#0d1821] rounded-xl border border-[#1e2a36] p-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-400">Bet Amount</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                    <Input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      disabled={isLocked}
+                      className="pl-7 bg-slate-800/50 border-slate-700"
+                      data-testid="input-bet-amount"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[0.1, 0.25, 0.5, 1].map((percent) => (
+                    <Button
+                      key={percent}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPercent(percent)}
+                      disabled={isLocked}
+                      className="text-xs"
+                      data-testid={`button-percent-${percent * 100}`}
+                    >
+                      {percent === 1 ? "MAX" : `${percent * 100}%`}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Your Balance</span>
+                    <span className="text-white font-medium">{formatCurrency(user?.balance || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Pot Value</span>
+                    <span className="text-yellow-400 font-medium">
+                      {gameState !== "idle" ? formatCurrency((roundData?.betAmount || 0) * 2) : formatCurrency(baseAmount * 2)}
+                    </span>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-[#0d1821] rounded-xl border border-[#1e2a36] p-4">
+              <h3 className="font-semibold text-white mb-3">Payouts</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Both Split</span>
+                  <span className="text-green-400">{((1 + GAME_CONFIG.splitBonus) * 100).toFixed(0)}% return</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">You Steal, AI Splits</span>
+                  <span className="text-yellow-400">{((2 * (1 - GAME_CONFIG.houseEdge)) * 100).toFixed(0)}% return</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">You Split, AI Steals</span>
+                  <span className="text-red-400">0% return</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Both Steal</span>
+                  <span className="text-slate-500">0% return</span>
+                </div>
+                <div className="pt-2 border-t border-slate-700 flex justify-between">
+                  <span className="text-slate-400">House Edge</span>
+                  <span className="text-slate-300">{(GAME_CONFIG.houseEdge * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#0d1821] rounded-xl border border-[#1e2a36] p-4">
+              <h3 className="font-semibold text-white mb-3">AI Behavior</h3>
+              <p className="text-sm text-slate-400">
+                The AI learns from your patterns. If you steal often, it may become more defensive. 
+                Cooperative players might find a friendlier opponent.
+              </p>
             </div>
           </div>
         </div>
