@@ -5,7 +5,7 @@ import { LiveWins } from "@/components/LiveWins";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
 import { GameInfo } from "@/components/GameCard";
-import { Gamepad2, TrendingUp, Star, Sparkles } from "lucide-react";
+import { Gamepad2, TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const allGames: GameInfo[] = [
@@ -26,12 +26,6 @@ const popularGames = [
   allGames.find(g => g.id === "coinflip")!,
 ];
 
-const recommendedGames = [
-  allGames.find(g => g.id === "plinko")!,
-  allGames.find(g => g.id === "daily-spin")!,
-  allGames.find(g => g.id === "dice")!,
-  allGames.find(g => g.id === "mines")!,
-];
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,12 +154,6 @@ export default function Home() {
               title="Popular" 
               games={popularGames}
               icon={<TrendingUp className="w-5 h-5 text-orange-400" />}
-            />
-
-            <GameRow 
-              title="Recommended" 
-              games={recommendedGames}
-              icon={<Star className="w-5 h-5 text-yellow-400" />}
             />
           </>
         )}

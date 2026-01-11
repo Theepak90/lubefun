@@ -34,7 +34,7 @@ export function GameCard({ game }: { game: GameInfo }) {
   return (
     <Link href={game.href}>
       <div 
-        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[180px] w-[180px] flex-shrink-0"
+        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[160px] w-[160px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
@@ -54,11 +54,11 @@ export function GameCard({ game }: { game: GameInfo }) {
             <img 
               src={imageUrl} 
               alt={game.name}
-              className="w-36 h-36 object-contain mb-2 transition-transform group-hover:scale-110"
+              className="w-44 h-44 object-contain mb-2 transition-transform group-hover:scale-110"
             />
           ) : (
-            <div className="w-36 h-36 rounded-xl bg-green-500/20 flex items-center justify-center mb-2 transition-transform group-hover:scale-110">
-              <Bomb className="w-16 h-16 text-green-400" />
+            <div className="w-44 h-44 rounded-xl bg-green-500/20 flex items-center justify-center mb-2 transition-transform group-hover:scale-110">
+              <Bomb className="w-20 h-20 text-green-400" />
             </div>
           )}
           
