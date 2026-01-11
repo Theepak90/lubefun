@@ -233,9 +233,31 @@ export const rouletteBetSchema = z.object({
   straightNumber: z.number().min(0).max(36).optional(),
 });
 
+export const sideBetsSchema = z.object({
+  perfectPairs: z.number().min(0).default(0),
+  twentyOnePlus3: z.number().min(0).default(0),
+}).optional();
+
 export const blackjackDealSchema = z.object({
   betAmount: z.number().min(0.1),
+  sideBets: sideBetsSchema,
 });
+
+// Side bet payouts
+export const SIDE_BET_PAYOUTS = {
+  perfectPairs: {
+    perfect: 25, // Same rank and suit
+    colored: 12, // Same rank and color
+    mixed: 6,    // Same rank, different color
+  },
+  twentyOnePlus3: {
+    suitedTrips: 100, // Three of same rank and suit
+    straightFlush: 40,
+    threeOfAKind: 30,
+    straight: 10,
+    flush: 5,
+  },
+} as const;
 
 export const blackjackActionSchema = z.object({
   betId: z.number(),

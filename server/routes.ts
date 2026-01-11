@@ -979,6 +979,77 @@ Your bets are verifiable after the server seed is revealed.
     return { outcome: "push", multiplier: BLACKJACK_CONFIG.PUSH_PAYOUT };
   }
 
+  // Helper: Evaluate Perfect Pairs side bet
+  function evaluatePerfectPairs(card1: number, card2: number): { result: string | null, multiplier: number } {
+    const rank1 = Math.floor(card1 / 4);
+    const rank2 = Math.floor(card2 / 4);
+    const suit1 = card1 % 4;
+    const suit2 = card2 % 4;
+    
+    if (rank1 !== rank2) {
+      return { result: null, multiplier: 0 };
+    }
+    
+    // Same rank - it's a pair
+    if (suit1 === suit2) {
+      return { result: "perfect", multiplier: 25 }; // Perfect pair (same suit)
+    }
+    
+    // Check if same color (0,2 are black, 1,3 are red)
+    const color1 = suit1 % 2;
+    const color2 = suit2 % 2;
+    if (color1 === color2) {
+      return { result: "colored", multiplier: 12 }; // Colored pair
+    }
+    
+    return { result: "mixed", multiplier: 6 }; // Mixed pair
+  }
+  
+  // Helper: Evaluate 21+3 side bet (player's 2 cards + dealer upcard)
+  function evaluate21Plus3(card1: number, card2: number, dealerUpcard: number): { result: string | null, multiplier: number } {
+    const cards = [card1, card2, dealerUpcard];
+    const ranks = cards.map(c => Math.floor(c / 4));
+    const suits = cards.map(c => c % 4);
+    
+    const sortedRanks = [...ranks].sort((a, b) => a - b);
+    const allSameSuit = suits[0] === suits[1] && suits[1] === suits[2];
+    const allSameRank = ranks[0] === ranks[1] && ranks[1] === ranks[2];
+    
+    // Check for straight (consecutive ranks)
+    const isSequential = (sortedRanks[1] === sortedRanks[0] + 1 && sortedRanks[2] === sortedRanks[1] + 1) ||
+                         // Ace-2-3 straight (Ace is 0, 2 is 1, 3 is 2)
+                         (sortedRanks[0] === 0 && sortedRanks[1] === 1 && sortedRanks[2] === 2) ||
+                         // Q-K-A straight (Q is 10, K is 11, A is 0)
+                         (sortedRanks[0] === 0 && sortedRanks[1] === 10 && sortedRanks[2] === 11);
+    
+    // Suited trips (three of a kind, same suit)
+    if (allSameRank && allSameSuit) {
+      return { result: "suitedTrips", multiplier: 100 };
+    }
+    
+    // Straight flush
+    if (isSequential && allSameSuit) {
+      return { result: "straightFlush", multiplier: 40 };
+    }
+    
+    // Three of a kind
+    if (allSameRank) {
+      return { result: "threeOfAKind", multiplier: 30 };
+    }
+    
+    // Straight
+    if (isSequential) {
+      return { result: "straight", multiplier: 10 };
+    }
+    
+    // Flush
+    if (allSameSuit) {
+      return { result: "flush", multiplier: 5 };
+    }
+    
+    return { result: null, multiplier: 0 };
+  }
+
   // Helper: Strip sensitive data from bet before sending to client
   function sanitizeBetForClient(bet: any): any {
     if (!bet) return bet;
@@ -1036,12 +1107,17 @@ Your bets are verifiable after the server seed is revealed.
       }
 
       const input = blackjackDealSchema.parse(req.body);
-      if (user.balance < input.betAmount) {
+      
+      // Calculate total bet including side bets
+      const sideBets = input.sideBets || { perfectPairs: 0, twentyOnePlus3: 0 };
+      const totalBet = input.betAmount + sideBets.perfectPairs + sideBets.twentyOnePlus3;
+      
+      if (user.balance < totalBet) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
 
-      // Deduct bet
-      await storage.updateUserBalance(user.id, -input.betAmount);
+      // Deduct total bet
+      await storage.updateUserBalance(user.id, -totalBet);
 
       // Generate shuffled deck
       const deck = getShuffledDeck(user.serverSeed, user.clientSeed, user.nonce);
@@ -1057,6 +1133,33 @@ Your bets are verifiable after the server seed is revealed.
       
       const playerBlackjack = playerTotal === 21 && playerCards.length === 2;
       const dealerBlackjack = dealerTotal === 21 && dealerCards.length === 2;
+
+      // Evaluate side bets (settle immediately after deal)
+      let sideBetResults: { 
+        perfectPairs?: { result: string | null, payout: number },
+        twentyOnePlus3?: { result: string | null, payout: number }
+      } = {};
+      let sideBetPayout = 0;
+      
+      if (sideBets.perfectPairs > 0) {
+        const ppResult = evaluatePerfectPairs(playerCards[0], playerCards[1]);
+        const ppPayout = sideBets.perfectPairs * ppResult.multiplier;
+        sideBetResults.perfectPairs = { result: ppResult.result, payout: ppPayout };
+        sideBetPayout += ppPayout;
+      }
+      
+      if (sideBets.twentyOnePlus3 > 0) {
+        // Dealer upcard is the second dealer card (index 1)
+        const t3Result = evaluate21Plus3(playerCards[0], playerCards[1], dealerCards[1]);
+        const t3Payout = sideBets.twentyOnePlus3 * t3Result.multiplier;
+        sideBetResults.twentyOnePlus3 = { result: t3Result.result, payout: t3Payout };
+        sideBetPayout += t3Payout;
+      }
+      
+      // Pay out side bet winnings immediately
+      if (sideBetPayout > 0) {
+        await storage.updateUserBalance(user.id, sideBetPayout);
+      }
 
       let status = "playing";
       let outcome: string | undefined;
@@ -1092,6 +1195,8 @@ Your bets are verifiable after the server seed is revealed.
           status,
           outcome,
           doubled: false,
+          sideBets,
+          sideBetResults,
         },
         active: status !== "completed",
       });
@@ -1106,6 +1211,8 @@ Your bets are verifiable after the server seed is revealed.
         canDouble: status === "playing",
         outcome,
         payout,
+        sideBetResults,
+        sideBetPayout,
       });
     } catch (err) {
       console.error("[Blackjack Deal] Error:", err);
