@@ -72,7 +72,7 @@ export function GameCard({ game }: { game: GameInfo }) {
         <img 
           src={imageUrl} 
           alt={game.name}
-          className={`w-full h-full object-cover transition-transform ${imageStyle.scale} ${imageStyle.hoverScale} ${imageStyle.position || ""}`}
+          className={`absolute inset-0 block w-full h-full object-cover transition-transform ${imageStyle.scale} ${imageStyle.hoverScale} ${imageStyle.position || ""}`}
         />
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
