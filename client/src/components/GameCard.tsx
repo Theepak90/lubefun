@@ -28,7 +28,7 @@ const gameImages: Record<string, string> = {
   blackjack: blackjackImg,
   spin: spinImg,
   mines: minesImg,
-  splitsteal: coinflipImg,
+  splitsteal: blackjackImg,
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
