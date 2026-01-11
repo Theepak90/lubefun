@@ -15,6 +15,7 @@ import Plinko from "@/pages/Plinko";
 import DailySpin from "@/pages/DailySpin";
 import Rewards from "@/pages/Rewards";
 import SplitOrSteal from "@/pages/SplitOrSteal";
+import Sponsors from "@/pages/Sponsors";
 
 function Router() {
   return (
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/daily-spin" component={DailySpin} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/split-or-steal" component={SplitOrSteal} />
+      <Route path="/sponsors" component={Sponsors} />
       <Route component={NotFound} />
     </Switch>
   );

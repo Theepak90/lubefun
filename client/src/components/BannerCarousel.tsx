@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from "framer-motion";
 const banners = [
   {
     id: 1,
-    title: "Daily Spin",
-    subtitle: "Spin the wheel every day for free credits and exclusive rewards",
-    cta: "Open Lootbox",
-    href: "/rewards",
-    icon: Gift,
+    title: "Our Sponsors",
+    subtitle: "Check out our amazing sponsors and partners who make this possible",
+    cta: "View Sponsors",
+    href: "/sponsors",
+    icon: Sparkles,
     gradient: "from-amber-500 via-orange-500 to-red-500",
     glowColor: "rgba(245, 158, 11, 0.3)"
   },
