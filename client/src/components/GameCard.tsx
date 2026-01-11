@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Flame } from "lucide-react";
+import { useLivePlayerCount } from "@/hooks/useLivePlayerCount";
 
 import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_02_04_41_AM_1768097091093.png";
 import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_33_56_AM_1768095699503.png";
@@ -29,17 +30,9 @@ const gameImages: Record<string, string> = {
   mines: minesImg,
 };
 
-function getDailyRandomPlayers(gameId: string): number {
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-  const seed = gameId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + dayOfYear;
-  const random = Math.sin(seed * 9999) * 10000;
-  return Math.floor(8 + (Math.abs(random) % 209));
-}
-
 export function GameCard({ game }: { game: GameInfo }) {
   const imageUrl = gameImages[game.icon];
-  const playerCount = getDailyRandomPlayers(game.id);
+  const playerCount = useLivePlayerCount(game.icon);
   const isFullCard = game.icon === "dice";
   
   return (
