@@ -15,7 +15,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-const SUSPENSE_DURATION = 4000;
+const GAME_CONFIG = {
+  houseEdge: 0.04,
+  splitChance: 0.60,
+  minMultiplier: 1.8,
+  maxMultiplier: 2.4,
+  suspenseDurationMs: 4000
+};
+
+const getEffectiveMultiplierRange = () => ({
+  min: GAME_CONFIG.minMultiplier * (1 - GAME_CONFIG.houseEdge),
+  max: GAME_CONFIG.maxMultiplier * (1 - GAME_CONFIG.houseEdge)
+});
+
+type GameState = "idle" | "running" | "result";
 
 interface FakeWin {
   id: number;
@@ -51,18 +64,23 @@ export default function SplitOrSteal() {
   const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState<string>("10");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [phase, setPhase] = useState<"idle" | "suspense" | "result">("idle");
+  const [gameState, setGameState] = useState<GameState>("idle");
   const [outcome, setOutcome] = useState<"split" | "steal" | null>(null);
   const [potValue, setPotValue] = useState(0);
   const [payout, setPayout] = useState(0);
+  const [multiplierUsed, setMultiplierUsed] = useState(0);
+  const [countdown, setCountdown] = useState(0);
   const [streak, setStreak] = useState(0);
   const [fakeWins, setFakeWins] = useState<FakeWin[]>([]);
+  const [lastBetAmount, setLastBetAmount] = useState(0);
   
-  const suspenseRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const potIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingResultRef = useRef<{ outcome: "split" | "steal"; payout: number; multiplier: number } | null>(null);
 
   const baseAmount = parseFloat(amount || "0");
+  const multiplierRange = getEffectiveMultiplierRange();
+  const isLocked = gameState === "running";
 
   const { mutate: placeBet } = useMutation({
     mutationFn: async (data: { betAmount: number }) => {
@@ -87,18 +105,49 @@ export default function SplitOrSteal() {
   }, []);
 
   const playGame = useCallback(() => {
-    if (isPlaying) return;
-    if (baseAmount < 0.1 || baseAmount > (user?.balance || 0)) return;
+    if (isLocked) return;
+    if (baseAmount <= 0) {
+      toast({ title: "Invalid bet", description: "Bet must be greater than 0", duration: 2000 });
+      return;
+    }
+    if (baseAmount > (user?.balance || 0)) {
+      toast({ title: "Insufficient balance", description: "You don't have enough balance", duration: 2000 });
+      return;
+    }
 
-    setIsPlaying(true);
-    setPhase("suspense");
+    // DEBUG: Log bet and balance before
+    console.log('[SplitSteal UI] Starting game:', {
+      betAmount: baseAmount,
+      balanceBefore: user?.balance
+    });
+
+    // Lock UI and set running state
+    setGameState("running");
     setOutcome(null);
     setPotValue(0);
+    setPayout(0);
+    setLastBetAmount(baseAmount);
     playSound("flip");
 
+    // Start countdown (4 seconds = 4000ms)
+    const totalSeconds = Math.ceil(GAME_CONFIG.suspenseDurationMs / 1000);
+    setCountdown(totalSeconds);
+    
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    countdownRef.current = countdownInterval;
+
+    // Pot animation
     const finalPot = baseAmount;
     let currentPot = 0;
-    const potStep = finalPot / (SUSPENSE_DURATION / 50);
+    const potStep = finalPot / (GAME_CONFIG.suspenseDurationMs / 50);
     
     potIntervalRef.current = setInterval(() => {
       currentPot = Math.min(currentPot + potStep + (Math.random() * potStep * 0.5), finalPot * 1.2);
@@ -107,19 +156,52 @@ export default function SplitOrSteal() {
 
     const currentAmount = baseAmount;
 
+    // Place bet - balance deducted on server immediately
     placeBet({ betAmount: baseAmount }, {
-      onSuccess: (data: { outcome: "split" | "steal"; payout: number; multiplier: number; won: boolean }) => {
-        suspenseRef.current = setTimeout(() => {
+      onSuccess: (data: { outcome: "split" | "steal"; payout: number; multiplier: number; won: boolean; balanceAfter?: number }) => {
+        // Store result, reveal after countdown
+        pendingResultRef.current = {
+          outcome: data.outcome,
+          payout: data.payout,
+          multiplier: data.multiplier
+        };
+
+        // DEBUG: Log server response
+        console.log('[SplitSteal UI] Server response:', {
+          outcome: data.outcome,
+          multiplier: data.multiplier?.toFixed(4),
+          payout: data.payout?.toFixed(2),
+          balanceAfter: data.balanceAfter
+        });
+
+        // Wait for countdown to finish before revealing
+        setTimeout(() => {
           if (potIntervalRef.current) clearInterval(potIntervalRef.current);
+          if (countdownRef.current) clearInterval(countdownRef.current);
           
-          const isSplit = data.outcome === "split";
-          const winAmount = data.payout;
-          const multiplier = data.multiplier;
+          const result = pendingResultRef.current;
+          if (!result) return;
+
+          const isSplit = result.outcome === "split";
+          const winAmount = result.payout;
+          const multiplier = result.multiplier;
           
+          // DEBUG: Log final result
+          console.log('[SplitSteal UI] Revealing result:', {
+            outcome: result.outcome,
+            payout: winAmount,
+            multiplier: multiplier
+          });
+
           setPotValue(finalPot);
-          setPhase("result");
-          setOutcome(data.outcome);
+          setGameState("result");
+          setOutcome(result.outcome);
           setPayout(winAmount);
+          setMultiplierUsed(multiplier);
+          setCountdown(0);
+
+          // Invalidate user query to refresh balance
+          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
 
           if (isSplit) {
             setStreak(prev => prev + 1);
@@ -148,16 +230,16 @@ export default function SplitOrSteal() {
             detail: isSplit ? `SPLIT! Won ${multiplier.toFixed(2)}x` : "STEAL - House wins"
           });
           recordResult("splitsteal", currentAmount, winAmount, isSplit);
-
-          setTimeout(() => {
-            setIsPlaying(false);
-          }, 500);
-        }, SUSPENSE_DURATION);
+          
+          pendingResultRef.current = null;
+        }, GAME_CONFIG.suspenseDurationMs);
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('[SplitSteal UI] Error:', error);
         if (potIntervalRef.current) clearInterval(potIntervalRef.current);
-        setPhase("idle");
-        setIsPlaying(false);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        setGameState("idle");
+        setCountdown(0);
         toast({
           title: "Error",
           description: "Failed to place bet. Please try again.",
@@ -165,13 +247,18 @@ export default function SplitOrSteal() {
         });
       }
     });
-  }, [baseAmount, user?.balance, isPlaying, playSound, placeBet, addResult, recordResult, toast]);
+  }, [baseAmount, user?.balance, isLocked, playSound, placeBet, addResult, recordResult, toast, queryClient]);
 
   const resetGame = () => {
-    setPhase("idle");
+    // DEBUG: Log reset
+    console.log('[SplitSteal UI] Resetting game');
+    setGameState("idle");
     setOutcome(null);
     setPotValue(0);
     setPayout(0);
+    setMultiplierUsed(0);
+    setCountdown(0);
+    pendingResultRef.current = null;
   };
 
   const setPercent = (percent: number) => {
@@ -206,20 +293,20 @@ export default function SplitOrSteal() {
                     min={0.1}
                     step={0.1}
                     max={1000}
-                    disabled={isPlaying}
+                    disabled={isLocked}
                     data-testid="input-bet-amount"
                   />
                   <button 
                     className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
                     onClick={halve}
-                    disabled={isPlaying}
+                    disabled={isLocked}
                   >
                     ½
                   </button>
                   <button 
                     className="h-9 w-9 rounded-md font-mono text-xs text-slate-500 hover:text-white hover:bg-[#1a2530] transition-all disabled:opacity-50"
                     onClick={double}
-                    disabled={isPlaying}
+                    disabled={isLocked}
                   >
                     2x
                   </button>
@@ -231,7 +318,7 @@ export default function SplitOrSteal() {
                       key={pct} 
                       className="py-1.5 rounded-md bg-[#1a2530]/50 hover:bg-[#1a2530] text-[10px] font-semibold text-slate-500 hover:text-white transition-all border border-transparent hover:border-[#2a3a4a] disabled:opacity-50"
                       onClick={() => setPercent(pct)}
-                      disabled={isPlaying}
+                      disabled={isLocked}
                     >
                       {pct === 1 ? "Max" : `${pct * 100}%`}
                     </button>
@@ -245,7 +332,7 @@ export default function SplitOrSteal() {
                 </Label>
                 <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg px-3 py-2.5">
                   <span className="font-mono font-semibold text-emerald-400 text-sm">
-                    ${(baseAmount * 1.92).toFixed(2)} - ${(baseAmount * 2.0).toFixed(2)}
+                    ${(baseAmount * multiplierRange.min).toFixed(2)} - ${(baseAmount * multiplierRange.max).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -293,23 +380,23 @@ export default function SplitOrSteal() {
                 size="lg" 
                 className={cn(
                   "w-full h-12 text-sm font-bold shadow-lg transition-all active:scale-[0.98]",
-                  phase === "result" 
+                  gameState === "result" 
                     ? "bg-cyan-500 hover:bg-cyan-400 shadow-cyan-500/20"
                     : "bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 shadow-emerald-500/20"
                 )} 
-                onClick={phase === "result" ? resetGame : playGame}
-                disabled={isPlaying && phase !== "result" || !user || baseAmount > (user?.balance || 0)}
+                onClick={gameState === "result" ? resetGame : playGame}
+                disabled={isLocked || !user || baseAmount > (user?.balance || 0)}
                 data-testid="button-play"
               >
-                {phase === "result" ? (
+                {gameState === "result" ? (
                   <>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Play Again
                   </>
-                ) : isPlaying ? (
+                ) : isLocked ? (
                   <>
                     <Zap className="w-4 h-4 mr-2 animate-pulse" />
-                    Revealing...
+                    {countdown > 0 ? `${countdown}s...` : "Revealing..."}
                   </>
                 ) : user ? (
                   "SPLIT OR STEAL"
@@ -330,7 +417,7 @@ export default function SplitOrSteal() {
               </div>
 
               <AnimatePresence mode="wait">
-                {phase === "idle" && (
+                {gameState === "idle" && (
                   <motion.div
                     key="idle"
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -359,7 +446,7 @@ export default function SplitOrSteal() {
                   </motion.div>
                 )}
 
-                {phase === "suspense" && (
+                {gameState === "running" && (
                   <motion.div
                     key="suspense"
                     initial={{ opacity: 0 }}
@@ -398,17 +485,30 @@ export default function SplitOrSteal() {
                       </div>
                     </div>
 
-                    <motion.p 
-                      className="text-slate-400 text-lg font-semibold"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    >
-                      Split or Steal...?
-                    </motion.p>
+                    <div className="text-center">
+                      {countdown > 0 && (
+                        <motion.div
+                          className="text-5xl font-bold text-cyan-400 mb-2"
+                          key={countdown}
+                          initial={{ scale: 1.5, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {countdown}
+                        </motion.div>
+                      )}
+                      <motion.p 
+                        className="text-slate-400 text-lg font-semibold"
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      >
+                        Split or Steal...?
+                      </motion.p>
+                    </div>
                   </motion.div>
                 )}
 
-                {phase === "result" && outcome && (
+                {gameState === "result" && outcome && (
                   <motion.div
                     key="result"
                     initial={{ opacity: 0, scale: 0.5 }}
@@ -458,7 +558,7 @@ export default function SplitOrSteal() {
                       ) : (
                         <>
                           <p className="text-3xl font-bold text-red-400">
-                            -${baseAmount.toFixed(2)}
+                            -${lastBetAmount.toFixed(2)}
                           </p>
                           <p className="text-sm text-slate-400 mt-1">
                             The house stole your bet!
