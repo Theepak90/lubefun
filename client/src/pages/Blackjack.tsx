@@ -170,21 +170,23 @@ function PlayingCard({
 }
 
 function PlayerSeat({
-  username,
-  avatar,
   total,
   betAmount,
   isActive,
   cards,
   showCards,
+  seatActive,
+  onSeatClick,
+  isPlaying,
 }: {
-  username: string;
-  avatar?: string;
   total?: number;
   betAmount: number;
   isActive: boolean;
   cards: number[];
   showCards: boolean;
+  seatActive: boolean;
+  onSeatClick: () => void;
+  isPlaying: boolean;
 }) {
   return (
     <div className={cn(
@@ -210,26 +212,32 @@ function PlayerSeat({
         </div>
       )}
 
-      <div className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all",
-        isActive ? "bg-violet-600/40 ring-2 ring-violet-400" : "bg-slate-800/60"
-      )}>
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center overflow-hidden">
-          {avatar ? (
-            <img src={avatar} alt={username} className="w-full h-full object-cover" />
-          ) : (
-            <User className="w-4 h-4 text-white" />
-          )}
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-white truncate max-w-[80px]">
-            {username}
+      <motion.div
+        className={cn(
+          "w-20 h-20 rounded-full flex items-center justify-center cursor-pointer transition-all",
+          seatActive || isPlaying
+            ? "ring-2 ring-violet-400"
+            : "hover:ring-2 hover:ring-violet-500/50"
+        )}
+        style={{
+          background: seatActive || isPlaying
+            ? "linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0.15) 100%)"
+            : "linear-gradient(135deg, rgba(30, 21, 53, 0.8) 0%, rgba(42, 30, 74, 0.6) 100%)",
+          border: "2px dashed rgba(139, 92, 246, 0.5)",
+        }}
+        onClick={!isPlaying ? onSeatClick : undefined}
+        whileHover={!isPlaying ? { scale: 1.05 } : undefined}
+        whileTap={!isPlaying ? { scale: 0.98 } : undefined}
+        data-testid="player-seat"
+      >
+        {betAmount > 0 ? (
+          <span className="text-lg font-mono font-bold text-violet-300">${betAmount}</span>
+        ) : (
+          <span className="text-xs text-violet-400 text-center leading-tight">
+            {seatActive ? "Click chip" : "Open\nSeat"}
           </span>
-          <span className="text-[10px] text-emerald-400 font-mono">
-            ${betAmount.toFixed(4)}
-          </span>
-        </div>
-      </div>
+        )}
+      </motion.div>
     </div>
   );
 }
@@ -353,8 +361,9 @@ export default function Blackjack() {
   const { toast } = useToast();
   const { play: playSound } = useSound();
   
-  const [betAmount, setBetAmount] = useState(1);
-  const [selectedChip, setSelectedChip] = useState<ChipValue>(CHIP_VALUES[1]);
+  const [betAmount, setBetAmount] = useState(0);
+  const [selectedChip, setSelectedChip] = useState<ChipValue | null>(CHIP_VALUES[0]);
+  const [seatActive, setSeatActive] = useState(false);
   
   const [gamePhase, setGamePhase] = useState<GamePhase>("BETTING");
   const [gameState, setGameState] = useState<BlackjackState | null>(null);
@@ -375,6 +384,7 @@ export default function Blackjack() {
 
   const clearBet = () => {
     setBetAmount(0);
+    setSeatActive(false);
   };
 
   const dealMutation = useMutation({
@@ -587,14 +597,24 @@ export default function Blackjack() {
     setDealerRevealed(false);
     setStatusText("");
     setResultText("");
+    setBetAmount(0);
+    setSeatActive(false);
     queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
   };
 
   const handleRebet = () => {
     if (canRebet) {
       setBetAmount(lastBet);
+      setSeatActive(true);
     }
-    resetGame();
+    setGamePhase("BETTING");
+    setGameState(null);
+    setVisiblePlayerCards([]);
+    setVisibleDealerCards([]);
+    setDealerRevealed(false);
+    setStatusText("");
+    setResultText("");
+    queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
   };
 
   const handleNewHand = () => {
@@ -718,32 +738,26 @@ export default function Blackjack() {
 
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
                 <PlayerSeat
-                  username={username}
                   total={playerTotal}
                   betAmount={betAmount}
                   isActive={gamePhase === "PLAYER_TURN"}
                   cards={visiblePlayerCards}
                   showCards={visiblePlayerCards.length > 0}
+                  seatActive={seatActive}
+                  onSeatClick={() => {
+                    if (!seatActive) {
+                      setSeatActive(true);
+                    } else if (selectedChip) {
+                      const newBet = Math.round((betAmount + selectedChip.value) * 100) / 100;
+                      if (newBet <= balance) {
+                        setBetAmount(newBet);
+                        playSound("chipDrop");
+                      }
+                    }
+                  }}
+                  isPlaying={gamePhase !== "BETTING"}
                 />
               </div>
-
-              {gamePhase === "BETTING" && betAmount > 0 && (
-                <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10">
-                  <div 
-                    className="w-24 h-16 rounded-xl flex items-center justify-center"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%)",
-                      border: "2px dashed rgba(139, 92, 246, 0.4)",
-                    }}
-                  >
-                    {betAmount > 0 ? (
-                      <span className="text-xl font-mono font-bold text-violet-300">${betAmount}</span>
-                    ) : (
-                      <span className="text-xs text-violet-400">Place Bet</span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div 
@@ -767,14 +781,16 @@ export default function Blackjack() {
                         <Chip
                           key={chip.value}
                           chip={chip}
-                          selected={selectedChip.value === chip.value}
+                          selected={selectedChip?.value === chip.value}
                           onClick={() => {
-                            setSelectedChip(chip);
-                            const newBet = Math.round((betAmount + chip.value) * 100) / 100;
-                            if (newBet <= balance) {
-                              setBetAmount(newBet);
-                              playSound("chipDrop");
+                            if (seatActive) {
+                              const newBet = Math.round((betAmount + chip.value) * 100) / 100;
+                              if (newBet <= balance) {
+                                setBetAmount(newBet);
+                                playSound("chipDrop");
+                              }
                             }
+                            setSelectedChip(chip);
                           }}
                           size="sm"
                         />
