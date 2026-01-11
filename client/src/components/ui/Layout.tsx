@@ -15,7 +15,8 @@ import {
   VolumeX,
   Spade,
   CircleDot,
-  Triangle
+  Triangle,
+  Handshake
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSound } from "@/hooks/use-sound";
@@ -64,6 +65,7 @@ export function Layout({ children }: LayoutProps) {
     { icon: Spade, label: "Blackjack", href: "/blackjack" },
     { icon: CircleDot, label: "Roulette", href: "/roulette" },
     { icon: Triangle, label: "Plinko", href: "/plinko" },
+    { icon: Handshake, label: "Split or Steal", href: "/split-or-steal" },
     { icon: RotateCw, label: "Daily Spin", href: "/daily-spin" },
   ];
 
