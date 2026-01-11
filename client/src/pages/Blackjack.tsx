@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Shield, RotateCcw, Trash2, RefreshCw, Minus, Plus } from "lucide-react";
+import { Shield, RotateCcw, Trash2, RefreshCw, Minus, Plus, BookOpen, Share2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useGameHistory } from "@/hooks/use-game-history";
@@ -91,24 +91,24 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   onClick?: () => void;
   size?: "sm" | "md";
 }) {
-  const s = size === "sm" ? 28 : 40;
+  const s = size === "sm" ? 32 : 44;
   return (
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full flex items-center justify-center font-bold transition-all",
-        selected && "ring-2 ring-white scale-110",
+        "rounded-full flex items-center justify-center font-bold transition-all border-2",
+        selected ? "ring-2 ring-emerald-400 scale-110 border-white" : "border-white/20",
         onClick && "hover:scale-105 active:scale-95"
       )}
       style={{
         width: s,
         height: s,
-        background: chip.color,
+        background: `radial-gradient(circle at 30% 30%, ${chip.color}, ${chip.color}dd)`,
         color: chip.textColor,
         boxShadow: selected 
-          ? `0 0 12px ${chip.color}80`
-          : "0 2px 4px rgba(0,0,0,0.3)",
-        fontSize: size === "sm" ? 10 : 12,
+          ? `0 0 16px ${chip.color}80, inset 0 2px 4px rgba(255,255,255,0.3)`
+          : "0 3px 6px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.2)",
+        fontSize: size === "sm" ? 11 : 13,
       }}
       data-testid={`chip-${chip.value}`}
     >
@@ -129,12 +129,16 @@ function PlayingCard({
   if (hidden) {
     return (
       <motion.div 
-        className="w-12 h-16 rounded-md bg-gradient-to-br from-blue-600 to-blue-800 border border-blue-400 flex items-center justify-center shadow-md"
-        initial={{ x: 150, y: -80, opacity: 0, rotate: -8 }}
-        animate={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 140, damping: 16, delay }}
+        className="w-14 h-20 rounded-lg flex items-center justify-center shadow-xl"
+        style={{
+          background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)",
+          border: "2px solid #2563eb",
+        }}
+        initial={{ x: 120, y: -60, opacity: 0, rotateY: 180 }}
+        animate={{ x: 0, y: 0, opacity: 1, rotateY: 0 }}
+        transition={{ type: "spring", stiffness: 120, damping: 14, delay }}
       >
-        <div className="w-5 h-7 rounded border border-blue-300/40 bg-blue-700/50" />
+        <div className="w-8 h-12 rounded border border-blue-400/30 bg-gradient-to-br from-blue-600/40 to-blue-800/40" />
       </motion.div>
     );
   }
@@ -146,69 +150,103 @@ function PlayingCard({
 
   return (
     <motion.div 
-      className="w-12 h-16 rounded-md bg-white border border-gray-200 flex flex-col items-center justify-center shadow-md"
-      initial={{ x: 150, y: -80, opacity: 0, rotate: -8 }}
-      animate={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
-      transition={{ type: "spring", stiffness: 140, damping: 16, delay }}
+      className="w-14 h-20 rounded-lg bg-white flex flex-col items-center justify-center shadow-xl"
+      style={{
+        border: "2px solid #e5e7eb",
+        background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+      }}
+      initial={{ x: 120, y: -60, opacity: 0, rotateY: 180 }}
+      animate={{ x: 0, y: 0, opacity: 1, rotateY: 0 }}
+      transition={{ type: "spring", stiffness: 120, damping: 14, delay }}
     >
-      <span className={cn("text-sm font-bold", isRed ? "text-red-500" : "text-gray-800")}>
+      <span className={cn("text-lg font-bold", isRed ? "text-red-500" : "text-gray-800")}>
         {rank}
       </span>
-      <span className={cn("text-xs", isRed ? "text-red-500" : "text-gray-800")}>
+      <span className={cn("text-base", isRed ? "text-red-500" : "text-gray-800")}>
         {suitSymbol}
       </span>
     </motion.div>
   );
 }
 
-function StatusBar({ 
-  phase, 
-  resultText,
-  showResult,
-}: { 
-  phase: string;
-  resultText: string;
-  showResult: boolean;
-}) {
-  const phaseText: Record<string, string> = {
-    BETTING: "",
-    DEALING: "Dealing...",
-    PLAYER_TURN: "Your turn",
-    DEALER: "Dealer's turn",
-    SETTLEMENT: "",
-    COMPLETE: "",
-  };
-
+function DealerChipStack() {
   return (
-    <div className="absolute bottom-[90px] left-1/2 -translate-x-1/2 z-20">
-      <AnimatePresence mode="wait">
-        {showResult ? (
-          <motion.div 
-            key="result"
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium",
-              resultText.includes("+") ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : 
-              resultText.includes("-") ? "bg-red-500/20 text-red-400 border border-red-500/30" : 
-              "bg-slate-500/20 text-slate-300 border border-slate-500/30"
-            )}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-          >
-            {resultText}
-          </motion.div>
-        ) : phaseText[phase] ? (
-          <motion.div 
-            key="phase"
-            className="px-3 py-1 rounded bg-slate-900/70 text-xs text-slate-400"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {phaseText[phase]}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+    <div className="flex gap-1">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div 
+          key={i}
+          className="w-6 h-8 rounded-sm"
+          style={{
+            background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PlayerSeat({
+  username,
+  avatar,
+  total,
+  betAmount,
+  isActive,
+  cards,
+  showCards,
+}: {
+  username: string;
+  avatar?: string;
+  total?: number;
+  betAmount: number;
+  isActive: boolean;
+  cards: number[];
+  showCards: boolean;
+}) {
+  return (
+    <div className={cn(
+      "flex flex-col items-center relative",
+      isActive && "z-10"
+    )}>
+      {showCards && cards.length > 0 && (
+        <div className="flex -space-x-6 mb-3">
+          {cards.map((card, i) => (
+            <PlayingCard key={i} cardIndex={card} delay={i * 0.1} />
+          ))}
+        </div>
+      )}
+      
+      {showCards && total !== undefined && total > 0 && (
+        <div className={cn(
+          "absolute -top-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-bold",
+          total > 21 ? "bg-red-500 text-white" :
+          total === 21 ? "bg-emerald-500 text-white" :
+          "bg-violet-600 text-white"
+        )}>
+          {total}
+        </div>
+      )}
+
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all",
+        isActive ? "bg-violet-600/40 ring-2 ring-violet-400" : "bg-slate-800/60"
+      )}>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center overflow-hidden">
+          {avatar ? (
+            <img src={avatar} alt={username} className="w-full h-full object-cover" />
+          ) : (
+            <User className="w-4 h-4 text-white" />
+          )}
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-white truncate max-w-[80px]">
+            {username}
+          </span>
+          <span className="text-[10px] text-emerald-400 font-mono">
+            ${betAmount.toFixed(4)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -238,10 +276,10 @@ function FairPlayModal({ user }: { user: any }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 rounded-full border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors">
-          <Shield className="w-3 h-3 text-emerald-400" />
-          <span className="text-[10px] font-medium text-emerald-400">Fair</span>
-        </button>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5 border-slate-600 bg-slate-800/50">
+          <Shield className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-xs">Provably Fair</span>
+        </Button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-slate-700 max-w-sm">
         <DialogHeader>
@@ -253,7 +291,7 @@ function FairPlayModal({ user }: { user: any }) {
         <div className="space-y-3 pt-2 text-sm">
           <div>
             <Label className="text-[10px] text-slate-500 uppercase">Client Seed</Label>
-            <code className="block mt-1 p-2 bg-slate-800 rounded text-xs text-amber-400 font-mono">
+            <code className="block mt-1 p-2 bg-slate-800 rounded text-xs text-amber-400 font-mono break-all">
               {user?.clientSeed || "Login to view"}
             </code>
           </div>
@@ -285,6 +323,46 @@ function FairPlayModal({ user }: { user: any }) {
   );
 }
 
+function PayoutRulesModal() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5 border-slate-600 bg-slate-800/50">
+          <BookOpen className="w-3.5 h-3.5" />
+          <span className="text-xs">Payout Rulebook</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-slate-700 max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white text-base">Payout Rules</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between py-2 border-b border-slate-700">
+            <span className="text-slate-400">Blackjack (21)</span>
+            <span className="text-emerald-400 font-mono">3:2</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-slate-700">
+            <span className="text-slate-400">Win</span>
+            <span className="text-emerald-400 font-mono">1:1</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-slate-700">
+            <span className="text-slate-400">Push</span>
+            <span className="text-slate-300 font-mono">Bet returned</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-slate-700">
+            <span className="text-slate-400">Insurance</span>
+            <span className="text-amber-400 font-mono">2:1</span>
+          </div>
+          <div className="flex justify-between py-2">
+            <span className="text-slate-400">House Edge</span>
+            <span className="text-slate-300 font-mono">~0.5%</span>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Blackjack() {
   const { user } = useAuth();
   const { results, addResult, clearHistory } = useGameHistory();
@@ -301,8 +379,8 @@ export default function Blackjack() {
   const [visibleDealerCards, setVisibleDealerCards] = useState<number[]>([]);
   const [dealerRevealed, setDealerRevealed] = useState(false);
   
-  const [statusResult, setStatusResult] = useState("");
-  const [showResult, setShowResult] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const [resultText, setResultText] = useState("");
   
   const [lastBet, setLastBet] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -363,7 +441,8 @@ export default function Blackjack() {
     
     setLastBet(betAmount);
     setGamePhase("DEALING");
-    setShowResult(false);
+    setStatusText("Dealing cards...");
+    setResultText("");
     setDealerRevealed(false);
     setVisiblePlayerCards([]);
     setVisibleDealerCards([]);
@@ -392,6 +471,7 @@ export default function Blackjack() {
         await revealAndSettle(data);
       } else {
         setGamePhase("PLAYER_TURN");
+        setStatusText("Your turn - Hit or Stand?");
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -432,6 +512,7 @@ export default function Blackjack() {
     if (processingRef.current || gamePhase !== "PLAYER_TURN" || !gameState?.bet?.id) return;
     processingRef.current = true;
     setIsProcessing(true);
+    setStatusText("Dealer's turn...");
     
     try {
       const data = await standMutation.mutateAsync(gameState.bet.id);
@@ -451,6 +532,7 @@ export default function Blackjack() {
     if (processingRef.current || gamePhase !== "PLAYER_TURN" || !gameState?.bet?.id) return;
     processingRef.current = true;
     setIsProcessing(true);
+    setStatusText("Doubling down...");
     
     try {
       const data = await doubleMutation.mutateAsync(gameState.bet.id);
@@ -472,6 +554,7 @@ export default function Blackjack() {
 
   const revealAndSettle = async (data: BlackjackState) => {
     setGamePhase("DEALER");
+    setStatusText("Dealer reveals...");
     
     await new Promise(r => setTimeout(r, REVEAL_DELAY));
     setDealerRevealed(true);
@@ -493,20 +576,20 @@ export default function Blackjack() {
     
     let resultStr = "";
     if (outcome === "blackjack") {
-      resultStr = `Blackjack! +${formatCurrency(bet * 1.5)}`;
+      resultStr = `BLACKJACK! +$${(bet * 1.5).toFixed(2)}`;
       playSound("win");
     } else if (outcome === "win") {
-      resultStr = `You win +${formatCurrency(bet)}`;
+      resultStr = `YOU WIN +$${bet.toFixed(2)}`;
       playSound("win");
     } else if (outcome === "push") {
-      resultStr = "Push - Bet returned";
+      resultStr = "PUSH - Bet Returned";
     } else {
-      resultStr = `Dealer wins ${formatCurrency(-bet)}`;
+      resultStr = `DEALER WINS -$${bet.toFixed(2)}`;
       playSound("lose");
     }
     
-    setStatusResult(resultStr);
-    setShowResult(true);
+    setStatusText(resultStr);
+    setResultText(outcome || "");
     
     if (!isPush) {
       const payout = won ? bet + profit : 0;
@@ -523,8 +606,6 @@ export default function Blackjack() {
     
     await new Promise(r => setTimeout(r, 600));
     setGamePhase("COMPLETE");
-    
-    setTimeout(() => setShowResult(false), 2500);
   };
 
   const resetGame = () => {
@@ -533,7 +614,8 @@ export default function Blackjack() {
     setVisiblePlayerCards([]);
     setVisibleDealerCards([]);
     setDealerRevealed(false);
-    setShowResult(false);
+    setStatusText("");
+    setResultText("");
     queryClient.invalidateQueries({ queryKey: ["/api/games/blackjack/active"] });
   };
 
@@ -556,38 +638,83 @@ export default function Blackjack() {
       ? getCardValue(visibleDealerCards.find(c => c !== -1) || 0)
       : 0;
 
+  const username = user?.username || "Player";
+
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-        <div className="max-w-4xl mx-auto px-4 py-3">
+      <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f0a1a 0%, #1a1025 50%, #0f0a1a 100%)" }}>
+        <div className="max-w-5xl mx-auto px-4 py-3">
           
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white">Blackjack</h1>
-              <FairPlayModal user={user} />
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-white">Blackjack</h1>
+              <div className="hidden sm:flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 border-slate-600 bg-slate-800/50">
+                  <User className="w-3.5 h-3.5" />
+                  <span className="text-xs">Play Alone</span>
+                </Button>
+              </div>
             </div>
-            <ProfitTrackerWidget gameId="blackjack" />
+            <div className="flex items-center gap-2">
+              <PayoutRulesModal />
+              <FairPlayModal user={user} />
+              <ProfitTrackerWidget gameId="blackjack" />
+            </div>
           </div>
 
-          <div className="relative rounded-2xl overflow-hidden shadow-xl">
+          <div 
+            className="relative rounded-3xl overflow-hidden shadow-2xl"
+            style={{
+              background: "linear-gradient(180deg, #1a1030 0%, #251845 30%, #1a1030 100%)",
+              border: "3px solid #3d2860",
+            }}
+          >
             <div 
-              className="relative h-[360px]"
-              style={{
-                background: "linear-gradient(180deg, #0a2818 0%, #0d3a25 50%, #0f4a30 100%)",
+              className="relative"
+              style={{ 
+                height: "440px",
+                background: `
+                  radial-gradient(ellipse 120% 80% at 50% 100%, #2d1f50 0%, transparent 70%),
+                  radial-gradient(ellipse 100% 50% at 50% 0%, #1a1030 0%, transparent 50%)
+                `,
               }}
             >
               <div 
-                className="absolute inset-0 opacity-[0.04]"
+                className="absolute inset-4 rounded-[100px_100px_200px_200px/60px_60px_120px_120px]"
                 style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                  background: "linear-gradient(180deg, #1e1535 0%, #2a1e4a 50%, #1e1535 100%)",
+                  border: "2px solid #3d2860",
+                  boxShadow: "inset 0 0 60px rgba(139, 92, 246, 0.1)",
                 }}
               />
-              
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Dealer</span>
-                <div className="flex -space-x-4">
+
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
+                  style={{
+                    background: "linear-gradient(135deg, #6b7280 0%, #374151 100%)",
+                    border: "3px solid #9ca3af",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-300 to-slate-500" />
+                </div>
+                <DealerChipStack />
+              </div>
+
+              <div className="absolute top-28 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
+                <div className="flex -space-x-5">
                   {visibleDealerCards.length === 0 && gamePhase === "BETTING" && (
-                    <div className="w-12 h-16 rounded-md border-2 border-dashed border-slate-500/30" />
+                    <>
+                      <div 
+                        className="w-14 h-20 rounded-lg border-2 border-dashed opacity-30"
+                        style={{ borderColor: "#6366f1" }}
+                      />
+                      <div 
+                        className="w-14 h-20 rounded-lg border-2 border-dashed opacity-30"
+                        style={{ borderColor: "#6366f1" }}
+                      />
+                    </>
                   )}
                   {visibleDealerCards.map((card, i) => (
                     <PlayingCard 
@@ -599,62 +726,86 @@ export default function Blackjack() {
                   ))}
                 </div>
                 {visibleDealerCards.length > 0 && (
-                  <div className="mt-1.5 px-2 py-0.5 bg-slate-900/80 rounded text-xs font-mono font-bold text-white">
+                  <div className={cn(
+                    "mt-2 px-3 py-1 rounded-full text-sm font-bold",
+                    dealerRevealed && dealerTotal > 21 ? "bg-red-500 text-white" :
+                    "bg-violet-600 text-white"
+                  )}>
                     {dealerTotal}
                   </div>
                 )}
               </div>
 
-              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                {gamePhase === "BETTING" && (
-                  <div className="flex flex-col items-center">
-                    <div className="w-20 h-14 rounded-lg border-2 border-dashed border-amber-400/40 flex items-center justify-center bg-amber-400/5">
-                      {betAmount > 0 ? (
-                        <span className="text-lg font-mono font-bold text-amber-400">${betAmount}</span>
-                      ) : (
-                        <span className="text-xs text-amber-400/60">Place Bet</span>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                <AnimatePresence mode="wait">
+                  {statusText && (
+                    <motion.div
+                      key={statusText}
+                      className={cn(
+                        "px-6 py-3 rounded-xl text-center font-bold text-lg",
+                        resultText === "blackjack" || resultText === "win" 
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                          : resultText === "bust" || resultText === "lose"
+                          ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                          : "bg-violet-900/60 text-violet-200 border border-violet-500/30"
                       )}
-                    </div>
-                  </div>
-                )}
-                
-                {visiblePlayerCards.length > 0 && (
-                  <>
-                    <div className="flex -space-x-4">
-                      {visiblePlayerCards.map((card, i) => (
-                        <PlayingCard key={`p-${i}`} cardIndex={card} delay={i * 0.12} />
-                      ))}
-                    </div>
-                    <div className={cn(
-                      "mt-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-bold",
-                      playerTotal > 21 ? "bg-red-500/20 text-red-400" :
-                      playerTotal === 21 ? "bg-emerald-500/20 text-emerald-400" :
-                      "bg-slate-900/80 text-white"
-                    )}>
-                      {playerTotal}
-                    </div>
-                  </>
-                )}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                    >
+                      {statusText}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <StatusBar
-                phase={gamePhase}
-                resultText={statusResult}
-                showResult={showResult}
-              />
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+                <PlayerSeat
+                  username={username}
+                  total={playerTotal}
+                  betAmount={betAmount}
+                  isActive={gamePhase === "PLAYER_TURN"}
+                  cards={visiblePlayerCards}
+                  showCards={visiblePlayerCards.length > 0}
+                />
+              </div>
+
+              {gamePhase === "BETTING" && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+                  <div 
+                    className="w-24 h-16 rounded-xl flex items-center justify-center"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%)",
+                      border: "2px dashed rgba(139, 92, 246, 0.4)",
+                    }}
+                  >
+                    {betAmount > 0 ? (
+                      <span className="text-xl font-mono font-bold text-violet-300">${betAmount}</span>
+                    ) : (
+                      <span className="text-xs text-violet-400">Place Bet</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="bg-slate-900/95 border-t border-slate-700 p-3">
+            <div 
+              className="p-4"
+              style={{
+                background: "linear-gradient(180deg, #1a1030 0%, #0f0a1a 100%)",
+                borderTop: "2px solid #3d2860",
+              }}
+            >
               <AnimatePresence mode="wait">
                 {gamePhase === "BETTING" && (
                   <motion.div 
                     key="betting"
-                    className="flex items-center justify-between gap-3"
+                    className="flex flex-col gap-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-2">
                       {CHIP_VALUES.map((chip) => (
                         <Chip
                           key={chip.value}
@@ -666,68 +817,68 @@ export default function Blackjack() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={removeChip}
                           disabled={betAmount <= 0}
-                          className="w-6 h-6 rounded bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center"
+                          className="w-8 h-8 rounded-lg bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center hover:bg-slate-600 transition-colors"
                           data-testid="button-bet-minus"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-4 h-4" />
                         </button>
-                        <span className="font-mono font-bold text-amber-400 min-w-[52px] text-center text-sm">
-                          ${betAmount.toFixed(2)}
-                        </span>
+                        <div className="px-4 py-2 rounded-lg bg-slate-800 min-w-[100px] text-center">
+                          <span className="font-mono font-bold text-lg text-emerald-400">
+                            ${betAmount.toFixed(2)}
+                          </span>
+                        </div>
                         <button
                           onClick={addChip}
                           disabled={betAmount + selectedChip.value > balance}
-                          className="w-6 h-6 rounded bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center"
+                          className="w-8 h-8 rounded-lg bg-slate-700 text-white disabled:opacity-30 flex items-center justify-center hover:bg-slate-600 transition-colors"
                           data-testid="button-bet-plus"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                      
-                      <div className="h-4 w-px bg-slate-700" />
-                      
-                      <div className="text-right">
-                        <span className="text-slate-500 text-[10px]">Balance </span>
-                        <span className="font-mono text-emerald-400">${balance.toFixed(2)}</span>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearBet}
-                        disabled={betAmount === 0}
-                        className="border-slate-600 text-slate-400 h-8 px-2"
-                        data-testid="button-clear"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                      {canRebet && (
+                      <div className="text-right">
+                        <span className="text-xs text-slate-500">Balance</span>
+                        <div className="font-mono text-lg text-emerald-400">${balance.toFixed(2)}</div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setBetAmount(lastBet)}
-                          className="border-slate-600 text-slate-400 h-8 px-2"
-                          data-testid="button-repeat"
+                          onClick={clearBet}
+                          disabled={betAmount === 0}
+                          className="border-slate-600 text-slate-400 h-10 px-3"
+                          data-testid="button-clear"
                         >
-                          <RotateCcw className="w-3 h-3" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        className="h-8 px-6 bg-emerald-500 hover:bg-emerald-400 font-bold"
-                        onClick={handleDeal}
-                        disabled={!canDeal || isBusy}
-                        data-testid="button-deal"
-                      >
-                        Deal
-                      </Button>
+                        {canRebet && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setBetAmount(lastBet)}
+                            className="border-slate-600 text-slate-400 h-10 px-3"
+                            data-testid="button-repeat"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="default"
+                          className="h-10 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold text-base"
+                          onClick={handleDeal}
+                          disabled={!canDeal || isBusy}
+                          data-testid="button-deal"
+                        >
+                          Deal
+                        </Button>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -735,14 +886,14 @@ export default function Blackjack() {
                 {gamePhase === "PLAYER_TURN" && (
                   <motion.div 
                     key="playing"
-                    className="flex items-center justify-center gap-3"
+                    className="flex items-center justify-center gap-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
                     <Button
-                      size="sm"
-                      className="h-9 px-6 bg-amber-500 hover:bg-amber-400 font-bold text-black"
+                      size="lg"
+                      className="h-12 px-8 bg-amber-500 hover:bg-amber-400 font-bold text-lg text-black"
                       onClick={handleHit}
                       disabled={isBusy}
                       data-testid="button-hit"
@@ -750,8 +901,8 @@ export default function Blackjack() {
                       Hit
                     </Button>
                     <Button
-                      size="sm"
-                      className="h-9 px-6 bg-slate-600 hover:bg-slate-500 font-bold"
+                      size="lg"
+                      className="h-12 px-8 bg-slate-600 hover:bg-slate-500 font-bold text-lg"
                       onClick={handleStand}
                       disabled={isBusy}
                       data-testid="button-stand"
@@ -760,9 +911,9 @@ export default function Blackjack() {
                     </Button>
                     {gameState?.canDouble && balance >= betAmount && (
                       <Button
-                        size="sm"
+                        size="lg"
                         variant="outline"
-                        className="h-9 px-6 border-slate-500 font-bold"
+                        className="h-12 px-8 border-violet-500 text-violet-300 font-bold text-lg"
                         onClick={handleDouble}
                         disabled={isBusy}
                         data-testid="button-double"
@@ -773,49 +924,52 @@ export default function Blackjack() {
                   </motion.div>
                 )}
 
-                {(gamePhase === "DEALER" || gamePhase === "SETTLEMENT") && (
+                {(gamePhase === "DEALER" || gamePhase === "SETTLEMENT" || gamePhase === "DEALING") && (
                   <motion.div 
-                    key="dealer"
-                    className="flex items-center justify-center h-9"
+                    key="waiting"
+                    className="flex items-center justify-center h-12"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                   >
-                    <span className="text-sm text-slate-400">
-                      {gamePhase === "DEALER" ? "Dealer's turn..." : ""}
-                    </span>
+                    <div className="flex items-center gap-2 text-violet-300">
+                      <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                      <span className="text-sm">
+                        {gamePhase === "DEALING" ? "Dealing..." : "Dealer playing..."}
+                      </span>
+                    </div>
                   </motion.div>
                 )}
 
                 {gamePhase === "COMPLETE" && (
                   <motion.div 
                     key="complete"
-                    className="flex items-center justify-center gap-3"
+                    className="flex items-center justify-center gap-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="lg"
                       onClick={handleNewHand}
-                      className="border-slate-600 text-slate-300 h-9"
+                      className="border-slate-600 text-slate-300 h-12"
                       data-testid="button-new-hand"
                     >
                       Clear
                     </Button>
                     <Button
-                      size="sm"
-                      className="h-9 px-6 bg-amber-500 hover:bg-amber-400 font-bold text-black"
+                      size="lg"
+                      className="h-12 px-8 bg-violet-600 hover:bg-violet-500 font-bold"
                       onClick={handleRebet}
                       disabled={!canRebet}
                       data-testid="button-rebet"
                     >
-                      <RotateCcw className="w-3 h-3 mr-1" />
+                      <RotateCcw className="w-4 h-4 mr-2" />
                       Rebet
                     </Button>
                     <Button
-                      size="sm"
-                      className="h-9 px-6 bg-emerald-500 hover:bg-emerald-400 font-bold"
+                      size="lg"
+                      className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 font-bold"
                       onClick={() => {
                         handleRebet();
                         setTimeout(handleDeal, 50);
@@ -831,7 +985,7 @@ export default function Blackjack() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
             <RecentResults 
               results={results} 
               onClear={clearHistory}
