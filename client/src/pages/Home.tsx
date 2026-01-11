@@ -5,7 +5,7 @@ import { RecentWinsTicker } from "@/components/RecentWinsTicker";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
 import { GameInfo, GameCard } from "@/components/GameCard";
-import { Gamepad2, TrendingUp, Sparkles, Star } from "lucide-react";
+import { Gamepad2, TrendingUp, Sparkles, Star, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 import newReleaseBg from "@assets/f05eea61-9bf2-4880-820b-f2a0acec5fea_1768107746554.png";
@@ -28,6 +28,12 @@ const popularGames = [
   allGames.find(g => g.id === "dice")!,
   allGames.find(g => g.id === "blackjack")!,
   allGames.find(g => g.id === "roulette")!,
+  allGames.find(g => g.id === "coinflip")!,
+];
+
+const featuredGames = [
+  allGames.find(g => g.id === "splitsteal")!,
+  allGames.find(g => g.id === "pressure-valve")!,
   allGames.find(g => g.id === "coinflip")!,
 ];
 
@@ -131,6 +137,12 @@ export default function Home() {
             </div>
           </Link>
         </section>
+
+        <GameRow 
+          title="Featured" 
+          games={featuredGames}
+          icon={<Flame className="w-5 h-5 text-orange-500" />}
+        />
 
         {showFilteredResults ? (
           <section>
