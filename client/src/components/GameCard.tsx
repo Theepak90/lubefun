@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Flame } from "lucide-react";
 
-import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_29_29_AM_1768095699502.png";
+import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_02_04_41_AM_1768097091093.png";
 import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_33_56_AM_1768095699503.png";
 import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_41_15_AM_1768095699503.png";
 import spinImg from "@assets/Colourful_daily_spin_with_water_splash_1768095699504.png";
