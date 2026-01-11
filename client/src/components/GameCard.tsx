@@ -10,6 +10,7 @@ import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_176810655
 import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
 import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
 import splitstealImg from "@assets/Split_or_steal_showdown_1768107711468.png";
+import pressureValveImg from "@assets/ChatGPT_Image_Jan_11,_2026,_07_03_55_AM_1768122318400.png";
 
 export interface GameInfo {
   id: string;
@@ -30,7 +31,7 @@ const gameImages: Record<string, string> = {
   spin: spinImg,
   mines: minesImg,
   splitsteal: splitstealImg,
-  pressure: rouletteImg,
+  pressure: pressureValveImg,
 };
 
 const gameImageStyles: Record<string, { scale: string; hoverScale: string; position?: string }> = {
