@@ -35,15 +35,15 @@ const gameImages: Record<string, string> = {
 };
 
 const gameImageStyles: Record<string, { scale: string; hoverScale: string; position?: string }> = {
-  dice: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  coinflip: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]", position: "object-bottom" },
-  roulette: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  plinko: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  blackjack: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  spin: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  mines: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  splitsteal: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
-  pressure: { scale: "scale-[1.8]", hoverScale: "group-hover:scale-[1.9]", position: "object-bottom" },
+  dice: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  coinflip: { scale: "scale-[1.4]", hoverScale: "group-hover:scale-[1.5]", position: "object-center" },
+  roulette: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  plinko: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  blackjack: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  spin: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  mines: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  splitsteal: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  pressure: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
@@ -72,7 +72,7 @@ export function GameCard({ game }: { game: GameInfo }) {
         <img 
           src={imageUrl} 
           alt={game.name}
-          className={`absolute inset-0 block w-full h-full object-cover transition-transform ${imageStyle.scale} ${imageStyle.hoverScale} ${imageStyle.position || ""}`}
+          className={`w-full h-full object-cover transition-transform ${imageStyle.scale} ${imageStyle.hoverScale} ${imageStyle.position || ""}`}
         />
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
