@@ -1,0 +1,117 @@
+Redesign the Home screen to match a Rainbet-style casino lobby layout (clean, modern, content-rich) while keeping our existing theme/colors and game routes.
+
+Goal
+
+The current home is too empty. Build a real “casino lobby” homepage with:
+
+Top promo banners
+
+Live wins feed
+
+Recently played
+
+Game categories / filters
+
+Horizontal game carousels with icons
+
+Search bar
+
+Responsive + smooth scrolling
+
+1) Header / Top area
+
+Keep the current top navbar (balance + wallet + rewards), but make the home content start under it cleanly.
+
+Add a small “Casino / Sports” toggle at the top-left of the content area (Sports can be disabled/coming soon).
+
+2) Promo banner row (like Rainbet)
+
+Create a horizontal banner carousel (3 banners visible on desktop, swipeable on mobile):
+
+Banner A: “New Release” + CTA “Play Now” (link to Dice or Roulette)
+
+Banner B: “Daily Spin” + CTA “Open Lootbox” (link to Daily Spin)
+
+Banner C: “Challenges / Weekly Raffle” + CTA “View More” (link can be stub)
+
+Use premium card styling: rounded corners, subtle glow, gradient overlays.
+
+Use placeholder images/gradients if no assets.
+
+3) Live Wins panel (right side on desktop)
+
+Add a “LIVE WINS” card that updates every ~2–5 seconds with random entries like:
+
+brad22 — Dice — +$6.74
+
+luna_7 — Roulette — +$58.10
+
+Make it feel believable: mostly small wins, occasionally medium, very rarely big.
+
+It must be labeled “Simulated (demo)” for now.
+
+Add a small trophy icon and smooth scrolling animation.
+
+4) “Recent Wins” ticker row (optional but nice)
+
+Add a horizontal ticker strip under banners: recent results bubbles (game icon + amount).
+
+5) Game rows (carousels)
+
+Create these sections (each a horizontal scroll row of game cards):
+
+Originals (Dice, Coinflip, Mines, Plinko, Roulette, Blackjack, Daily Spin)
+
+Popular (top 4–6 cards, can duplicate but reorder)
+
+Recommended (personalized placeholder)
+
+Each game card should include:
+
+Icon / image placeholder
+
+Name
+
+“Players” count (fake for now)
+
+Optional “Hot” tag
+
+Click navigates to the existing route (do not break routes)
+
+6) Search + Filters (like Rainbet)
+
+Add a search bar that filters game cards by name.
+
+Add filter buttons: “All”, “Originals”, “Live Casino” (can be stub), “Slots” (stub)
+
+For now only “All” and “Originals” need to work; others show “Coming soon”.
+
+7) Sidebar improvements (home navigation)
+
+Keep existing left sidebar, but add Home sections like: Home, Favorites (stub), Recently Played.
+
+Add “Originals” expandable section similar to Rainbet style (clean).
+
+8) UI style requirements
+
+Match Rainbet spacing: tighter, content-rich, but not cluttered.
+
+Cards must look premium (rounded 16–20px, soft shadow, minimal borders).
+
+Smooth hover states (lift + glow).
+
+Fully responsive:
+
+Desktop: banners + live wins side-by-side
+
+Mobile: banners stacked, live wins collapses into a small panel
+
+9) Data + structure
+
+Keep everything demo-friendly: live wins and players count are simulated.
+
+Build reusable components: BannerCarousel, GameRow, GameCard, LiveWins, SearchFilters.
+
+Do NOT change game logic or wallet logic; homepage only.
+
+Deliverable: a Rainbet-style homepage/lobby with banners, carousels, search/filters, and a live wins panel, wired to existing game routes and matching our theme.

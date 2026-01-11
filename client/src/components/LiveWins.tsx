@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy } from "lucide-react";
+import { Trophy, Dice5, Coins, Bomb, CircleDot, Triangle, Spade } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LiveWin {
   id: string;
