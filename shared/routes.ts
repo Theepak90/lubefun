@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealBetSchema } from "./schema";
+import { insertUserSchema, users, bets, diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteBets, rouletteMultiBetSchema, splitStealStartSchema, splitStealResolveSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -305,17 +305,31 @@ export const api = {
       },
     },
     splitsteal: {
-      play: {
+      start: {
         method: "POST" as const,
-        path: "/api/games/splitsteal",
-        input: splitStealBetSchema,
+        path: "/api/games/splitsteal/start",
+        input: splitStealStartSchema,
+        responses: {
+          200: z.object({
+            roundId: z.number(),
+            betAmount: z.number(),
+            balanceAfter: z.number(),
+          }),
+          400: errorSchemas.gameError,
+        },
+      },
+      resolve: {
+        method: "POST" as const,
+        path: "/api/games/splitsteal/resolve",
+        input: splitStealResolveSchema,
         responses: {
           200: z.object({
             bet: z.custom<typeof bets.$inferSelect>(),
-            outcome: z.enum(["split", "steal"]),
-            multiplier: z.number(),
+            playerChoice: z.enum(["split", "steal"]),
+            aiChoice: z.enum(["split", "steal"]),
             payout: z.number(),
             won: z.boolean(),
+            balanceAfter: z.number(),
           }),
           400: errorSchemas.gameError,
         },

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealBetSchema } from "@shared/schema";
+import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealStartSchema, splitStealResolveSchema } from "@shared/schema";
 import { GAME_CONFIG, getPlinkoMultipliers, PlinkoRisk, ROULETTE_CONFIG, RouletteBetType, getRouletteColor, checkRouletteWin, BLACKJACK_CONFIG } from "@shared/config";
 import { z } from "zod";
 import passport from "passport";
@@ -238,28 +238,48 @@ export async function registerRoutes(
     }
   });
 
-  // SPLIT OR STEAL CONFIG
+  // SPLIT OR STEAL CONFIG - Game Theory Version
   const SPLIT_STEAL_CONFIG = {
-    houseEdge: 0.04, // 4% house edge
-    splitChance: 0.60, // 60% chance to split
-    minMultiplier: 1.8,
-    maxMultiplier: 2.4
+    houseEdge: 0.04,      // 4% house edge on steal wins
+    splitBonus: 0.06,     // 6% bonus when both split
+    baseAiSplitChance: 0.62, // 62% base AI split chance
+    historySize: 10,      // Track last 10 player choices
+    stealThreshold: 0.60, // If player steals > 60%, AI adapts
   };
 
-  app.post(api.games.splitsteal.play.path, async (req, res) => {
+  // In-memory storage for active Split or Steal rounds and player history
+  const splitStealRounds = new Map<number, { userId: number; betAmount: number; nonce: number }>();
+  const playerChoiceHistory = new Map<number, ("split" | "steal")[]>();
+  let splitStealRoundCounter = 1;
+
+  // Helper to get adaptive AI split chance based on player history
+  function getAdaptiveAiSplitChance(userId: number): number {
+    const history = playerChoiceHistory.get(userId) || [];
+    if (history.length < 3) return SPLIT_STEAL_CONFIG.baseAiSplitChance;
+    
+    const stealCount = history.filter(c => c === "steal").length;
+    const stealRate = stealCount / history.length;
+    
+    // If player steals a lot, AI steals more (reduce split chance)
+    // If player splits a lot, AI splits more (increase split chance)
+    if (stealRate > SPLIT_STEAL_CONFIG.stealThreshold) {
+      // Player is aggressive, AI becomes defensive
+      return Math.max(0.30, SPLIT_STEAL_CONFIG.baseAiSplitChance - (stealRate - 0.5) * 0.4);
+    } else if (stealRate < 0.40) {
+      // Player is cooperative, AI stays cooperative
+      return Math.min(0.80, SPLIT_STEAL_CONFIG.baseAiSplitChance + 0.10);
+    }
+    return SPLIT_STEAL_CONFIG.baseAiSplitChance;
+  }
+
+  // Start a new Split or Steal round
+  app.post(api.games.splitsteal.start.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = await storage.getUser(req.user!.id);
     if (!user) return res.sendStatus(401);
 
     try {
-      const input = splitStealBetSchema.parse(req.body);
-      
-      // DEBUG: Log bet and balance before
-      console.log('[SplitSteal] Bet request:', {
-        betAmount: input.betAmount,
-        balanceBefore: user.balance,
-        userId: user.id
-      });
+      const input = splitStealStartSchema.parse(req.body);
       
       if (input.betAmount <= 0) return res.status(400).json({ message: "Bet must be greater than 0" });
       if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
@@ -267,80 +287,139 @@ export async function registerRoutes(
       // Deduct bet immediately
       await storage.updateUserBalance(user.id, -input.betAmount);
       
-      // Calculate outcome using provably fair randomness
-      const hash = require('crypto')
+      // Create round
+      const roundId = splitStealRoundCounter++;
+      splitStealRounds.set(roundId, {
+        userId: user.id,
+        betAmount: input.betAmount,
+        nonce: user.nonce
+      });
+
+      const updatedUser = await storage.getUser(user.id);
+      
+      console.log('[SplitSteal] Round started:', { roundId, betAmount: input.betAmount, userId: user.id });
+
+      res.json({
+        roundId,
+        betAmount: input.betAmount,
+        balanceAfter: updatedUser?.balance || 0
+      });
+    } catch (err) {
+      console.error('[SplitSteal] Start error:', err);
+      res.status(400).json({ message: "Failed to start game" });
+    }
+  });
+
+  // Resolve a Split or Steal round with player choice
+  app.post(api.games.splitsteal.resolve.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+
+    try {
+      const input = splitStealResolveSchema.parse(req.body);
+      
+      const round = splitStealRounds.get(input.roundId);
+      if (!round) return res.status(400).json({ message: "Invalid or expired round" });
+      if (round.userId !== user.id) return res.status(400).json({ message: "Round belongs to another user" });
+
+      // Remove round to prevent double resolution
+      splitStealRounds.delete(input.roundId);
+
+      const playerChoice = input.playerChoice;
+      const betAmount = round.betAmount;
+
+      // Determine AI choice using provably fair randomness
+      const crypto = require('crypto');
+      const hash = crypto
         .createHmac('sha256', user.serverSeed)
-        .update(`${user.clientSeed}:${user.nonce}:splitsteal`)
+        .update(`${user.clientSeed}:${round.nonce}:splitsteal:${input.roundId}`)
         .digest('hex');
       
       const roll = parseInt(hash.substring(0, 8), 16) / 0xffffffff;
-      
-      // Determine outcome based on splitChance
-      const isSplit = roll < SPLIT_STEAL_CONFIG.splitChance;
-      
-      // Weighted payout multiplier (1.8 - 2.4) with higher weight toward lower values
-      const payoutHash = parseInt(hash.substring(8, 16), 16) / 0xffffffff;
-      // Weight toward lower multipliers: use sqrt for less extreme weighting
-      const weightedRandom = Math.sqrt(payoutHash);
-      const baseMultiplier = SPLIT_STEAL_CONFIG.minMultiplier + 
-        (weightedRandom * (SPLIT_STEAL_CONFIG.maxMultiplier - SPLIT_STEAL_CONFIG.minMultiplier));
-      
-      // Apply house edge to final multiplier
-      const finalMultiplier = isSplit ? baseMultiplier * (1 - SPLIT_STEAL_CONFIG.houseEdge) : 0;
-      
+      const aiSplitChance = getAdaptiveAiSplitChance(user.id);
+      const aiChoice: "split" | "steal" = roll < aiSplitChance ? "split" : "steal";
+
+      // Update player history
+      const history = playerChoiceHistory.get(user.id) || [];
+      history.push(playerChoice);
+      if (history.length > SPLIT_STEAL_CONFIG.historySize) history.shift();
+      playerChoiceHistory.set(user.id, history);
+
+      // Calculate payout based on game theory matrix
+      let payout = 0;
+      let won = false;
+      let multiplier = 0;
+
+      if (playerChoice === "split" && aiChoice === "split") {
+        // Both split: player gets bet * (1 + splitBonus)
+        multiplier = 1 + SPLIT_STEAL_CONFIG.splitBonus;
+        payout = betAmount * multiplier;
+        won = true;
+      } else if (playerChoice === "steal" && aiChoice === "split") {
+        // Player steals, AI splits: player gets 2 * bet * (1 - houseEdge)
+        multiplier = 2 * (1 - SPLIT_STEAL_CONFIG.houseEdge);
+        payout = betAmount * multiplier;
+        won = true;
+      } else if (playerChoice === "split" && aiChoice === "steal") {
+        // Player splits, AI steals: player loses everything
+        payout = 0;
+        won = false;
+      } else {
+        // Both steal: nobody wins
+        payout = 0;
+        won = false;
+      }
+
+      const profit = payout - betAmount;
+
+      // Increment nonce
       await storage.incrementNonce(user.id);
-      
-      const payout = isSplit ? input.betAmount * finalMultiplier : 0;
-      const profit = payout - input.betAmount;
 
-      // DEBUG: Log outcome and payout
-      console.log('[SplitSteal] Outcome:', {
-        outcome: isSplit ? 'SPLIT' : 'STEAL',
-        roll: roll.toFixed(4),
-        baseMultiplier: baseMultiplier.toFixed(4),
-        finalMultiplier: finalMultiplier.toFixed(4),
-        payout: payout.toFixed(2),
-        profit: profit.toFixed(2)
-      });
-
-      if (isSplit) {
+      // Credit winnings if any
+      if (payout > 0) {
         await storage.updateUserBalance(user.id, payout);
       }
-      
-      // Get updated balance
+
       const updatedUser = await storage.getUser(user.id);
-      
-      // DEBUG: Log balance after
-      console.log('[SplitSteal] Balance after:', {
-        balanceAfter: updatedUser?.balance
+
+      console.log('[SplitSteal] Resolved:', {
+        roundId: input.roundId,
+        playerChoice,
+        aiChoice,
+        aiSplitChance: aiSplitChance.toFixed(2),
+        roll: roll.toFixed(4),
+        multiplier: multiplier.toFixed(2),
+        payout: payout.toFixed(2),
+        profit: profit.toFixed(2),
+        won
       });
 
       const bet = await storage.createBet({
         userId: user.id,
         game: "splitsteal",
-        betAmount: input.betAmount,
-        payoutMultiplier: finalMultiplier,
+        betAmount,
+        payoutMultiplier: multiplier,
         profit,
-        won: isSplit,
+        won,
         clientSeed: user.clientSeed,
         serverSeed: user.serverSeed,
-        nonce: user.nonce,
-        result: { outcome: isSplit ? "split" : "steal", roll, multiplier: finalMultiplier },
+        nonce: round.nonce,
+        result: { playerChoice, aiChoice, roll, multiplier },
         active: false
       });
 
       res.json({
         bet,
-        outcome: isSplit ? "split" : "steal",
-        multiplier: finalMultiplier,
+        playerChoice,
+        aiChoice,
         payout,
-        profit,
-        won: isSplit,
-        balanceAfter: updatedUser?.balance
+        won,
+        balanceAfter: updatedUser?.balance || 0
       });
     } catch (err) {
-      console.error('[SplitSteal] Error:', err);
-      res.status(400).json({ message: "Invalid bet" });
+      console.error('[SplitSteal] Resolve error:', err);
+      res.status(400).json({ message: "Failed to resolve game" });
     }
   });
 
