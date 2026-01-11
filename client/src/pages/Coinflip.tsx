@@ -16,8 +16,8 @@ import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useToast } from "@/hooks/use-toast";
-import coinHeadsImg from "@assets/ChatGPT_Image_Jan_11,_2026,_12_07_41_AM_1768090073879.png";
-import coinTailsImg from "@assets/ChatGPT_Image_Jan_11,_2026,_12_07_44_AM_1768090071784.png";
+import coinCockImg from "@assets/Golden_rooster_on_shining_coin_1768116520918.png";
+import coinBallsImg from "@assets/ChatGPT_Image_Jan_11,_2026,_07_22_38_AM_1768116520919.png";
 
 const FLIP_DURATION = 1.4;
 const FLIP_ROTATIONS = 6;
@@ -29,9 +29,9 @@ export default function Coinflip() {
   const { play: playSound } = useSound();
   const { recordResult } = useProfitTracker();
   const { toast } = useToast();
-  const [side, setSide] = useState<"heads" | "tails">("heads");
+  const [side, setSide] = useState<"cock" | "balls">("cock");
   const [flipping, setFlipping] = useState(false);
-  const [result, setResult] = useState<"heads" | "tails" | null>(null);
+  const [result, setResult] = useState<"cock" | "balls" | null>(null);
   const [amount, setAmount] = useState<string>("10");
   const [targetRotation, setTargetRotation] = useState(0);
   const [mode, setMode] = useState<"manual" | "auto">("manual");
@@ -70,11 +70,11 @@ export default function Coinflip() {
       { betAmount: val, side },
       {
         onSuccess: (data: any) => {
-          const flipResult = data.result.flip as "heads" | "tails";
+          const flipResult = data.result.flip as "cock" | "balls";
           const won = data.won;
           
           const baseRotations = FLIP_ROTATIONS * 360;
-          const finalRotation = flipResult === "tails" ? baseRotations + 180 : baseRotations;
+          const finalRotation = flipResult === "balls" ? baseRotations + 180 : baseRotations;
           setTargetRotation(finalRotation);
           
           const profit = won ? currentAmount * baseMultiplier - currentAmount : -currentAmount;
@@ -400,28 +400,28 @@ export default function Coinflip() {
               <div className="mb-8">
                 <div className="flex bg-[#0d1419] p-1 rounded-full border border-[#1a2530]">
                   <button 
-                    onClick={() => setSide("heads")}
+                    onClick={() => setSide("cock")}
                     disabled={autoRunning}
                     className={cn(
                       "px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 relative disabled:opacity-70",
-                      side === "heads" 
+                      side === "cock" 
                         ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-yellow-950 shadow-[0_0_20px_-3px_rgba(245,158,11,0.5)]" 
                         : "text-slate-400 hover:text-white"
                     )}
                   >
-                    Heads
+                    Cock
                   </button>
                   <button 
-                    onClick={() => setSide("tails")}
+                    onClick={() => setSide("balls")}
                     disabled={autoRunning}
                     className={cn(
                       "px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 relative disabled:opacity-70",
-                      side === "tails" 
+                      side === "balls" 
                         ? "bg-gradient-to-r from-slate-400 to-slate-500 text-slate-900 shadow-[0_0_20px_-3px_rgba(148,163,184,0.5)]" 
                         : "text-slate-400 hover:text-white"
                     )}
                   >
-                    Tails
+                    Balls
                   </button>
                 </div>
               </div>
@@ -452,7 +452,7 @@ export default function Coinflip() {
                   <motion.div
                     className="w-full h-full relative"
                     animate={{ 
-                      rotateX: flipping ? targetRotation : (result === "tails" ? 180 : 0)
+                      rotateX: flipping ? targetRotation : (result === "balls" ? 180 : 0)
                     }}
                     transition={{ 
                       duration: FLIP_DURATION,
@@ -460,7 +460,7 @@ export default function Coinflip() {
                     }}
                     style={{ transformStyle: "preserve-3d" }}
                   >
-                    {/* Front (Heads) */}
+                    {/* Front (Cock) */}
                     <div 
                       className="absolute inset-0 rounded-full overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
                       style={{ 
@@ -468,13 +468,13 @@ export default function Coinflip() {
                       }}
                     >
                       <img 
-                        src={coinHeadsImg} 
-                        alt="Heads" 
+                        src={coinCockImg} 
+                        alt="Cock" 
                         className="w-full h-full object-cover"
                       />
                     </div>
 
-                    {/* Back (Tails) */}
+                    {/* Back (Balls) */}
                     <div 
                       className="absolute inset-0 rounded-full overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
                       style={{ 
@@ -483,8 +483,8 @@ export default function Coinflip() {
                       }}
                     >
                       <img 
-                        src={coinTailsImg} 
-                        alt="Tails" 
+                        src={coinBallsImg} 
+                        alt="Balls" 
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -536,7 +536,7 @@ export default function Coinflip() {
                       exit={{ opacity: 0 }}
                       className="text-slate-500 text-sm"
                     >
-                      Pick a side and place your bet
+                      Pick cock or balls and place your bet
                     </motion.span>
                   )}
                 </AnimatePresence>

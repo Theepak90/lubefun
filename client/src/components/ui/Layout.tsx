@@ -63,7 +63,6 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { icon: Dice5, label: "Dice", href: "/dice" },
-    { icon: Coins, label: "Coinflip", href: "/coinflip" },
     { icon: Bomb, label: "Mines", href: "/mines" },
     { icon: Spade, label: "Blackjack", href: "/blackjack" },
     { icon: CircleDot, label: "Roulette", href: "/roulette" },
@@ -168,11 +167,6 @@ export function Layout({ children }: LayoutProps) {
                   )}>
                     <item.icon className={cn("w-5 h-5", location === item.href && "animate-pulse")} />
                     <span className="font-semibold">{item.label}</span>
-                    {item.badge && (
-                      <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-gradient-to-r from-pink-500 to-purple-500 text-white uppercase tracking-wide">
-                        {item.badge}
-                      </span>
-                    )}
                   </div>
                 </Link>
               ))}
@@ -205,6 +199,17 @@ export function Layout({ children }: LayoutProps) {
                       className="overflow-hidden"
                     >
                       <div className="pl-4 space-y-1">
+                        <Link href="/coinflip">
+                          <div className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
+                            location === "/coinflip" 
+                              ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]" 
+                              : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                          )}>
+                            <Coins className={cn("w-4 h-4", location === "/coinflip" && "animate-pulse")} />
+                            <span className="font-medium text-sm">Cock or Balls</span>
+                          </div>
+                        </Link>
                         <Link href="/split-or-steal">
                           <div className={cn(
                             "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",

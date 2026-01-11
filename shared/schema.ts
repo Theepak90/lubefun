@@ -129,7 +129,7 @@ export const diceBetSchema = z.object({
 
 export const coinflipBetSchema = z.object({
   betAmount: z.number().min(1),
-  side: z.enum(["heads", "tails"]),
+  side: z.enum(["cock", "balls"]),
 });
 
 export const minesBetSchema = z.object({

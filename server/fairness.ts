@@ -27,13 +27,13 @@ export function getDiceRoll(serverSeed: string, clientSeed: string, nonce: numbe
   return roll;
 }
 
-// Coinflip: 0 (Heads) or 1 (Tails)
+// Coinflip: 0 (Cock) or 1 (Balls)
 export function getCoinflipResult(serverSeed: string, clientSeed: string, nonce: number) {
   const hash = getResult(serverSeed, clientSeed, nonce);
   // Even or Odd on first byte? 
   // Simple modulo 2 on the first byte
   const firstByte = parseInt(hash.substring(0, 2), 16);
-  return firstByte % 2 === 0 ? "heads" : "tails";
+  return firstByte % 2 === 0 ? "cock" : "balls";
 }
 
 // Mines: Generate array of mine positions [0-24]
