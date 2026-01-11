@@ -142,7 +142,7 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
         <img 
           src={banner.image} 
           alt="Banner" 
-          className="w-full h-full object-cover object-center"
+          className="w-full h-full object-contain object-center"
         />
       </div>
     );
