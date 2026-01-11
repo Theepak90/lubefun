@@ -133,7 +133,7 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
     const content = (
       <div 
         className={cn(
-          "relative h-44 rounded-lg overflow-hidden cursor-pointer group transition-all duration-300 bg-[#0a4d8c] flex items-center justify-center",
+          "relative aspect-[16/7] rounded-lg overflow-hidden cursor-pointer group transition-all duration-300",
           isActive ? "ring-1 ring-white/10" : "opacity-90 hover:opacity-100"
         )}
         style={{ boxShadow: isActive ? `0 0 20px ${banner.glowColor}` : undefined }}

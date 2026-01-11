@@ -106,20 +106,20 @@ export function LiveWins() {
   }, []);
 
   return (
-    <div className="bg-[#0d1419] border border-[#1a2530] rounded-xl p-4 mt-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg p-3 mt-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          <Trophy className="w-3 h-3 text-amber-400" />
+          <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
             Live Wins
           </h3>
         </div>
-        <span className="text-[9px] text-slate-600 italic">
+        <span className="text-[8px] text-slate-600 italic">
           Simulated (demo)
         </span>
       </div>
       
-      <div className="space-y-1 max-h-[200px] overflow-hidden">
+      <div className="space-y-0.5 max-h-[120px] overflow-hidden">
         <AnimatePresence initial={false}>
           {wins.map((win) => (
             <motion.div
@@ -128,7 +128,7 @@ export function LiveWins() {
               animate={{ opacity: 1, x: 0, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="flex items-center justify-between py-1.5 px-2 rounded-md bg-[#111921]/50"
+              className="flex items-center justify-between py-1 px-2 rounded bg-[#111921]/50"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs text-white font-medium truncate">
