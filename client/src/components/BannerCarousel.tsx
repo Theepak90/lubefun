@@ -72,9 +72,9 @@ export function BannerCarousel() {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="hidden lg:grid lg:grid-cols-3 gap-4">
+      <div className="hidden lg:grid lg:grid-cols-2 gap-6">
         {banners.map((banner, index) => (
-          <div key={banner.id} className={banner.image ? "col-span-2" : ""}>
+          <div key={banner.id}>
             <BannerCard banner={banner} isActive={index === currentIndex} />
           </div>
         ))}
@@ -133,16 +133,16 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
     const content = (
       <div 
         className={cn(
-          "relative h-64 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 bg-[#0a4d8c]",
-          isActive ? "ring-2 ring-white/20" : "opacity-80 hover:opacity-100"
+          "relative h-48 rounded-xl overflow-hidden cursor-pointer group transition-all duration-300 bg-[#0a4d8c]",
+          isActive ? "ring-1 ring-white/10" : "opacity-90 hover:opacity-100"
         )}
-        style={{ boxShadow: isActive ? `0 0 40px ${banner.glowColor}` : undefined }}
+        style={{ boxShadow: isActive ? `0 0 30px ${banner.glowColor}` : undefined }}
         data-testid={`card-banner-${banner.id}`}
       >
         <img 
           src={banner.image} 
           alt="Banner" 
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
       </div>
     );
