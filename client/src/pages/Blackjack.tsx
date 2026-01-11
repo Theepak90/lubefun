@@ -111,15 +111,13 @@ function Chip({ chip, selected, onClick, size = "md" }: {
       onClick={onClick}
       className={cn(
         "rounded-full flex items-center justify-center transition-all",
-        selected ? "ring-2 ring-emerald-400 scale-110" : "",
+        selected ? "scale-110" : "",
         onClick && "hover:scale-105 active:scale-95"
       )}
       style={{
         width: s,
         height: s,
-        boxShadow: selected 
-          ? "0 0 16px rgba(16, 185, 129, 0.5)"
-          : "0 3px 6px rgba(0,0,0,0.4)",
+        boxShadow: "0 3px 6px rgba(0,0,0,0.4)",
       }}
       data-testid={`chip-${chip.value}`}
     >
