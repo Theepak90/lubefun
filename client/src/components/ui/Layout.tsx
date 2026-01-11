@@ -29,7 +29,7 @@ import { WalletDropdown } from "@/components/WalletDropdown";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-import logoImg from "@assets/image_(2)_1768086160376.jpg";
+import logoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_12_17_49_AM_1768090675741.png";
 
 interface LayoutProps {
   children: ReactNode;
@@ -78,7 +78,7 @@ export function Layout({ children }: LayoutProps) {
           </Button>
           <Link href="/">
             <div className="flex items-center cursor-pointer group h-full">
-              <img src={logoImg} alt="Lube.fun Logo" className="h-10 w-auto object-contain group-hover:scale-105 transition-transform" />
+              <img src={logoImg} alt="Lube.fun Logo" className="h-14 w-auto object-contain group-hover:scale-105 transition-transform" />
             </div>
           </Link>
         </div>
