@@ -427,7 +427,7 @@ export default function Coinflip() {
               </div>
 
               {/* The Coin - Larger with premium lighting */}
-              <div className="relative w-48 h-48" style={{ perspective: "1200px" }}>
+              <div className="relative w-64 h-64" style={{ perspective: "1200px" }}>
                 {/* Ambient glow */}
                 <div className={cn(
                   "absolute inset-0 rounded-full blur-2xl transition-colors duration-500",
