@@ -169,23 +169,6 @@ function PlayingCard({
   );
 }
 
-function DealerChipStack() {
-  return (
-    <div className="flex gap-1">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div 
-          key={i}
-          className="w-6 h-8 rounded-sm"
-          style={{
-            background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function PlayerSeat({
   username,
   avatar,
@@ -676,21 +659,7 @@ export default function Blackjack() {
                 }}
               />
 
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                <div 
-                  className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
-                  style={{
-                    background: "linear-gradient(135deg, #6b7280 0%, #374151 100%)",
-                    border: "3px solid #9ca3af",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-300 to-slate-500" />
-                </div>
-                <DealerChipStack />
-              </div>
-
-              <div className="absolute top-28 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
                 <div className="flex -space-x-5">
                   {visibleDealerCards.length === 0 && gamePhase === "BETTING" && (
                     <>
