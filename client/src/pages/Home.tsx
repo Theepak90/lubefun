@@ -101,7 +101,7 @@ export default function Home() {
         </div>
 
         <div className="-mx-4 sm:-mx-6">
-          <RecentWinsTicker speed={40} intervalMin={2000} intervalMax={5000} maxItems={25} />
+          <RecentWinsTicker intervalMin={2000} intervalMax={5000} maxItems={20} />
         </div>
 
         <SearchFilters 
