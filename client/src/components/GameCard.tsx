@@ -3,11 +3,11 @@ import { Flame } from "lucide-react";
 import { useLivePlayerCount } from "@/hooks/useLivePlayerCount";
 
 import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_02_04_41_AM_1768097091093.png";
-import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_33_56_AM_1768095699503.png";
-import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_01_41_15_AM_1768095699503.png";
-import spinImg from "@assets/Colourful_daily_spin_with_water_splash_1768095699504.png";
-import plinkoImg from "@assets/Glowing_Plinko_with_electric_water_splash_1768095699504.png";
-import rouletteImg from "@assets/Roulette_wheel_with_glowing_blue_splash_1768095699504.png";
+import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_18_24_AM_1768106559756.png";
+import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_29_05_AM_1768106559757.png";
+import spinImg from "@assets/Daily_Spin_game_card_design_1768106559757.png";
+import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_1768106559758.png";
+import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
 import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
 
 export interface GameInfo {
