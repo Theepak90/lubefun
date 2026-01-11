@@ -40,6 +40,7 @@ function getDailyRandomPlayers(gameId: string): number {
 export function GameCard({ game }: { game: GameInfo }) {
   const imageUrl = gameImages[game.icon];
   const playerCount = getDailyRandomPlayers(game.id);
+  const isFullCard = game.icon === "dice";
   
   return (
     <Link href={game.href}>
@@ -59,19 +60,33 @@ export function GameCard({ game }: { game: GameInfo }) {
           </div>
         )}
         
-        <div className="p-2 flex flex-col items-center justify-center h-full">
-          <img 
-            src={imageUrl} 
-            alt={game.name}
-            className="w-[150px] h-[150px] object-contain transition-transform group-hover:scale-110"
-            style={{ maxWidth: 'none', maxHeight: 'none' }}
-          />
-          
-          <div className="flex items-center gap-1 mt-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] text-slate-500">{playerCount} playing</span>
+        {isFullCard ? (
+          <>
+            <img 
+              src={imageUrl} 
+              alt={game.name}
+              className="w-full h-full object-contain transition-transform group-hover:scale-105"
+            />
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/50 px-2 py-1 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] text-slate-300">{playerCount} playing</span>
+            </div>
+          </>
+        ) : (
+          <div className="p-2 flex flex-col items-center justify-center h-full">
+            <img 
+              src={imageUrl} 
+              alt={game.name}
+              className="w-[150px] h-[150px] object-contain transition-transform group-hover:scale-110"
+              style={{ maxWidth: 'none', maxHeight: 'none' }}
+            />
+            
+            <div className="flex items-center gap-1 mt-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] text-slate-500">{playerCount} playing</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </Link>
   );
