@@ -88,7 +88,7 @@ const CHIP_VALUES: ChipValue[] = [
   { value: 1, color: "#3b82f6", textColor: "white" },
   { value: 5, color: "#22c55e", textColor: "white" },
   { value: 10, color: "#a855f7", textColor: "white" },
-  { value: 25, color: "#f59e0b", textColor: "black" },
+  { value: 20, color: "#f59e0b", textColor: "black" },
   { value: 100, color: "#1e293b", textColor: "white" },
 ];
 
