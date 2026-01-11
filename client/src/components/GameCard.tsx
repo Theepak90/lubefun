@@ -14,12 +14,12 @@ export interface GameInfo {
 
 const iconPositions: Record<string, { x: number; y: number }> = {
   dice: { x: 0, y: 0 },
-  coinflip: { x: 25, y: 0 },
-  roulette: { x: 50, y: 0 },
-  plinko: { x: 75, y: 0 },
-  mines: { x: 0, y: 50 },
-  blackjack: { x: 33, y: 50 },
-  spin: { x: 66, y: 50 },
+  coinflip: { x: 33.333, y: 0 },
+  roulette: { x: 66.666, y: 0 },
+  plinko: { x: 100, y: 0 },
+  mines: { x: 0, y: 100 },
+  blackjack: { x: 33.333, y: 100 },
+  spin: { x: 66.666, y: 100 },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
