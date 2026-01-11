@@ -13,8 +13,9 @@ const allGames: GameInfo[] = [
   { id: "coinflip", name: "Coinflip", href: "/coinflip", icon: "coinflip" },
   { id: "mines", name: "Mines", href: "/mines", icon: "mines", isHot: true },
   { id: "roulette", name: "Roulette", href: "/roulette", icon: "roulette" },
-  { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko", isNew: true },
+  { id: "plinko", name: "Plinko", href: "/plinko", icon: "plinko" },
   { id: "blackjack", name: "Blackjack", href: "/blackjack", icon: "blackjack" },
+  { id: "splitsteal", name: "Split or Steal", href: "/split-or-steal", icon: "splitsteal", isNew: true },
   { id: "daily-spin", name: "Daily Spin", href: "/rewards", icon: "spin" },
 ];
 
@@ -43,7 +44,7 @@ export default function Home() {
     
     if (activeFilter === "originals") {
       games = games.filter(g => 
-        ["dice", "coinflip", "mines", "roulette", "plinko", "blackjack"].includes(g.id)
+        ["dice", "coinflip", "mines", "roulette", "plinko", "blackjack", "splitsteal"].includes(g.id)
       );
     }
     

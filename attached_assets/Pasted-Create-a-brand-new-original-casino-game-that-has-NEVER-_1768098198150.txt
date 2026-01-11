@@ -1,0 +1,55 @@
+Create a brand-new original casino game that has NEVER been seen on gambling websites.
+
+Game name: SPLIT OR STEAL (can be renamed later)
+
+Core concept:
+- Two outcomes: Split or Steal
+- Player bets an amount.
+- A shared “pot” grows during a short suspense phase.
+- At the end, the game randomly chooses SPLIT or STEAL.
+- SPLIT: player wins a percentage of the pot.
+- STEAL: house takes the pot (player loses bet).
+
+Gameplay flow:
+1. Player enters bet amount.
+2. A suspense timer starts (3–5 seconds) with animated buildup.
+3. Pot visually grows during the countdown.
+4. Outcome is revealed: SPLIT or STEAL.
+5. Winnings or loss shown instantly.
+6. Player can instantly replay.
+
+Logic requirements:
+- Outcome must be provably random (client-side simulation for now).
+- House edge must be configurable (e.g. 2–6%).
+- SPLIT chance slightly higher than STEAL, but STEAL payout risk balances it.
+- Pot growth is cosmetic but tied to final payout.
+- Add streak logic (multiple SPLITS feel exciting, STEAL feels brutal).
+
+Payout logic example (can be tuned):
+- SPLIT chance: 58–62%
+- STEAL chance: 38–42%
+- SPLIT payout: bet × 1.8 to 2.4 (weighted randomness)
+- Expected value controlled via house edge variable.
+
+Addiction & fun mechanics:
+- Very fast rounds (under 5 seconds).
+- Big, dramatic animations and sounds.
+- “Just one more” replay button.
+- Streak indicators (🔥 hot streak, ❄ cold streak).
+- Fake “other players just won/lost” ticker (simulated).
+
+UI requirements:
+- Large full-card visual (like Dice, but more dramatic).
+- Clean, modern, Stake-style design.
+- Two massive outcome visuals: SPLIT (green/blue), STEAL (red/orange).
+- Pot counter animation.
+- Mobile-friendly layout.
+
+Tech requirements:
+- Works fully client-side for now.
+- Easy to later connect to backend.
+- House edge configurable in one place.
+- Code must be clean and modular.
+
+Goal:
+A highly addictive, fast-paced, original casino game that feels new, exciting, and brutal in a fun way, with full control over randomness and house edge.

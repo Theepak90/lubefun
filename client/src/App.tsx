@@ -14,6 +14,7 @@ import Roulette from "@/pages/Roulette";
 import Plinko from "@/pages/Plinko";
 import DailySpin from "@/pages/DailySpin";
 import Rewards from "@/pages/Rewards";
+import SplitOrSteal from "@/pages/SplitOrSteal";
 
 function Router() {
   return (
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/plinko" component={Plinko} />
       <Route path="/daily-spin" component={DailySpin} />
       <Route path="/rewards" component={Rewards} />
+      <Route path="/split-or-steal" component={SplitOrSteal} />
       <Route component={NotFound} />
     </Switch>
   );

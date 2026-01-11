@@ -14,7 +14,7 @@ export interface GameInfo {
   id: string;
   name: string;
   href: string;
-  icon: "dice" | "coinflip" | "mines" | "roulette" | "plinko" | "blackjack" | "spin";
+  icon: "dice" | "coinflip" | "mines" | "roulette" | "plinko" | "blackjack" | "spin" | "splitsteal";
   players?: number;
   isHot?: boolean;
   isNew?: boolean;
@@ -28,6 +28,7 @@ const gameImages: Record<string, string> = {
   blackjack: blackjackImg,
   spin: spinImg,
   mines: minesImg,
+  splitsteal: coinflipImg,
 };
 
 export function GameCard({ game }: { game: GameInfo }) {

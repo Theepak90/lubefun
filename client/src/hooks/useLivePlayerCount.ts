@@ -15,6 +15,7 @@ const gameConfigs: Record<string, GameConfig> = {
   plinko: { baseMin: 30, baseMax: 70, spikeChance: 0.09, spikeMultiplier: 2.5 },
   blackjack: { baseMin: 35, baseMax: 80, spikeChance: 0.1, spikeMultiplier: 2.2 },
   spin: { baseMin: 50, baseMax: 120, spikeChance: 0.15, spikeMultiplier: 1.8 },
+  splitsteal: { baseMin: 45, baseMax: 100, spikeChance: 0.12, spikeMultiplier: 2.5 },
 };
 
 const defaultConfig: GameConfig = { baseMin: 20, baseMax: 60, spikeChance: 0.1, spikeMultiplier: 2 };

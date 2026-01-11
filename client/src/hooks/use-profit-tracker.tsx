@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useCallback, ReactNode } from "react";
 
-export type GameId = "dice" | "coinflip" | "mines" | "plinko" | "blackjack" | "roulette";
+export type GameId = "dice" | "coinflip" | "mines" | "plinko" | "blackjack" | "roulette" | "splitsteal";
 
 export interface GameStats {
   wagered: number;
@@ -39,6 +39,7 @@ const initialState: ProfitTrackerState = {
     plinko: { ...initialGameStats },
     blackjack: { ...initialGameStats },
     roulette: { ...initialGameStats },
+    splitsteal: { ...initialGameStats },
   },
 };
 
