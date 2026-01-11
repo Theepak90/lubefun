@@ -44,7 +44,7 @@ export function GameCard({ game }: { game: GameInfo }) {
   return (
     <Link href={game.href}>
       <div 
-        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[220px] w-[220px] h-[320px] flex-shrink-0"
+        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 min-w-[160px] w-[160px] h-[200px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
@@ -59,17 +59,17 @@ export function GameCard({ game }: { game: GameInfo }) {
           </div>
         )}
         
-        <div className="p-4 flex flex-col items-center justify-center h-full">
+        <div className="p-2 flex flex-col items-center justify-center h-full">
           <img 
             src={imageUrl} 
             alt={game.name}
-            className="w-[170px] h-[170px] object-contain transition-transform group-hover:scale-110"
+            className="w-[150px] h-[150px] object-contain transition-transform group-hover:scale-110"
             style={{ maxWidth: 'none', maxHeight: 'none' }}
           />
           
-          <div className="flex items-center gap-1 mt-4">
+          <div className="flex items-center gap-1 mt-2">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-slate-500">{playerCount} playing</span>
+            <span className="text-[10px] text-slate-500">{playerCount} playing</span>
           </div>
         </div>
       </div>
