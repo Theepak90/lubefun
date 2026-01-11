@@ -298,8 +298,8 @@ export async function registerRoutes(
         .digest('hex');
       
       const roll = parseInt(hash.substring(0, 8), 16) / 0xffffffff;
-      const aiSplitChance = getAdaptiveAiSplitChance(user.id);
-      const aiChoice: "split" | "steal" = roll < aiSplitChance ? "split" : "steal";
+      const opponentSplitChance = getAdaptiveAiSplitChance(user.id);
+      const opponentChoice: "split" | "steal" = roll < opponentSplitChance ? "split" : "steal";
 
       // Update player history
       const history = playerChoiceHistory.get(user.id) || [];
@@ -312,15 +312,15 @@ export async function registerRoutes(
       let won = false;
       let multiplier = 0;
 
-      if (playerChoice === "split" && aiChoice === "split") {
+      if (playerChoice === "split" && opponentChoice === "split") {
         multiplier = 1 + SPLIT_STEAL_CONFIG.splitBonus;
         payout = betAmount * multiplier;
         won = true;
-      } else if (playerChoice === "steal" && aiChoice === "split") {
+      } else if (playerChoice === "steal" && opponentChoice === "split") {
         multiplier = 2 * (1 - SPLIT_STEAL_CONFIG.houseEdge);
         payout = betAmount * multiplier;
         won = true;
-      } else if (playerChoice === "split" && aiChoice === "steal") {
+      } else if (playerChoice === "split" && opponentChoice === "steal") {
         payout = 0;
         won = false;
       } else {
@@ -342,8 +342,8 @@ export async function registerRoutes(
 
       console.log('[SplitSteal] Result:', {
         playerChoice,
-        aiChoice,
-        aiSplitChance: aiSplitChance.toFixed(2),
+        opponentChoice,
+        opponentSplitChance: opponentSplitChance.toFixed(2),
         roll: roll.toFixed(4),
         multiplier: multiplier.toFixed(2),
         payout: payout.toFixed(2),
@@ -362,14 +362,14 @@ export async function registerRoutes(
         clientSeed: user.clientSeed,
         serverSeed: user.serverSeed,
         nonce: user.nonce,
-        result: { playerChoice, aiChoice, roll, multiplier },
+        result: { playerChoice, opponentChoice, roll, multiplier },
         active: false
       });
 
       res.json({
         bet,
         playerChoice,
-        aiChoice,
+        opponentChoice,
         payout,
         won,
         balanceAfter: updatedUser?.balance || 0

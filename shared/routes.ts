@@ -313,7 +313,7 @@ export const api = {
           200: z.object({
             bet: z.custom<typeof bets.$inferSelect>(),
             playerChoice: z.enum(["split", "steal"]),
-            aiChoice: z.enum(["split", "steal"]),
+            opponentChoice: z.enum(["split", "steal"]),
             payout: z.number(),
             won: z.boolean(),
             balanceAfter: z.number(),
