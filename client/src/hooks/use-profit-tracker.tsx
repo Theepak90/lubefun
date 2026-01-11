@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useCallback, ReactNode } from "react";
 
-export type GameId = "dice" | "coinflip" | "mines" | "plinko" | "blackjack" | "roulette" | "splitsteal";
+export type GameId = "dice" | "coinflip" | "mines" | "plinko" | "blackjack" | "roulette" | "splitsteal" | "pressure-valve";
 
 export interface GameStats {
   wagered: number;
@@ -40,6 +40,7 @@ const initialState: ProfitTrackerState = {
     blackjack: { ...initialGameStats },
     roulette: { ...initialGameStats },
     splitsteal: { ...initialGameStats },
+    "pressure-valve": { ...initialGameStats },
   },
 };
 
@@ -115,11 +116,11 @@ export function ProfitTrackerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getStats = useCallback((game: GameId) => {
-    return state.stats[game];
+    return state.stats[game] || initialGameStats;
   }, [state.stats]);
 
   const getHistory = useCallback((game: GameId) => {
-    return state.stats[game].profitHistory;
+    return state.stats[game]?.profitHistory || [];
   }, [state.stats]);
 
   return (
