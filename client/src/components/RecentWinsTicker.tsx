@@ -35,7 +35,7 @@ interface RecentWinsTickerProps {
 const GAMES: GameConfig[] = [
   { id: "dice", name: "DICE", image: diceImg, minWin: 0.5, maxWin: 25 },
   { id: "mines", name: "MINES", image: minesImg, minWin: 1, maxWin: 100 },
-  { id: "coinflip", name: "COCK OR BALLS", image: coinflipImg, minWin: 1, maxWin: 50 },
+  { id: "coinflip", name: "COINFLIP", image: coinflipImg, minWin: 1, maxWin: 50 },
   { id: "roulette", name: "ROULETTE", image: rouletteImg, minWin: 2, maxWin: 150 },
   { id: "plinko", name: "PLINKO", image: plinkoImg, minWin: 0.1, maxWin: 500 },
   { id: "blackjack", name: "BLACKJACK", image: blackjackImg, minWin: 5, maxWin: 200 },
