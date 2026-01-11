@@ -1,0 +1,74 @@
+Make Blackjack super clean and smooth (minimal UI) and add multiple bets by allowing the user to play 2–3 hands at once.
+
+Clean UI (remove clutter)
+
+Remove ALL big popups/overlays/toasts: no “YOU WIN” popup, no center WIN badge, no large banners.
+
+Replace them with ONE slim StatusBar under the dealer area that shows:
+
+phase text: Dealing… / Your turn / Dealer turn / Round complete
+
+result text: You win +$X / Push / Dealer busts
+
+Result text should fade after 2–3 seconds (non-blocking).
+
+Keep the table area clean: cards + chips only, no extra floating labels.
+
+Keep bottom controls minimal:
+
+During round: Hit, Stand, Double (and Split only when available)
+
+Between rounds: Rebet, New Hand, Clear (small)
+
+Show bet info in one compact row: Bet per hand, Hands, Total bet, Balance.
+
+Multiple bets (multi-hand)
+
+Add a selector in betting phase: Hands = 1 / 2 / 3 (default 1).
+
+Add Bet per hand amount (chips add to this).
+
+Compute: totalBet = betPerHand * handsCount.
+
+Prevent starting a hand if balance < totalBet.
+
+Deal player cards into separate hands (Hand 1, Hand 2, Hand 3) with clean spacing.
+
+Player plays hands one at a time:
+
+highlight active hand with a subtle glow/outline
+
+show small label near controls: Hand 1/3, Hand 2/3, etc.
+
+actions apply only to active hand
+
+Dealer plays once after all player hands finish.
+
+Settle each hand independently and show a single summary in StatusBar:
+
+e.g. 2 wins, 1 loss • Net +$X
+
+“Rebet” behavior
+
+After a round, keep the last betPerHand + handsCount pre-selected.
+
+If balance is enough, allow Rebet instantly.
+
+If not enough, reduce handsCount automatically (3→2→1) OR prompt with a tiny inline warning (no popup).
+
+Smoother pacing
+
+Add realistic dealing delays (250–450ms per card) + easing animation for slide from shoe.
+
+Add short pauses between phases (dealer reveal, dealer hits, settlement).
+
+State safety (no glitches)
+
+Implement strict state machine:
+BETTING -> DEALING -> PLAYER_HANDS -> DEALER -> SETTLEMENT -> BETTING
+
+Block spam clicks/double submits; add idempotency for start/rebet/newhand.
+
+Ensure no negative balances and no duplicate payouts.
+
+Deliver the updated UI/CSS and game logic so it feels premium, clean, and supports multi-hand betting.
