@@ -373,7 +373,7 @@ export default function Roulette() {
         disabled={disabled}
         data-testid={`chip-${chip.value}`}
         className={cn(
-          "relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-150",
+          "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-150",
           "shadow-lg",
           selected && "ring-2 ring-offset-2 ring-offset-[#0d1419] ring-emerald-400 scale-110",
           disabled && "opacity-50 cursor-not-allowed",

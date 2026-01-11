@@ -105,7 +105,7 @@ function Chip({ chip, selected, onClick, size = "md" }: {
   onClick?: () => void;
   size?: "sm" | "md";
 }) {
-  const s = size === "sm" ? 36 : 48;
+  const s = size === "sm" ? 48 : 64;
   return (
     <button
       onClick={onClick}
