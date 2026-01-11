@@ -72,7 +72,9 @@ export function BannerCarousel() {
     >
       <div className="hidden lg:grid lg:grid-cols-3 gap-4">
         {banners.map((banner, index) => (
-          <BannerCard key={banner.id} banner={banner} isActive={index === currentIndex} />
+          <div key={banner.id} className={banner.image ? "col-span-2" : ""}>
+            <BannerCard banner={banner} isActive={index === currentIndex} />
+          </div>
         ))}
       </div>
 
