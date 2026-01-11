@@ -39,7 +39,7 @@ export function GameCard({ game }: { game: GameInfo }) {
   return (
     <Link href={game.href}>
       <div 
-        className="group relative w-[160px] h-[200px] rounded-xl overflow-hidden cursor-pointer bg-[#0d1117] border border-[#1e2a36] transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 flex-shrink-0"
+        className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 min-w-[160px] w-[160px] h-[200px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
@@ -54,14 +54,11 @@ export function GameCard({ game }: { game: GameInfo }) {
           </div>
         )}
         
-        <div className="absolute inset-0 p-3 flex items-center justify-center">
-          <img 
-            src={imageUrl} 
-            alt={game.name}
-            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-        </div>
-        
+        <img 
+          src={imageUrl} 
+          alt={game.name}
+          className="w-full h-full object-cover scale-[1.6] transition-transform group-hover:scale-[1.7]"
+        />
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
           <span className="text-[10px] text-slate-300">{playerCount} playing</span>
