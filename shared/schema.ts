@@ -8,7 +8,7 @@ export const RTP = 0.96; // 96% Return to Player
 export const MIN_BET = 0.10;
 export const MAX_BET = 10000;
 export const MAX_PAYOUT = 100000; // Max payout per bet
-export const MAX_BETS_PER_MINUTE = 60; // Rate limiting
+export const MAX_BETS_PER_MINUTE = 200; // Rate limiting
 export const WITHDRAWAL_MANUAL_REVIEW_THRESHOLD = 1000;
 export const DAILY_WITHDRAWAL_LIMIT = 10000;
 
