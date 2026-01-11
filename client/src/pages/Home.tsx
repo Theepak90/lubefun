@@ -4,7 +4,7 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { RecentWinsTicker } from "@/components/RecentWinsTicker";
 import { GameRow } from "@/components/GameRow";
 import { SearchFilters } from "@/components/SearchFilters";
-import { GameInfo } from "@/components/GameCard";
+import { GameInfo, GameCard } from "@/components/GameCard";
 import { Gamepad2, TrendingUp, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
@@ -143,29 +143,9 @@ export default function Home() {
             </div>
             
             {filteredGames.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              <div className="flex flex-wrap gap-3">
                 {filteredGames.map((game) => (
-                  <div key={game.id} className="w-full">
-                    <a href={game.href} className="block">
-                      <div 
-                        className="group relative bg-[#0f1923] rounded-xl border border-[#1e2a36] overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#2a3a4a] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-1"
-                        data-testid={`card-game-${game.id}`}
-                      >
-                        <div className="p-4 flex flex-col items-center">
-                          <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
-                            <Gamepad2 className="w-7 h-7 text-primary" />
-                          </div>
-                          <h3 className="text-sm font-semibold text-white text-center mb-1">{game.name}</h3>
-                          {game.players !== undefined && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                              <span className="text-[10px] text-slate-500">{game.players.toLocaleString()} playing</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </a>
-                  </div>
+                  <GameCard key={game.id} game={game} />
                 ))}
               </div>
             ) : (
