@@ -139,7 +139,7 @@ function BannerCard({ banner, isActive }: { banner: BannerType; isActive: boolea
           <img 
             src={banner.image} 
             alt="Sponsors" 
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-contain"
           />
         </div>
       </Link>
