@@ -679,7 +679,53 @@ export default function Blackjack() {
                 }}
               />
 
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
+              {/* Dealer chip stacks */}
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 flex gap-1 z-5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex flex-col-reverse">
+                    {[0, 1, 2, 3, 4, 5].map((j) => (
+                      <div 
+                        key={j}
+                        className="w-6 h-1.5 rounded-sm"
+                        style={{
+                          background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
+                          marginBottom: "-2px",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {/* Card shoe on right side */}
+              <div 
+                className="absolute top-8 right-8 z-5"
+                style={{
+                  width: "50px",
+                  height: "70px",
+                  background: "linear-gradient(135deg, #4c1d95 0%, #2e1065 100%)",
+                  borderRadius: "4px",
+                  border: "2px solid #6d28d9",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                }}
+              >
+                <div 
+                  className="absolute inset-1 rounded-sm"
+                  style={{
+                    background: "repeating-linear-gradient(90deg, #1e1535 0px, #1e1535 2px, #2a1e4a 2px, #2a1e4a 4px)",
+                  }}
+                />
+                <div 
+                  className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-12 rounded-l"
+                  style={{
+                    background: "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)",
+                    border: "1px solid #60a5fa",
+                  }}
+                />
+              </div>
+
+              <div className="absolute top-24 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
                 <div className="flex -space-x-5">
                   {visibleDealerCards.length === 0 && gamePhase === "BETTING" && (
                     <>
