@@ -9,6 +9,7 @@ import spinImg from "@assets/Daily_Spin_game_card_design_1768106559757.png";
 import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_1768106559758.png";
 import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
 import minesImg from "@assets/Glowing_mines_with_vibrant_splash_1768096070720.png";
+import splitstealImg from "@assets/Split_or_steal__the_challenge_begins_1768107077724.png";
 
 export interface GameInfo {
   id: string;
@@ -28,7 +29,7 @@ const gameImages: Record<string, string> = {
   blackjack: blackjackImg,
   spin: spinImg,
   mines: minesImg,
-  splitsteal: blackjackImg,
+  splitsteal: splitstealImg,
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
