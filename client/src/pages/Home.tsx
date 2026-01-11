@@ -88,12 +88,12 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 min-w-0">
             <BannerCarousel />
           </div>
           
-          <div className="lg:w-72 flex-shrink-0">
+          <div className="lg:w-48 flex-shrink-0">
             <LiveWins />
           </div>
         </div>

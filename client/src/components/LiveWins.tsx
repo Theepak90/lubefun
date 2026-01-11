@@ -106,7 +106,7 @@ export function LiveWins() {
   }, []);
 
   return (
-    <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg p-3 mt-3">
+    <div className="bg-[#0d1419] border border-[#1a2530] rounded-lg p-2">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Trophy className="w-3 h-3 text-amber-400" />
@@ -119,7 +119,7 @@ export function LiveWins() {
         </span>
       </div>
       
-      <div className="space-y-0.5 max-h-[280px] overflow-hidden">
+      <div className="space-y-0.5 max-h-[180px] overflow-hidden">
         <AnimatePresence initial={false}>
           {wins.map((win) => (
             <motion.div
