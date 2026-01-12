@@ -192,11 +192,11 @@ export function getPressureValvePump(
   const burstValue = parseInt(hash.substring(0, 8), 16);
   const multiplierValue = parseInt(hash.substring(8, 16), 16);
   
-  // Burst chance: starts at 15% and ramps up to 85% max
-  // Formula: baseChance + (pumpNumber * rampRate), capped at 85%
-  const baseChance = 0.15; // 15% - can burst on first pump
-  const rampRate = 0.12; // 12% increase per pump
-  const maxChance = 0.85; // 85% max
+  // Burst chance: starts at 30% and ramps up to 90% max
+  // Formula: baseChance + (pumpNumber * rampRate), capped at 90%
+  const baseChance = 0.30; // 30% - high chance to burst on first pump
+  const rampRate = 0.18; // 18% increase per pump
+  const maxChance = 0.90; // 90% max
   const burstChance = Math.min(baseChance + (pumpNumber * rampRate), maxChance);
   
   // Convert to 0-1 range and check
