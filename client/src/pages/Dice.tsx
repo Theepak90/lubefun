@@ -55,7 +55,7 @@ export default function Dice() {
           setLastResult({ result, won: data.won });
           
           setTimeout(() => {
-            playSound(data.won ? "win" : "lose");
+            playSound(data.won ? "diceWin" : "lose");
             
             const payout = data.won ? val + data.profit : 0;
             recordResult("dice", val, payout, data.won);

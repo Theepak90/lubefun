@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
+import diceWinSound from "@assets/Dice_winning_1768191212421.mp3";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop" | "cardDeal";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop" | "cardDeal" | "diceWin";
+
+const audioCache: { [key: string]: HTMLAudioElement } = {};
+
+function playAudioFile(src: string, volume: number = 0.5) {
+  if (!audioCache[src]) {
+    audioCache[src] = new Audio(src);
+  }
+  const audio = audioCache[src];
+  audio.volume = volume;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
 
 const audioContextRef: { current: AudioContext | null } = { current: null };
 
@@ -425,6 +438,9 @@ export function useSound() {
           break;
         case "cardDeal":
           playCardDealSound();
+          break;
+        case "diceWin":
+          playAudioFile(diceWinSound, 0.5);
           break;
       }
     } catch (e) {
