@@ -34,64 +34,50 @@ const gameImages: Record<string, string> = {
   pressure: pressureValveImg,
 };
 
-const gameGradients: Record<string, string> = {
-  dice: "from-orange-500 via-orange-400 to-amber-300",
-  coinflip: "from-purple-600 via-purple-500 to-violet-400",
-  roulette: "from-purple-700 via-violet-600 to-purple-500",
-  plinko: "from-blue-600 via-cyan-500 to-blue-400",
-  blackjack: "from-teal-600 via-teal-500 to-cyan-400",
-  spin: "from-purple-600 via-pink-500 to-purple-400",
-  mines: "from-blue-600 via-cyan-500 to-blue-400",
-  splitsteal: "from-emerald-600 via-green-500 to-teal-400",
-  pressure: "from-red-600 via-orange-500 to-yellow-400",
+const gameImageStyles: Record<string, { scale: string; hoverScale: string; position?: string }> = {
+  dice: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  coinflip: { scale: "scale-[1.4]", hoverScale: "group-hover:scale-[1.5]", position: "object-center" },
+  roulette: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  plinko: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  blackjack: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  spin: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  mines: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  splitsteal: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
+  pressure: { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" },
 };
 
 export function GameCard({ game }: { game: GameInfo }) {
   const imageUrl = gameImages[game.icon];
   const playerCount = useLivePlayerCount(game.icon);
-  const gradient = gameGradients[game.icon] || "from-slate-600 via-slate-500 to-slate-400";
+  const imageStyle = gameImageStyles[game.icon] || { scale: "scale-[1.6]", hoverScale: "group-hover:scale-[1.7]" };
   
   return (
     <Link href={game.href}>
       <div 
-        className={`group relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-2 min-w-[140px] w-[140px] h-[180px] flex-shrink-0 bg-gradient-to-b ${gradient}`}
+        className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 min-w-[160px] w-[160px] h-[200px] flex-shrink-0"
         data-testid={`card-game-${game.id}`}
       >
         {game.isHot && (
-          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-sm">
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-500/20 border border-orange-500/30">
             <Flame className="w-3 h-3 text-orange-400" />
-            <span className="text-[10px] font-bold text-white">HOT</span>
+            <span className="text-[10px] font-bold text-orange-400">HOT</span>
           </div>
         )}
         {game.isNew && !game.isHot && (
-          <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-sm">
-            <span className="text-[10px] font-bold text-emerald-300">NEW</span>
+          <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/30">
+            <span className="text-[10px] font-bold text-emerald-400">NEW</span>
           </div>
         )}
         
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="flex-1 flex items-center justify-center pt-4">
-            <img 
-              src={imageUrl} 
-              alt={game.name}
-              className="w-20 h-20 object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
-            />
-          </div>
-          
-          <div className="w-full text-center pb-3 px-2">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wide drop-shadow-md">
-              {game.name}
-            </h3>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              <div className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[9px] text-white/70 font-medium uppercase tracking-wider">
-                {playerCount} playing
-              </span>
-            </div>
-          </div>
+        <img 
+          src={imageUrl} 
+          alt={game.name}
+          className={`w-full h-full object-cover transition-transform ${imageStyle.scale} ${imageStyle.hoverScale} ${imageStyle.position || ""}`}
+        />
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[10px] text-slate-300">{playerCount} playing</span>
         </div>
-        
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
       </div>
     </Link>
   );
