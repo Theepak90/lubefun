@@ -166,8 +166,6 @@ export default function Mines() {
           
           queryClient.invalidateQueries({ queryKey: ['/api/games/mines/active'] });
         } else {
-          playSound("tick");
-          
           setGameState(prev => ({
             ...prev,
             revealed: result.revealed || prev.revealed,
