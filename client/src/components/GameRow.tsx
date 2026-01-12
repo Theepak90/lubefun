@@ -23,9 +23,10 @@ export function GameRow({ title, games, icon }: GameRowProps) {
   return (
     <section className="relative" data-testid={`section-gamerow-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {icon}
           <h2 className="text-lg font-bold text-white">{title}</h2>
+          <span className="text-sm text-slate-400 hover:text-white cursor-pointer transition-colors">View All</span>
         </div>
         
         <div className="flex gap-1">
