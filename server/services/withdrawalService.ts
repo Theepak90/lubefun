@@ -88,7 +88,9 @@ async function checkIdempotencyKey(key: string, userId: number): Promise<Withdra
 }
 
 export async function requestWithdrawal(request: WithdrawalRequest): Promise<WithdrawalResponse> {
-  const { userId, amount, currency = "SOL", network = "mainnet", address, idempotencyKey } = request;
+  // Use testnet if SOLANA_USE_TESTNET is set, otherwise mainnet
+  const useTestnet = process.env.SOLANA_USE_TESTNET === "true" || process.env.NODE_ENV === "development";
+  const { userId, amount, currency = "SOL", network = useTestnet ? "devnet" : "mainnet", address, idempotencyKey } = request;
   
   try {
     if (idempotencyKey) {

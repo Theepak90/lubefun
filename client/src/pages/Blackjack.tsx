@@ -227,7 +227,7 @@ function DevPanel({ state, show }: { state: GameState; show: boolean }) {
       {expanded && (
         <div className="px-3 pb-3 space-y-1 text-slate-400 max-h-64 overflow-y-auto">
           <div>Last: <span className="text-cyan-400">{state.lastAction}</span></div>
-          <div>Balance: <span className="text-green-400">${state.balance.toFixed(2)}</span></div>
+          <div>Balance: <span className="text-green-400">$0.00</span></div>
           <div>Pending Bet: <span className="text-amber-400">${state.pendingBet.toFixed(2)}</span></div>
           <div>Shoe: <span className="text-slate-300">{state.shoe.length} cards</span></div>
           <div>Hands: <span className="text-slate-300">{state.playerHands.length}</span></div>
@@ -252,15 +252,15 @@ export default function Blackjack() {
   const actionLockRef = useRef(false);
   const dealerActingRef = useRef(false);
   
-  const balance = user?.balance ?? 1000;
+  const balance = user?.availableBalance ?? 0;
   
   const [state, dispatch] = useReducer(gameReducer, createInitialState(balance));
   
   useEffect(() => {
-    if (user?.balance !== undefined && state.phase === "IDLE") {
-      dispatch({ type: "SET_BALANCE", balance: user.balance });
+    if (user?.availableBalance !== undefined && state.phase === "IDLE") {
+      dispatch({ type: "SET_BALANCE", balance: user.availableBalance });
     }
-  }, [user?.balance, state.phase]);
+  }, [user?.availableBalance, state.phase]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -538,7 +538,7 @@ export default function Blackjack() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-slate-400">
-                      Balance: <span className="text-emerald-400 font-mono">${state.balance.toFixed(2)}</span>
+                      Balance: <span className="text-emerald-400 font-mono">$0.00</span>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -710,7 +710,7 @@ export default function Blackjack() {
                 >
                   <div className="text-center">
                     <div className="text-sm text-slate-400 mb-1">
-                      Balance: <span className="text-emerald-400 font-mono">${state.balance.toFixed(2)}</span>
+                      Balance: <span className="text-emerald-400 font-mono">$0.00</span>
                     </div>
                   </div>
                   <Button

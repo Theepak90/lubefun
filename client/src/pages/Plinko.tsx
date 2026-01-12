@@ -518,7 +518,7 @@ export default function Plinko() {
   const highlightedBins = new Set(landedBalls.map(b => b.binIndex));
 
   const isControlsDisabled = autoDropping || activeBallCount > 0 || pendingDrops > 0;
-  const canDrop = user && baseAmount >= 0.1 && baseAmount <= (user?.balance || 0) && activeBallCount + pendingDrops < MAX_ACTIVE_BALLS;
+  const canDrop = user && baseAmount >= 0.1 && baseAmount <= (user?.availableBalance || 0) && activeBallCount + pendingDrops < MAX_ACTIVE_BALLS;
 
   return (
     <Layout>

@@ -121,7 +121,7 @@ export default function SplitOrSteal() {
       toast({ title: "Invalid bet", description: "Bet must be greater than 0", duration: 2000 });
       return;
     }
-    if (baseAmount > (user?.balance || 0)) {
+    if (baseAmount > (user?.availableBalance || 0)) {
       toast({ title: "Insufficient balance", description: "You don't have enough balance", duration: 2000 });
       return;
     }
@@ -134,7 +134,7 @@ export default function SplitOrSteal() {
     setTimeout(() => {
       setGameState("waitingForPlayerChoice");
     }, GAME_CONFIG.matchmakingDelayMs);
-  }, [baseAmount, user?.balance, gameState, playSound, toast]);
+  }, [baseAmount, user?.availableBalance, gameState, playSound, toast]);
 
   const handleChoice = useCallback((choice: "split" | "steal") => {
     if (gameState !== "waitingForPlayerChoice") return;
@@ -497,7 +497,7 @@ export default function SplitOrSteal() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">Your Balance</span>
-                    <span className="text-white font-medium">{formatCurrency(user?.balance || 0)}</span>
+                    <span className="text-white font-medium">$0.00</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">Pot Value</span>

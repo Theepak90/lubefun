@@ -54,7 +54,7 @@ export default function Coinflip() {
     
     const val = parseFloat(amount);
     if (isNaN(val) || val < 0.1) return;
-    if (val > (user?.balance || 0)) return;
+    if (val > (user?.availableBalance || 0)) return;
     
     isAnimatingRef.current = true;
     setFlipping(true);
@@ -136,7 +136,7 @@ export default function Coinflip() {
         }
       }
     );
-  }, [amount, side, user?.balance, playCoinflip, playSound, addResult, baseMultiplier, stopOnWin, stopOnLoss, recordResult, toast]);
+  }, [amount, side, user?.availableBalance, playCoinflip, playSound, addResult, baseMultiplier, stopOnWin, stopOnLoss, recordResult, toast]);
 
   useEffect(() => {
     if (autoRunning && autoBetsRemaining > 0 && !flipping && !isAnimatingRef.current && !autoStopRef.current) {
@@ -356,7 +356,7 @@ export default function Coinflip() {
                   size="lg" 
                   className="w-full h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]" 
                   onClick={() => handleBet(false)}
-                  disabled={isPending || flipping || !user || baseAmount > (user?.balance || 0)}
+                  disabled={isPending || flipping || !user || baseAmount > (user?.availableBalance || 0)}
                   data-testid="button-place-bet"
                 >
                   {isPending || flipping ? "Flipping..." : user ? "Place Bet" : "Login to Play"}
@@ -376,7 +376,7 @@ export default function Coinflip() {
                   size="lg" 
                   className="w-full h-12 text-sm font-bold bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-500/20 transition-all active:scale-[0.98]" 
                   onClick={startAutoBet}
-                  disabled={!user || baseAmount > (user?.balance || 0) || parseInt(autoBetCount) < 1}
+                  disabled={!user || baseAmount > (user?.availableBalance || 0) || parseInt(autoBetCount) < 1}
                   data-testid="button-start-auto"
                 >
                   {user ? "Start Auto Bet" : "Login to Play"}

@@ -437,7 +437,7 @@ export default function PressureValve() {
 
               {user && (
                 <div className="mt-3 text-center text-sm text-slate-400">
-                  Balance: <span className="text-white font-medium">{formatCurrency(user.balance)}</span>
+                  Balance: <span className="text-white font-medium">$0.00</span>
                 </div>
               )}
             </div>

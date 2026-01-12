@@ -230,8 +230,11 @@ class RouletteOrchestrator {
     try {
       // Check user balance
       const user = await storage.getUser(userId);
-      if (!user || user.balance < amount) {
-        return { success: false, message: "Insufficient balance" };
+      if (!user || !user.availableBalance || user.availableBalance < amount) {
+        return { 
+          success: false, 
+          message: `Insufficient balance. Available: $${user?.availableBalance?.toFixed(2) || '0.00'}, Required: $${amount.toFixed(2)}` 
+        };
       }
 
       // Deduct balance immediately

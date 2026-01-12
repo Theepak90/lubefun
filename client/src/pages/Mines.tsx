@@ -334,7 +334,7 @@ export default function Mines() {
                   size="lg" 
                   className="w-full h-12 text-base font-bold bg-[#00e701] hover:bg-[#00c701] text-black rounded-md" 
                   onClick={handleBet}
-                  disabled={start.isPending || isLoadingActive || !user || parseFloat(amount) > (user?.balance || 0)}
+                  disabled={start.isPending || isLoadingActive || !user || parseFloat(amount) > (user?.availableBalance || 0)}
                   data-testid="button-place-bet"
                 >
                   {start.isPending ? "Starting..." : isLoadingActive ? "Loading..." : user ? "Play" : "Login to Play"}

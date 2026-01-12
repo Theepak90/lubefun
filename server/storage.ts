@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, bets, rouletteRounds, rouletteBets, transactions, withdrawals, idempotencyKeys, type User, type InsertUser, type Bet, type InsertBet, type RouletteRound, type RouletteBet, type Transaction, type Withdrawal, type IdempotencyKey } from "@shared/schema";
+import { users, bets, rouletteRounds, rouletteBets, transactions, withdrawals, deposits, idempotencyKeys, type User, type InsertUser, type Bet, type InsertBet, type RouletteRound, type RouletteBet, type Transaction, type Withdrawal, type Deposit, type IdempotencyKey } from "@shared/schema";
 import { eq, desc, and, gte, sql, lt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -49,6 +49,12 @@ export interface IStorage {
   // Transaction Methods
   createTransaction(tx: Partial<Transaction>): Promise<Transaction>;
   getUserTransactions(userId: number, limit?: number): Promise<Transaction[]>;
+  
+  // Deposit Methods
+  createDeposit(deposit: Partial<Deposit>): Promise<Deposit>;
+  getDeposit(id: number): Promise<Deposit | undefined>;
+  getUserDeposits(userId: number, limit?: number): Promise<Deposit[]>;
+  updateDeposit(id: number, updates: Partial<Deposit>): Promise<Deposit>;
   
   // Withdrawal Methods
   createWithdrawal(withdrawal: Partial<Withdrawal>): Promise<Withdrawal>;
@@ -394,6 +400,32 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(withdrawals)
       .set(updates)
       .where(eq(withdrawals.id, id))
+      .returning();
+    return updated;
+  }
+  
+  // Deposit Methods
+  async createDeposit(deposit: Partial<Deposit>): Promise<Deposit> {
+    const [newDeposit] = await db.insert(deposits).values(deposit as any).returning();
+    return newDeposit;
+  }
+  
+  async getDeposit(id: number): Promise<Deposit | undefined> {
+    const [deposit] = await db.select().from(deposits).where(eq(deposits.id, id));
+    return deposit;
+  }
+  
+  async getUserDeposits(userId: number, limit = 20): Promise<Deposit[]> {
+    return db.select().from(deposits)
+      .where(eq(deposits.userId, userId))
+      .orderBy(desc(deposits.createdAt))
+      .limit(limit);
+  }
+  
+  async updateDeposit(id: number, updates: Partial<Deposit>): Promise<Deposit> {
+    const [updated] = await db.update(deposits)
+      .set(updates)
+      .where(eq(deposits.id, id))
       .returning();
     return updated;
   }

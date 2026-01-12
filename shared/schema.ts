@@ -16,8 +16,8 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  balance: doublePrecision("balance").default(1000).notNull(), // Deprecated - use availableBalance
-  availableBalance: doublePrecision("available_balance").default(1000).notNull(),
+  balance: doublePrecision("balance").default(0).notNull(), // Deprecated - use availableBalance
+  availableBalance: doublePrecision("available_balance").default(0).notNull(), // Real money - users start with 0, must deposit
   lockedBalance: doublePrecision("locked_balance").default(0).notNull(),
   clientSeed: text("client_seed").notNull(),
   serverSeed: text("server_seed").notNull(), // Current active seed (hidden hash usually shown)
@@ -59,6 +59,24 @@ export const idempotencyKeys = pgTable("idempotency_keys", {
   response: jsonb("response"),
   createdAt: timestamp("created_at").defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
+});
+
+// ==================== DEPOSITS ====================
+export const deposits = pgTable("deposits", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  amount: doublePrecision("amount").notNull(), // Expected deposit amount
+  currency: text("currency").default("SOL").notNull(),
+  network: text("network").default("mainnet"),
+  depositAddress: text("deposit_address").notNull(), // Address user should send to
+  memo: text("memo"), // Optional memo for tracking
+  status: text("status").default("PENDING").notNull(), // PENDING, CONFIRMED, FAILED, CANCELLED
+  txHash: text("tx_hash"), // Transaction signature when confirmed
+  txAmount: doublePrecision("tx_amount"), // Actual amount received (must match expected)
+  confirmedAt: timestamp("confirmed_at"),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Deposit request expires after 24 hours
 });
 
 // ==================== WITHDRAWALS ====================
@@ -187,7 +205,11 @@ export type Bet = typeof bets.$inferSelect;
 export type InsertBet = z.infer<typeof insertBetSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type Deposit = typeof deposits.$inferSelect;
 export type Withdrawal = typeof withdrawals.$inferSelect;
+
+// Deposit status enum
+export type DepositStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'CANCELLED';
 
 // Withdrawal status enum
 export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'SENT' | 'FAILED' | 'CANCELLED';
@@ -208,7 +230,7 @@ export const coinflipBetSchema = z.object({
 });
 
 export const minesBetSchema = z.object({
-  betAmount: z.number().min(1),
+  betAmount: z.number().min(0.01), // Allow minimum 0.01 SOL
   minesCount: z.number().min(1).max(24),
 });
 

@@ -98,7 +98,7 @@ export default function Roulette() {
   const lastChipSoundRef = useRef<number>(0);
 
   const totalPendingBet = pendingBets.reduce((sum, b) => sum + b.amount, 0);
-  const canSpin = pendingBets.length > 0 && !isSpinning && totalPendingBet <= (user?.balance || 0);
+  const canSpin = pendingBets.length > 0 && !isSpinning && totalPendingBet <= (user?.availableBalance || 0);
 
   const getNumberColor = (num: number): "red" | "black" | "green" => {
     return getRouletteColor(num);
@@ -341,7 +341,7 @@ export default function Roulette() {
   const handleRebet = () => {
     if (lastBets.length === 0 || isSpinning) return;
     const rebetTotal = lastBets.reduce((sum, b) => sum + b.amount, 0);
-    if (rebetTotal > (user?.balance || 0)) {
+    if (rebetTotal > (user?.availableBalance || 0)) {
       toast({ title: "Insufficient balance to rebet", variant: "destructive" });
       return;
     }
@@ -352,7 +352,7 @@ export default function Roulette() {
   const handleDouble = () => {
     if (pendingBets.length === 0 || isSpinning) return;
     const doubledTotal = totalPendingBet * 2;
-    if (doubledTotal > (user?.balance || 0)) {
+    if (doubledTotal > (user?.availableBalance || 0)) {
       toast({ title: "Insufficient balance to double", variant: "destructive" });
       return;
     }
@@ -705,7 +705,7 @@ export default function Roulette() {
 
           <div className="flex items-center gap-6 mb-4 text-sm">
             <div className="text-slate-400">
-              Balance: <span className="text-white font-mono font-semibold">${user?.balance?.toFixed(2) || '0.00'}</span>
+              Balance: <span className="text-white font-mono font-semibold">$0.00</span>
             </div>
             <div className="text-slate-400">
               Bet: <span className="text-emerald-400 font-mono font-semibold">${totalPendingBet.toFixed(2)}</span>

@@ -16,7 +16,8 @@ import { rouletteOrchestrator } from "./rouletteOrchestrator";
 import { placeBet, startMultiStepGame, cashoutMultiStepGame, loseMultiStepGame, generateIdempotencyKey } from "./services/betService";
 import { computeOutcome, generateMinePositions, checkMineHit, hashServerSeed } from "./services/computeOutcome";
 import { requestWithdrawal, cancelWithdrawal, getUserWithdrawals } from "./services/withdrawalService";
-import { generateDepositAddress, isValidSolanaAddress, sendSol } from "./services/solanaService";
+import { generateDepositAddress, isValidSolanaAddress, sendSol, getTreasuryPublicKey } from "./services/solanaService";
+import { initiateDeposit, verifyDeposit, getUserDeposits } from "./services/depositService";
 
 // === Mines Session Manager ===
 // Tracks active mines games per user with auto-timeout to prevent stuck games
@@ -290,20 +291,157 @@ export async function registerRoutes(
     res.json(bets);
   });
 
-  // === SOLANA DEPOSIT ADDRESS ===
+  // === DEPOSIT ENDPOINTS ===
+  
+  // Initiate a deposit request
+  app.post("/api/deposit/initiate", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { amount } = req.body;
+      
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        return res.status(400).json({ success: false, error: "Invalid deposit amount" });
+      }
+      
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+      
+      // Use testnet if configured, otherwise mainnet
+      const useTestnet = process.env.SOLANA_USE_TESTNET === "true" || process.env.NODE_ENV === "development";
+      
+      const result = await initiateDeposit({
+        userId: req.user!.id,
+        amount,
+        currency: "SOL",
+        network: useTestnet ? "devnet" : "mainnet",
+        idempotencyKey,
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      
+      res.json({
+        success: true,
+        deposit: result.deposit,
+        address: result.deposit?.depositAddress,
+        memo: result.deposit?.memo,
+        amount: result.deposit?.amount,
+        message: result.message,
+      });
+    } catch (err) {
+      console.error("[Deposit Initiate] Error:", err);
+      res.status(500).json({ success: false, error: "Failed to initiate deposit" });
+    }
+  });
+  
+  // Verify a deposit transaction
+  app.post("/api/deposit/verify", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { depositId, txSignature } = req.body;
+      
+      if (!depositId || !txSignature) {
+        return res.status(400).json({ success: false, error: "depositId and txSignature are required" });
+      }
+      
+      if (typeof depositId !== "number" || typeof txSignature !== "string") {
+        return res.status(400).json({ success: false, error: "Invalid parameters" });
+      }
+      
+      const result = await verifyDeposit(depositId, req.user!.id, txSignature);
+      
+      if (!result.success) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      
+      // Get updated user balance
+      const user = await storage.getUser(req.user!.id);
+      
+      res.json({
+        success: true,
+        deposit: result.deposit,
+        newBalance: user?.availableBalance || 0,
+        message: result.message,
+      });
+    } catch (err) {
+      console.error("[Deposit Verify] Error:", err);
+      res.status(500).json({ success: false, error: "Failed to verify deposit" });
+    }
+  });
+  
+  // Get user's deposit history
+  app.get("/api/deposit/history", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const deposits = await getUserDeposits(req.user!.id, 50);
+      res.json(deposits);
+    } catch (err) {
+      console.error("[Deposit History] Error:", err);
+      res.status(500).json({ error: "Failed to get deposit history" });
+    }
+  });
+  
+  // Check pending deposit status and auto-verify
+  app.get("/api/deposit/status", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { getPendingDepositStatus, checkPendingDeposits } = await import("./services/depositService");
+      
+      // Get pending deposit
+      const status = await getPendingDepositStatus(req.user!.id);
+      
+      // If there's a pending deposit, try to auto-verify it
+      if (status.deposit && status.deposit.status === "PENDING") {
+        console.log(`[Deposit Status] Checking for pending deposit ${status.deposit.id} for user ${req.user!.id}`);
+        const verifyResults = await checkPendingDeposits(req.user!.id);
+        
+        // If verification succeeded, get updated user
+        const confirmedResult = verifyResults.find(r => r.success && r.deposit?.status === "CONFIRMED");
+        if (confirmedResult && confirmedResult.deposit) {
+          const user = await storage.getUser(req.user!.id);
+          console.log(`[Deposit Status] Deposit ${confirmedResult.deposit.id} confirmed for user ${req.user!.id}`);
+          return res.json({
+            deposit: confirmedResult.deposit,
+            status: "CONFIRMED",
+            newBalance: user?.availableBalance || 0,
+            message: "Deposit verified and credited",
+          });
+        }
+      }
+      
+      // Return current status
+      const user = await storage.getUser(req.user!.id);
+      const currentStatus = status.deposit?.status || "NONE";
+      res.json({
+        deposit: status.deposit,
+        status: currentStatus,
+        needsVerification: status.needsVerification,
+        currentBalance: user?.availableBalance || 0,
+      });
+    } catch (err) {
+      console.error("[Deposit Status] Error:", err);
+      res.status(500).json({ error: "Failed to check deposit status" });
+    }
+  });
+  
+  // Legacy endpoint for backward compatibility (returns treasury address)
   app.get("/api/solana/deposit-address", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      const depositAddress = generateDepositAddress(req.user!.id);
+      const treasuryAddress = getTreasuryPublicKey().toBase58();
       res.json({
-        address: depositAddress,
+        address: treasuryAddress,
         network: "mainnet",
         currency: "SOL",
       });
     } catch (err) {
       console.error("[Solana Deposit Address] Error:", err);
-      res.status(500).json({ error: "Failed to generate deposit address" });
+      res.status(500).json({ error: "Failed to get deposit address" });
     }
   });
 
@@ -326,12 +464,15 @@ export async function registerRoutes(
       
       const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
       
+      // Use testnet if configured, otherwise mainnet
+      const useTestnet = process.env.SOLANA_USE_TESTNET === "true" || process.env.NODE_ENV === "development";
+      
       const result = await requestWithdrawal({
         userId: req.user!.id,
         amount,
         address,
         currency: "SOL",
-        network: "mainnet",
+        network: useTestnet ? "devnet" : "mainnet",
         idempotencyKey,
       });
       
@@ -339,10 +480,10 @@ export async function registerRoutes(
         return res.status(400).json({ success: false, error: result.error });
       }
       
-      // If withdrawal is approved and doesn't require manual review, process it
+      // If withdrawal is approved and doesn't require manual review, process it immediately
       if (result.withdrawal && result.withdrawal.status === "PENDING" && !result.withdrawal.requiresManualReview) {
         try {
-          // Send SOL
+          // Send SOL from treasury wallet
           const txSignature = await sendSol(address, amount);
           
           // Update withdrawal with transaction hash
@@ -352,7 +493,7 @@ export async function registerRoutes(
             processedAt: new Date(),
           });
           
-          // Unlock balance
+          // Unlock balance (already deducted, just unlock)
           await storage.unlockBalance(req.user!.id, amount);
           
           res.json({
@@ -360,15 +501,25 @@ export async function registerRoutes(
             withdrawalId: result.withdrawal.id,
             status: "SENT",
             txHash: txSignature,
+            message: "Withdrawal sent successfully",
           });
         } catch (solError) {
           console.error("[Solana Withdrawal] Error sending SOL:", solError);
-          // Withdrawal is still pending, will be retried
-          res.json({
-            success: true,
+          
+          // Mark withdrawal as failed and refund balance
+          await storage.updateWithdrawal(result.withdrawal.id, {
+            status: "FAILED",
+            failureReason: solError instanceof Error ? solError.message : "Failed to send SOL",
+          });
+          
+          // Refund locked balance
+          await storage.unlockBalance(req.user!.id, amount);
+          await storage.updateAvailableBalance(req.user!.id, amount);
+          
+          res.status(500).json({
+            success: false,
+            error: solError instanceof Error ? solError.message : "Failed to process withdrawal",
             withdrawalId: result.withdrawal.id,
-            status: "PENDING",
-            message: "Withdrawal queued, processing...",
           });
         }
       } else {
@@ -376,6 +527,7 @@ export async function registerRoutes(
           success: true,
           withdrawalId: result.withdrawal?.id,
           status: result.withdrawal?.status,
+          message: result.message,
         });
       }
     } catch (err) {
@@ -567,7 +719,11 @@ Your bets are verifiable after the server seed is revealed.
       
       // Validate
       if (betAmount <= 0) return res.status(400).json({ message: "Bet must be greater than 0" });
-      if (user.balance < betAmount) return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${betAmount.toFixed(2)}` 
+        });
+      }
 
       console.log('[SplitSteal] Game started:', {
         betAmount,
@@ -708,8 +864,17 @@ Your bets are verifiable after the server seed is revealed.
     }
 
     try {
+      console.log("[Mines Start] Request body:", req.body);
+      console.log("[Mines Start] User balance:", user.availableBalance);
+      
       const input = minesBetSchema.parse(req.body);
-      if (user.balance < input.betAmount) return res.status(400).json({ message: "Insufficient balance" });
+      console.log("[Mines Start] Parsed input:", input);
+      
+      if (!user.availableBalance || user.availableBalance < input.betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${input.betAmount.toFixed(2)}` 
+        });
+      }
 
       await storage.updateUserBalance(user.id, -input.betAmount);
       
@@ -743,7 +908,15 @@ Your bets are verifiable after the server seed is revealed.
       const responseBet = { ...bet, result: { ...bet.result as any, mines: undefined } };
       res.json(responseBet);
     } catch (err) {
-      res.status(400).json({ message: "Invalid bet" });
+      console.error("[Mines Start] Error:", err);
+      if (err instanceof z.ZodError) {
+        console.error("[Mines Start] Validation errors:", err.errors);
+        return res.status(400).json({ 
+          message: `Validation error: ${err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}` 
+        });
+      }
+      const errorMessage = err instanceof Error ? err.message : "Invalid bet";
+      res.status(400).json({ message: errorMessage });
     }
   });
 
@@ -844,8 +1017,10 @@ Your bets are verifiable after the server seed is revealed.
 
     try {
       const input = plinkoBetSchema.parse(req.body);
-      if (user.balance < input.betAmount) {
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < input.betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${input.betAmount.toFixed(2)}` 
+        });
       }
 
       // Deduct balance
@@ -898,7 +1073,8 @@ Your bets are verifiable after the server seed is revealed.
       });
     } catch (err) {
       console.error("[Plinko] Error:", err);
-      res.status(400).json({ message: "Invalid bet" });
+      const errorMessage = err instanceof Error ? err.message : "Invalid bet";
+      res.status(400).json({ message: errorMessage });
     }
   });
 
@@ -916,8 +1092,10 @@ Your bets are verifiable after the server seed is revealed.
         return res.status(400).json({ message: "Straight bet requires a number" });
       }
       
-      if (user.balance < input.betAmount) {
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < input.betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${input.betAmount.toFixed(2)}` 
+        });
       }
 
       // Deduct balance
@@ -985,8 +1163,10 @@ Your bets are verifiable after the server seed is revealed.
       // Calculate total bet amount
       const totalBet = input.bets.reduce((sum, b) => sum + b.amount, 0);
       
-      if (user.balance < totalBet) {
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < totalBet) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${totalBet.toFixed(2)}` 
+        });
       }
 
       // Deduct total balance upfront
@@ -1298,8 +1478,10 @@ Your bets are verifiable after the server seed is revealed.
       const sideBets = input.sideBets || { perfectPairs: 0, twentyOnePlus3: 0 };
       const totalBet = input.betAmount + sideBets.perfectPairs + sideBets.twentyOnePlus3;
       
-      if (user.balance < totalBet) {
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < totalBet) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${totalBet.toFixed(2)}` 
+        });
       }
 
       // Deduct total bet
@@ -1618,8 +1800,10 @@ Your bets are verifiable after the server seed is revealed.
         return res.status(400).json({ message: "Cannot double - only allowed on first action" });
       }
 
-      if (user.balance < bet.betAmount) {
-        return res.status(400).json({ message: "Insufficient balance to double" });
+      if (!user.availableBalance || user.availableBalance < bet.betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance to double. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${bet.betAmount.toFixed(2)}` 
+        });
       }
 
       // Deduct additional bet
@@ -2011,8 +2195,10 @@ Your bets are verifiable after the server seed is revealed.
     
     try {
       const input = pressureValveStartSchema.parse(req.body);
-      if (user.balance < input.betAmount) {
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (!user.availableBalance || user.availableBalance < input.betAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance. Available: $${user.availableBalance?.toFixed(2) || '0.00'}, Required: $${input.betAmount.toFixed(2)}` 
+        });
       }
       
       // Check for existing active game
@@ -2252,7 +2438,7 @@ Your bets are verifiable after the server seed is revealed.
       clientSeed: generateClientSeed(),
       serverSeed: generateServerSeed(),
     });
-    await storage.updateUserBalance(demoUser.id, 5000); // Give extra balance
+    // Real money - users start with 0 balance, must deposit to play
     console.log("Seeded demo user");
   }
 

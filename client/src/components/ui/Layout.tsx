@@ -4,7 +4,7 @@ import {
   Dice5, 
   Coins, 
   Bomb, 
-  Menu, 
+  Menu,
   X, 
   User as UserIcon, 
   LogOut,
@@ -269,7 +269,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="p-4 border-t border-border">
              <div className="bg-secondary/30 rounded-lg p-4">
                 <h4 className="font-bold text-sm text-foreground mb-1">Play Responsibly</h4>
-                <p className="text-xs text-muted-foreground">This is a demo play-money application. No real money is involved.</p>
+                {/* <p className="text-xs text-muted-foreground">This is a demo play-money application. No real money is involved.</p> */}
              </div>
           </div>
         </aside>

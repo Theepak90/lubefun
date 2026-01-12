@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Wallet, X, ChevronDown, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
+import { useQueryClient } from "@tanstack/react-query";
 import QRCode from "react-qr-code";
 // To use a local Solana logo image, save it as solana-logo.png in attached_assets and uncomment:
 // import solanaLogo from "@assets/solana-logo.png";
@@ -30,8 +31,15 @@ export function WalletDropdown() {
   const [depositAmount, setDepositAmount] = useState<string>("");
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
   const [withdrawAddress, setWithdrawAddress] = useState<string>("");
+  const [depositMemo, setDepositMemo] = useState<string>("");
+  const [depositId, setDepositId] = useState<number | null>(null);
+  const [isProcessingDeposit, setIsProcessingDeposit] = useState(false);
+  const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
+  const [depositStatus, setDepositStatus] = useState<"PENDING" | "CONFIRMED" | "NONE">("NONE");
+  const [isCheckingDeposit, setIsCheckingDeposit] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Solana wallet address (will be generated or fetched from backend)
 
@@ -66,22 +74,150 @@ export function WalletDropdown() {
       setDepositAmount("");
       setWithdrawAmount("");
       setWithdrawAddress("");
+      setDepositMemo("");
+      setDepositId(null);
     }
   }, [isOpen]);
 
-  // Use the provided Solana deposit address
+  // Initiate deposit when amount is entered
   useEffect(() => {
-    if (user && isOpen && !walletAddress) {
-      // Use the provided Solana wallet address directly
-      setWalletAddress("64BsBMK9ysDwgo1fAC8tqemDJozqSVh3zJWtDLG9rwVu");
+    if (user && isOpen && activeTab === "deposit" && depositAmount && parseFloat(depositAmount) > 0 && !walletAddress && !isProcessingDeposit) {
+      handleInitiateDeposit();
     }
-  }, [user, isOpen, walletAddress]);
+  }, [user, isOpen, activeTab, depositAmount]);
+
+  // Poll for deposit status if there's a pending deposit
+  useEffect(() => {
+    if (!user || !depositId || activeTab !== "deposit") {
+      setDepositStatus("NONE");
+      return;
+    }
+
+    let interval: NodeJS.Timeout;
+    
+    const checkDepositStatus = async () => {
+      try {
+        const res = await fetch("/api/deposit/status", {
+          credentials: "include",
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const status = data.status || "NONE";
+          setDepositStatus(status);
+          
+          if (status === "CONFIRMED") {
+            // Deposit confirmed - refresh user data and show success
+            queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            // Don't reload page, just update balance
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          } else if (status === "PENDING") {
+            // Keep polling
+            console.log("Deposit still pending, will check again in 5 seconds...");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking deposit status:", error);
+      }
+    };
+
+    // Check immediately
+    checkDepositStatus();
+    
+    // Then poll every 5 seconds
+    interval = setInterval(checkDepositStatus, 5000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [user, depositId, activeTab, queryClient]);
+
+  const handleInitiateDeposit = async () => {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+    
+    setIsProcessingDeposit(true);
+    try {
+      const idempotencyKey = `deposit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const res = await fetch("/api/deposit/initiate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
+        credentials: "include",
+        body: JSON.stringify({ amount: parseFloat(depositAmount) }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setWalletAddress(`Error: ${err.error || "Failed to generate deposit address"}`);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success && data.deposit) {
+        setWalletAddress(data.address);
+        setDepositMemo(data.memo || "");
+        setDepositId(data.deposit.id);
+      } else {
+        setWalletAddress(`Error: ${data.error || "Failed to generate deposit address"}`);
+      }
+    } catch (error) {
+      console.error("Error initiating deposit:", error);
+      setWalletAddress("Error: Failed to connect to server");
+    } finally {
+      setIsProcessingDeposit(false);
+    }
+  };
 
   const handleCopy = () => {
     if (walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error")) {
       navigator.clipboard.writeText(walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) <= 0) return;
+    
+    setIsProcessingWithdraw(true);
+    try {
+      const idempotencyKey = `withdraw-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const res = await fetch("/api/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          amount: parseFloat(withdrawAmount),
+          address: withdrawAddress,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Withdrawal failed: ${err.error || "Unknown error"}`);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        alert(`Withdrawal ${data.status === "SENT" ? "sent successfully" : "queued for processing"}. ${data.txHash ? `Transaction: ${data.txHash}` : ""}`);
+        // Refresh user data
+        window.location.reload();
+      } else {
+        alert(`Withdrawal failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error processing withdrawal:", error);
+      alert("Failed to process withdrawal. Please try again.");
+    } finally {
+      setIsProcessingWithdraw(false);
     }
   };
 
@@ -97,7 +233,9 @@ export function WalletDropdown() {
           <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
           </svg>
-          <span className="font-semibold text-white text-sm">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="font-semibold text-white text-sm">
+            {user?.availableBalance ? `$${user.availableBalance.toFixed(2)}` : "$0.00"}
+          </span>
           <svg className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
           </svg>
@@ -271,18 +409,18 @@ export function WalletDropdown() {
                         {/* QR Code Area */}
                         <div className="flex gap-4">
                           <a
-                            href={`solana:${walletAddress}`}
+                            href={`solana:${walletAddress}?amount=${depositAmount}&memo=${encodeURIComponent(depositMemo)}`}
                             onClick={(e) => {
                               e.preventDefault();
                               // Open in Solana explorer
                               window.open(`https://solscan.io/account/${walletAddress}`, '_blank');
                             }}
                             className="w-24 h-24 bg-white p-2 rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform border-2 border-transparent hover:border-emerald-500/50"
-                            title="Click to open in Solana explorer"
+                            title="Click to open in Solana explorer or scan with Phantom"
                           >
                             {walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error") ? (
                               <QRCode
-                                value={walletAddress}
+                                value={`solana:${walletAddress}?amount=${depositAmount}&memo=${encodeURIComponent(depositMemo)}`}
                                 level="H"
                                 size={88}
                                 style={{ height: 88, width: 88 }}
@@ -294,15 +432,31 @@ export function WalletDropdown() {
                               </svg>
                             )}
                           </a>
-                          <div className="flex-1 flex items-center">
+                          <div className="flex-1 flex flex-col gap-2">
                             <p className="text-sm text-slate-500">
                               {walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error")
-                                ? "Click QR code to view wallet or copy address above to deposit SOL"
+                                ? depositMemo 
+                                  ? `Send exactly ${depositAmount} SOL to the address above. Include memo: ${depositMemo.substring(0, 20)}...`
+                                  : `Send exactly ${depositAmount} SOL to the address above. Click QR code to open in Phantom.`
                                 : walletAddress.startsWith("Error")
                                 ? walletAddress
-                                : "Generating your Solana wallet address..."
+                                : isProcessingDeposit
+                                ? "Generating deposit address..."
+                                : "Enter amount to generate deposit address"
                               }
                             </p>
+                            {depositStatus === "PENDING" && depositId && (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                                <p className="text-xs text-yellow-400">Waiting for deposit confirmation... Checking every 5 seconds</p>
+                              </div>
+                            )}
+                            {depositStatus === "CONFIRMED" && (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                <p className="text-xs text-emerald-400">Deposit confirmed! Balance updated.</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </>
@@ -319,10 +473,11 @@ export function WalletDropdown() {
                           />
                         </div>
                         <button 
-                          disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount || "0") <= 0}
+                          disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount || "0") <= 0 || isProcessingWithdraw}
+                          onClick={handleWithdraw}
                           className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed rounded-xl font-semibold text-white transition-all"
                         >
-                          Request Withdrawal
+                          {isProcessingWithdraw ? "Processing..." : "Request Withdrawal"}
                         </button>
                       </>
                     )}

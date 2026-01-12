@@ -204,7 +204,7 @@ export default function Dice() {
                 size="lg" 
                 className="w-full h-12 text-sm font-bold bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]" 
                 onClick={handleBet}
-                disabled={isPending || !user || parseFloat(amount) > (user?.balance || 0)}
+                disabled={isPending || !user || parseFloat(amount) > (user?.availableBalance || 0)}
                 data-testid="button-place-bet"
               >
                 {isPending ? "Rolling..." : user ? "Place Bet" : "Login to Play"}
