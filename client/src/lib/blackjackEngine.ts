@@ -38,6 +38,7 @@ export interface GameState {
   roundResult: RoundResult | null;
   animationQueue: AnimationEvent[];
   isAnimating: boolean;
+  isProcessing: boolean;
   dealerHitsSoft17: boolean;
   deckCount: number;
   reshuffleThreshold: number;
@@ -172,6 +173,7 @@ export function createInitialState(balance: number = 1000): GameState {
     roundResult: null,
     animationQueue: [],
     isAnimating: false,
+    isProcessing: false,
     dealerHitsSoft17: true,
     deckCount: 6,
     reshuffleThreshold: 52,
@@ -222,7 +224,7 @@ export function settleHands(state: GameState): RoundResult {
       payout = 0;
     } else if (playerBlackjack && !dealerBlackjack) {
       result = "blackjack";
-      payout = hand.bet + Math.floor(hand.bet * 1.5);
+      payout = hand.bet + hand.bet * 1.5;
     } else if (dealerBlackjack && !playerBlackjack) {
       result = "lose";
       payout = 0;
@@ -270,7 +272,8 @@ export type GameAction =
   | { type: "DEALER_COMPLETE" }
   | { type: "ANIMATION_COMPLETE" }
   | { type: "NEW_ROUND" }
-  | { type: "SET_BALANCE"; balance: number };
+  | { type: "SET_BALANCE"; balance: number }
+  | { type: "SET_PROCESSING"; value: boolean };
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   const log = `[${state.phase}] ${action.type}`;
@@ -391,7 +394,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const hand = state.playerHands[0];
       
       if (action.accept) {
-        const insuranceAmount = Math.floor(hand.bet / 2);
+        const insuranceAmount = hand.bet / 2;
         if (insuranceAmount > state.balance) return state;
         
         const updatedHands = [...state.playerHands];
@@ -682,8 +685,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         roundResult: null,
         animationQueue: [],
         isAnimating: false,
+        isProcessing: false,
         lastAction: log,
       };
+    }
+
+    case "SET_PROCESSING": {
+      return { ...state, isProcessing: action.value };
     }
 
     case "ANIMATION_COMPLETE": {
@@ -714,14 +722,15 @@ export function getAvailableActions(state: GameState): {
   canNewRound: boolean;
 } {
   const hand = state.playerHands[state.activeHandIndex];
+  const locked = state.isProcessing || state.isAnimating;
   
   return {
-    canDeal: state.phase === "IDLE" && state.pendingBet > 0 && state.pendingBet <= state.balance,
-    canHit: state.phase === "PLAYER_TURN" && !state.isAnimating && hand && !hand.isStood && !hand.isBusted,
-    canStand: state.phase === "PLAYER_TURN" && !state.isAnimating && hand && !hand.isStood,
-    canDouble: state.phase === "PLAYER_TURN" && !state.isAnimating && hand && canDouble(hand, state.balance),
-    canSplit: state.phase === "PLAYER_TURN" && !state.isAnimating && hand && canSplit(hand, state.balance),
-    canInsurance: state.phase === "INSURANCE",
-    canNewRound: state.phase === "ROUND_END",
+    canDeal: state.phase === "IDLE" && state.pendingBet > 0 && state.pendingBet <= state.balance && !locked,
+    canHit: state.phase === "PLAYER_TURN" && !locked && hand && !hand.isStood && !hand.isBusted,
+    canStand: state.phase === "PLAYER_TURN" && !locked && hand && !hand.isStood,
+    canDouble: state.phase === "PLAYER_TURN" && !locked && hand && canDouble(hand, state.balance),
+    canSplit: state.phase === "PLAYER_TURN" && !locked && hand && canSplit(hand, state.balance),
+    canInsurance: state.phase === "INSURANCE" && !locked,
+    canNewRound: state.phase === "ROUND_END" && !locked,
   };
 }

@@ -1,11 +1,10 @@
-import { useReducer, useEffect, useState, useCallback } from "react";
+import { useReducer, useEffect, useState, useCallback, useRef } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfitTracker } from "@/hooks/use-profit-tracker";
 import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
-import { FairPlayModal } from "@/components/FairPlayModal";
 import { useSound } from "@/hooks/use-sound";
 import { motion, AnimatePresence } from "framer-motion";
 import { RotateCcw, Hand, Square, Layers, Info, ChevronDown, ChevronUp } from "lucide-react";
@@ -242,12 +241,12 @@ function DevPanel({ state, show }: { state: GameState; show: boolean }) {
 
 export default function Blackjack() {
   const { user } = useAuth();
-  const { recordResult } = useProfitTracker("blackjack");
-  const { playSound } = useSound();
+  const { recordResult } = useProfitTracker();
+  const { play: playSound } = useSound();
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [selectedChipIndex, setSelectedChipIndex] = useState(1);
   const [chipHistory, setChipHistory] = useState<number[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const actionLockRef = useRef(false);
   
   const balance = user?.balance ?? 1000;
   
@@ -270,15 +269,15 @@ export default function Blackjack() {
   }, []);
 
   useEffect(() => {
-    if (state.phase === "DEALER_TURN" && !isProcessing) {
-      setIsProcessing(true);
+    if (state.phase === "DEALER_TURN" && !state.isProcessing) {
+      dispatch({ type: "SET_PROCESSING", value: true });
       const timer = setTimeout(() => {
         dispatch({ type: "DEALER_PLAY" });
-        setIsProcessing(false);
+        dispatch({ type: "SET_PROCESSING", value: false });
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [state.phase, isProcessing]);
+  }, [state.phase, state.isProcessing]);
 
   useEffect(() => {
     if (state.roundResult) {
@@ -297,6 +296,18 @@ export default function Blackjack() {
 
   const actions = getAvailableActions(state);
 
+  const lockAndExecute = useCallback((action: () => void, delay: number = 300) => {
+    if (actionLockRef.current || state.isProcessing) return false;
+    actionLockRef.current = true;
+    dispatch({ type: "SET_PROCESSING", value: true });
+    action();
+    setTimeout(() => {
+      actionLockRef.current = false;
+      dispatch({ type: "SET_PROCESSING", value: false });
+    }, delay);
+    return true;
+  }, [state.isProcessing]);
+
   const handleAddChip = useCallback((chipValue: number) => {
     if (state.phase !== "IDLE") return;
     if (chipValue > state.balance - state.pendingBet) return;
@@ -307,66 +318,67 @@ export default function Blackjack() {
   }, [state.phase, state.balance, state.pendingBet, playSound]);
 
   const handleUndo = useCallback(() => {
-    if (chipHistory.length === 0) return;
+    if (chipHistory.length === 0 || state.phase !== "IDLE") return;
     const lastChip = chipHistory[chipHistory.length - 1];
     dispatch({ type: "UNDO_CHIP", value: lastChip });
     setChipHistory(prev => prev.slice(0, -1));
-  }, [chipHistory]);
+  }, [chipHistory, state.phase]);
 
   const handleClear = useCallback(() => {
+    if (state.phase !== "IDLE") return;
     dispatch({ type: "CLEAR_BET" });
     setChipHistory([]);
-  }, []);
+  }, [state.phase]);
 
   const handleDeal = useCallback(() => {
-    if (!actions.canDeal || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "DEAL" });
-    setChipHistory([]);
-    playSound("chipDrop");
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canDeal, isProcessing, playSound]);
+    if (!actions.canDeal) return;
+    lockAndExecute(() => {
+      dispatch({ type: "DEAL" });
+      setChipHistory([]);
+      playSound("chipDrop");
+    }, 400);
+  }, [actions.canDeal, lockAndExecute, playSound]);
 
   const handleHit = useCallback(() => {
-    if (!actions.canHit || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "HIT" });
-    playSound("cardDeal");
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canHit, isProcessing, playSound]);
+    if (!actions.canHit) return;
+    lockAndExecute(() => {
+      dispatch({ type: "HIT" });
+      playSound("cardDeal");
+    }, 300);
+  }, [actions.canHit, lockAndExecute, playSound]);
 
   const handleStand = useCallback(() => {
-    if (!actions.canStand || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "STAND" });
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canStand, isProcessing]);
+    if (!actions.canStand) return;
+    lockAndExecute(() => {
+      dispatch({ type: "STAND" });
+    }, 300);
+  }, [actions.canStand, lockAndExecute]);
 
   const handleDouble = useCallback(() => {
-    if (!actions.canDouble || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "DOUBLE" });
-    playSound("cardDeal");
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canDouble, isProcessing, playSound]);
+    if (!actions.canDouble) return;
+    lockAndExecute(() => {
+      dispatch({ type: "DOUBLE" });
+      playSound("cardDeal");
+    }, 400);
+  }, [actions.canDouble, lockAndExecute, playSound]);
 
   const handleSplit = useCallback(() => {
-    if (!actions.canSplit || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "SPLIT" });
-    playSound("cardDeal");
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canSplit, isProcessing, playSound]);
+    if (!actions.canSplit) return;
+    lockAndExecute(() => {
+      dispatch({ type: "SPLIT" });
+      playSound("cardDeal");
+    }, 400);
+  }, [actions.canSplit, lockAndExecute, playSound]);
 
   const handleInsurance = useCallback((accept: boolean) => {
-    if (!actions.canInsurance || isProcessing) return;
-    setIsProcessing(true);
-    dispatch({ type: "INSURANCE", accept });
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [actions.canInsurance, isProcessing]);
+    if (!actions.canInsurance) return;
+    lockAndExecute(() => {
+      dispatch({ type: "INSURANCE", accept });
+    }, 300);
+  }, [actions.canInsurance, lockAndExecute]);
 
   const handleNewRound = useCallback(() => {
-    if (!actions.canNewRound) return;
+    if (!actions.canNewRound || actionLockRef.current) return;
     dispatch({ type: "NEW_ROUND" });
   }, [actions.canNewRound]);
 
@@ -387,7 +399,6 @@ export default function Blackjack() {
               <h1 className="text-lg font-semibold text-white">Blackjack</h1>
             </div>
             <div className="flex items-center gap-2">
-              <FairPlayModal user={user} />
               <ProfitTrackerWidget gameId="blackjack" />
             </div>
           </div>
@@ -537,7 +548,7 @@ export default function Blackjack() {
                     size="lg"
                     className="w-full h-12 bg-blue-600 hover:bg-blue-500 font-bold text-lg"
                     onClick={handleDeal}
-                    disabled={!actions.canDeal || isProcessing}
+                    disabled={!actions.canDeal}
                     data-testid="button-deal"
                   >
                     Deal
@@ -556,7 +567,7 @@ export default function Blackjack() {
                   <div className="text-white text-center">
                     <div className="text-lg font-bold mb-1">Insurance?</div>
                     <div className="text-sm text-slate-400">
-                      Dealer shows an Ace. Take insurance for ${Math.floor(state.playerHands[0]?.bet / 2).toFixed(2)}?
+                      Dealer shows an Ace. Take insurance for ${(state.playerHands[0]?.bet / 2).toFixed(2)}?
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -564,7 +575,7 @@ export default function Blackjack() {
                       variant="outline"
                       className="border-red-500 text-red-400 hover:bg-red-500/20"
                       onClick={() => handleInsurance(false)}
-                      disabled={isProcessing}
+                      disabled={state.isProcessing}
                       data-testid="button-no-insurance"
                     >
                       No Thanks
@@ -572,7 +583,7 @@ export default function Blackjack() {
                     <Button
                       className="bg-emerald-600 hover:bg-emerald-500"
                       onClick={() => handleInsurance(true)}
-                      disabled={isProcessing || Math.floor(state.playerHands[0]?.bet / 2) > state.balance}
+                      disabled={state.isProcessing || (state.playerHands[0]?.bet / 2) > state.balance}
                       data-testid="button-yes-insurance"
                     >
                       Take Insurance
@@ -598,7 +609,7 @@ export default function Blackjack() {
                         variant="outline"
                         className="border-amber-500 text-amber-400 hover:bg-amber-500/20 gap-2"
                         onClick={handleDouble}
-                        disabled={isProcessing}
+                        disabled={state.isProcessing}
                         data-testid="button-double"
                       >
                         <Layers className="w-4 h-4" />
@@ -610,7 +621,7 @@ export default function Blackjack() {
                         variant="outline"
                         className="border-purple-500 text-purple-400 hover:bg-purple-500/20 gap-2"
                         onClick={handleSplit}
-                        disabled={isProcessing}
+                        disabled={state.isProcessing}
                         data-testid="button-split"
                       >
                         Split
@@ -620,7 +631,7 @@ export default function Blackjack() {
                       variant="outline"
                       className="border-slate-500 text-slate-300 hover:bg-slate-500/20 gap-2 min-w-24"
                       onClick={handleHit}
-                      disabled={!actions.canHit || isProcessing}
+                      disabled={!actions.canHit}
                       data-testid="button-hit"
                     >
                       <Hand className="w-4 h-4" />
@@ -629,7 +640,7 @@ export default function Blackjack() {
                     <Button
                       className="bg-red-600 hover:bg-red-500 gap-2 min-w-24"
                       onClick={handleStand}
-                      disabled={!actions.canStand || isProcessing}
+                      disabled={!actions.canStand}
                       data-testid="button-stand"
                     >
                       <Square className="w-4 h-4" />
