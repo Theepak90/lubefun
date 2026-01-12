@@ -18,6 +18,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useSound } from "@/hooks/use-sound";
 import { motion, AnimatePresence } from "framer-motion";
 
+import chip50c from "@assets/ChatGPT_Image_Jan_11,_2026,_11_12_58_PM_1768197549199.png";
+import chip1 from "@assets/Water-themed_$1_poker_chip_1768197549200.png";
+import chip5 from "@assets/Water-themed_$5_poker_chip_1768197549200.png";
+import chip10 from "@assets/Water-themed_$10_poker_chip_1768197549200.png";
+import chip20 from "@assets/Water-themed_$20_casino_chip_1768197549201.png";
+import chip100 from "@assets/Poker_chip_with_glowing_water_effects_1768197549201.png";
+
 interface SideBetResults {
   perfectPairs?: { result: string | null; payout: number };
   twentyOnePlus3?: { result: string | null; payout: number };
@@ -79,17 +86,17 @@ function calculateTotal(cards: number[]): number {
 
 interface ChipData {
   value: number;
-  color: string;
   label: string;
-  borderColor: string;
+  image: string;
 }
 
 const CHIPS: ChipData[] = [
-  { value: 1, color: "#3b82f6", label: "1", borderColor: "#60a5fa" },
-  { value: 5, color: "#22c55e", label: "5", borderColor: "#4ade80" },
-  { value: 25, color: "#a855f7", label: "25", borderColor: "#c084fc" },
-  { value: 100, color: "#ef4444", label: "100", borderColor: "#f87171" },
-  { value: 200, color: "#eab308", label: "200", borderColor: "#facc15" },
+  { value: 0.5, label: "50¢", image: chip50c },
+  { value: 1, label: "$1", image: chip1 },
+  { value: 5, label: "$5", image: chip5 },
+  { value: 10, label: "$10", image: chip10 },
+  { value: 20, label: "$20", image: chip20 },
+  { value: 100, label: "$100", image: chip100 },
 ];
 
 function ChipButton({ chip, selected, onClick }: { chip: ChipData; selected?: boolean; onClick?: () => void }) {
@@ -97,20 +104,15 @@ function ChipButton({ chip, selected, onClick }: { chip: ChipData; selected?: bo
     <button
       onClick={onClick}
       className={cn(
-        "relative w-11 h-11 rounded-full flex items-center justify-center transition-all font-bold text-white text-xs",
-        selected ? "scale-110 ring-2 ring-white" : "hover:scale-105"
+        "relative w-11 h-11 rounded-full flex items-center justify-center transition-all",
+        selected ? "scale-110 ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : "hover:scale-105"
       )}
-      style={{
-        background: `radial-gradient(circle at 30% 30%, ${chip.borderColor}, ${chip.color})`,
-        boxShadow: `0 3px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)`,
-        border: `2px solid ${chip.borderColor}`,
-      }}
       data-testid={`chip-${chip.value}`}
     >
-      <span className="drop-shadow-md">{chip.label}</span>
-      <div 
-        className="absolute inset-1 rounded-full border-2 border-dashed opacity-40"
-        style={{ borderColor: "rgba(255,255,255,0.5)" }}
+      <img 
+        src={chip.image} 
+        alt={chip.label}
+        className="w-full h-full object-contain"
       />
     </button>
   );
