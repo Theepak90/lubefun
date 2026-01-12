@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { useMinesGame } from "@/hooks/use-games";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,29 @@ import { ProfitTrackerWidget } from "@/components/ProfitTrackerWidget";
 import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 const GRID_SIZE = 25;
+
+interface GameState {
+  active: boolean;
+  betId?: number;
+  betAmount?: number;
+  revealed: number[];
+  mines?: number[];
+  minesCount: number;
+  multiplier: number;
+  explodedIndex?: number;
+  isCashout?: boolean;
+}
+
+const initialGameState: GameState = {
+  active: false,
+  revealed: [],
+  minesCount: 3,
+  multiplier: 1.0
+};
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
@@ -30,27 +51,39 @@ export default function Mines() {
   
   const [amount, setAmount] = useState<string>("10");
   const [minesCount, setMinesCount] = useState<number>(3);
-  const [gameState, setGameState] = useState<{
-    active: boolean;
-    betId?: number;
-    revealed: number[];
-    mines?: number[];
-    profit: number;
-    multiplier: number;
-    isCashout?: boolean;
-    explodedIndex?: number;
-  }>({
-    active: false,
-    revealed: [],
-    profit: 0,
-    multiplier: 1.0
-  });
+  const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [isShaking, setIsShaking] = useState(false);
   const [showWinPulse, setShowWinPulse] = useState(false);
   const [winPopup, setWinPopup] = useState<{ show: boolean; amount: number; profit: number } | null>(null);
-  const pendingTilesRef = useRef<Set<number>>(new Set());
+  const pendingClickRef = useRef<boolean>(false);
 
   const safeSpots = GRID_SIZE - minesCount;
+
+  const { data: activeGame, isLoading: isLoadingActive } = useQuery({
+    queryKey: ['/api/games/mines/active'],
+    enabled: !!user,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (activeGame && activeGame.active) {
+      const result = activeGame.result as any;
+      setGameState({
+        active: true,
+        betId: activeGame.id,
+        betAmount: activeGame.betAmount,
+        revealed: result?.revealed || [],
+        minesCount: result?.minesCount || 3,
+        multiplier: activeGame.payoutMultiplier || 1.0,
+        mines: undefined
+      });
+      setMinesCount(result?.minesCount || 3);
+      setAmount(activeGame.betAmount.toString());
+    } else if (activeGame === null && !gameState.mines) {
+      setGameState(prev => prev.active ? initialGameState : prev);
+    }
+  }, [activeGame]);
 
   const calculateMultiplier = (revealedCount: number, mines: number) => {
     let multiplier = 1;
@@ -68,49 +101,52 @@ export default function Mines() {
     const val = parseFloat(amount);
     if (isNaN(val) || val < 0.1) return;
     
-    pendingTilesRef.current.clear();
     setWinPopup(null);
+    setGameState(initialGameState);
     
     playSound("bet");
     start.mutate({ betAmount: val, minesCount: minesCount }, {
       onSuccess: (data: any) => {
-        const serverRevealed = data.result?.revealed || [];
+        const result = data.result as any;
         setGameState({
           active: true,
           betId: data.id,
-          revealed: serverRevealed,
-          profit: 0,
-          multiplier: 1.0
+          betAmount: data.betAmount,
+          revealed: result?.revealed || [],
+          minesCount: result?.minesCount || minesCount,
+          multiplier: 1.0,
+          mines: undefined
         });
+        queryClient.invalidateQueries({ queryKey: ['/api/games/mines/active'] });
       }
     });
   };
 
   const handleTileClick = (index: number) => {
-    if (!gameState.active || gameState.revealed.includes(index) || pendingTilesRef.current.has(index)) return;
+    if (!gameState.active) return;
+    if (gameState.revealed.includes(index)) return;
+    if (pendingClickRef.current || reveal.isPending) return;
     
-    pendingTilesRef.current.add(index);
-    
-    setGameState(prev => ({
-      ...prev,
-      revealed: [...prev.revealed, index],
-    }));
+    pendingClickRef.current = true;
     
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
-        pendingTilesRef.current.delete(index);
+        pendingClickRef.current = false;
+        const result = data.result as any;
         
-        if (!data || data.active === false) {
-          pendingTilesRef.current.clear();
+        if (!data.active) {
+          const isMine = result.mines?.includes(index);
           
           setGameState(prev => ({
             ...prev,
             active: false,
-            mines: data?.result?.mines,
-            explodedIndex: index
+            revealed: result.revealed || prev.revealed,
+            mines: result.mines,
+            explodedIndex: isMine ? index : undefined,
+            multiplier: data.payoutMultiplier || prev.multiplier
           }));
           
-          if (data) {
+          if (isMine) {
             playSound("lose");
             setIsShaking(true);
             setTimeout(() => setIsShaking(false), 500);
@@ -122,41 +158,41 @@ export default function Mines() {
               betAmount: data.betAmount,
               won: false,
               profit: -data.betAmount,
-              detail: `Hit mine after ${data.result.revealed.length - 1} gems`
+              detail: `Hit mine after ${(result.revealed?.length || 1) - 1} gems`
             });
           }
+          
+          queryClient.invalidateQueries({ queryKey: ['/api/games/mines/active'] });
         } else {
           playSound("tick");
           
           setGameState(prev => ({
             ...prev,
-            profit: calculatePotentialProfit(data.betAmount, data.result.revealed.length, minesCount),
-            multiplier: calculateMultiplier(data.result.revealed.length, minesCount)
+            revealed: result.revealed || prev.revealed,
+            multiplier: data.payoutMultiplier || calculateMultiplier(result.revealed?.length || 0, prev.minesCount)
           }));
         }
       },
       onError: () => {
-        pendingTilesRef.current.delete(index);
-        setGameState(prev => ({
-          ...prev,
-          revealed: prev.revealed.filter(i => i !== index)
-        }));
+        pendingClickRef.current = false;
       }
     });
   };
 
   const handleCashout = () => {
     if (!gameState.active || !gameState.betId) return;
-    
-    pendingTilesRef.current.clear();
+    if (cashout.isPending) return;
     
     cashout.mutate({ betId: gameState.betId }, {
       onSuccess: (data: any) => {
+        const result = data.result as any;
+        
         setGameState(prev => ({
           ...prev,
           active: false,
-          mines: data.result.mines,
-          isCashout: true
+          mines: result.mines,
+          isCashout: true,
+          multiplier: data.payoutMultiplier
         }));
         
         playSound("win");
@@ -173,8 +209,10 @@ export default function Mines() {
           betAmount: data.betAmount,
           won: true,
           profit: data.profit,
-          detail: `Cashed out with ${data.result.revealed.length} gems (${data.payoutMultiplier.toFixed(2)}x)`
+          detail: `Cashed out with ${result.revealed?.length || 0} gems (${data.payoutMultiplier?.toFixed(2) || '1.00'}x)`
         });
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/games/mines/active'] });
       }
     });
   };
@@ -182,6 +220,10 @@ export default function Mines() {
   const halve = () => setAmount((prev) => (parseFloat(prev) / 2).toFixed(2));
   const double = () => setAmount((prev) => (parseFloat(prev) * 2).toFixed(2));
   const setMax = () => user && setAmount(user.balance.toFixed(2));
+
+  const currentProfit = gameState.betAmount 
+    ? calculatePotentialProfit(gameState.betAmount, gameState.revealed.length, gameState.minesCount)
+    : 0;
 
   return (
     <Layout>
@@ -247,10 +289,10 @@ export default function Mines() {
                 <div className="flex items-center gap-3 bg-[#1a2c38] rounded-lg p-3">
                   <div className="flex items-center gap-1.5">
                     <Gem className="w-4 h-4 text-cyan-400" />
-                    <span className="text-sm font-bold text-white">{safeSpots}</span>
+                    <span className="text-sm font-bold text-white">{GRID_SIZE - (gameState.active ? gameState.minesCount : minesCount)}</span>
                   </div>
                   <Slider
-                    value={[minesCount]}
+                    value={[gameState.active ? gameState.minesCount : minesCount]}
                     onValueChange={(val) => !gameState.active && setMinesCount(val[0])}
                     min={1}
                     max={24}
@@ -259,7 +301,7 @@ export default function Mines() {
                     className="flex-1"
                   />
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-white">{minesCount}</span>
+                    <span className="text-sm font-bold text-white">{gameState.active ? gameState.minesCount : minesCount}</span>
                     <Bomb className="w-4 h-4 text-red-500" />
                   </div>
                 </div>
@@ -270,7 +312,7 @@ export default function Mines() {
                 <div className="space-y-2 mb-6 p-3 bg-[#1a2c38] rounded-lg border border-emerald-500/30">
                   <div className="text-xs text-[#5b7a8a] font-medium">Potential Win</div>
                   <div className="text-lg font-bold text-emerald-400">
-                    ${(parseFloat(amount) + gameState.profit).toFixed(2)}
+                    ${((gameState.betAmount || 0) + currentProfit).toFixed(2)}
                     <span className="text-sm ml-2 text-emerald-300/70">({gameState.multiplier.toFixed(2)}×)</span>
                   </div>
                 </div>
@@ -285,17 +327,17 @@ export default function Mines() {
                   disabled={cashout.isPending || gameState.revealed.length === 0}
                   data-testid="button-cashout"
                 >
-                  {cashout.isPending ? "Cashing out..." : `Cashout $${(parseFloat(amount) + gameState.profit).toFixed(2)}`}
+                  {cashout.isPending ? "Cashing out..." : `Cashout $${((gameState.betAmount || 0) + currentProfit).toFixed(2)}`}
                 </Button>
               ) : (
                 <Button 
                   size="lg" 
                   className="w-full h-12 text-base font-bold bg-[#00e701] hover:bg-[#00c701] text-black rounded-md" 
                   onClick={handleBet}
-                  disabled={start.isPending || !user || parseFloat(amount) > (user?.balance || 0)}
+                  disabled={start.isPending || isLoadingActive || !user || parseFloat(amount) > (user?.balance || 0)}
                   data-testid="button-place-bet"
                 >
-                  {start.isPending ? "Starting..." : user ? "Play" : "Login to Play"}
+                  {start.isPending ? "Starting..." : isLoadingActive ? "Loading..." : user ? "Play" : "Login to Play"}
                 </Button>
               )}
 
@@ -339,7 +381,7 @@ export default function Mines() {
                     <motion.div
                       initial={{ y: 20 }}
                       animate={{ y: 0 }}
-                      className="bg-gradient-to-b from-[#1a2c38] to-[#0f1923] border border-emerald-500/50 rounded-2xl p-8 text-center shadow-2xl shadow-emerald-500/20 max-w-sm mx-4"
+                      className="bg-gradient-to-b from-[#1a2c38] to-[#0f1923] border border-emerald-500/50 rounded-2xl p-8 text-center shadow-2xl shadow-emerald-500/20 max-w-sm mx-4 relative"
                     >
                       <button
                         onClick={() => setWinPopup(null)}
@@ -395,42 +437,36 @@ export default function Mines() {
                     transition: { duration: 0.5 }
                   } : {}}
                 >
-                  {showWinPulse && (
-                    <motion.div 
-                      className="absolute inset-0 bg-emerald-500/10 rounded-xl pointer-events-none"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: [0, 0.5, 0], scale: [0.95, 1.02, 1] }}
-                      transition={{ duration: 0.6 }}
-                    />
-                  )}
                   {Array.from({ length: GRID_SIZE }).map((_, i) => {
                     const isMine = gameState.mines?.includes(i);
                     const isExploded = i === gameState.explodedIndex;
-                    const isRevealed = gameState.revealed.includes(i) && !isMine && !isExploded;
-                    const isSafeRevealed = !gameState.active && gameState.mines && !isMine && !gameState.revealed.includes(i);
-                    const wasClicked = gameState.revealed.includes(i);
+                    const isRevealed = gameState.revealed.includes(i);
+                    const isGem = isRevealed && !isMine;
+                    const isSafeUnrevealed = !gameState.active && gameState.mines && !isMine && !isRevealed;
+                    const isPending = reveal.isPending || pendingClickRef.current;
 
                     return (
                       <motion.button
                         key={i}
-                        whileHover={gameState.active && !wasClicked ? { scale: 1.03 } : {}}
-                        whileTap={gameState.active && !wasClicked ? { scale: 0.97 } : {}}
+                        whileHover={gameState.active && !isRevealed && !isPending ? { scale: 1.03 } : {}}
+                        whileTap={gameState.active && !isRevealed && !isPending ? { scale: 0.97 } : {}}
                         onClick={() => handleTileClick(i)}
-                        disabled={!gameState.active || wasClicked}
+                        disabled={!gameState.active || isRevealed || isPending}
                         className={cn(
                           "aspect-square rounded-lg relative transition-all duration-100",
                           "bg-[#2f4553] border-2 border-[#3d5a6c]",
                           "shadow-[inset_0_-3px_0_0_rgba(0,0,0,0.3)]",
-                          gameState.active && !wasClicked && "hover:bg-[#3a5565] hover:border-cyan-500/50 cursor-pointer",
-                          isRevealed && "bg-[#1a2c38] border-emerald-500/50 shadow-none",
+                          gameState.active && !isRevealed && !isPending && "hover:bg-[#3a5565] hover:border-cyan-500/50 cursor-pointer",
+                          isGem && "bg-[#1a2c38] border-emerald-500/50 shadow-none",
                           isExploded && "bg-red-900/60 border-red-500 shadow-none",
                           isMine && !isExploded && !gameState.active && "bg-[#1a2c38] border-red-500/30 shadow-none",
-                          isSafeRevealed && "bg-[#1a2c38]/50 opacity-50 shadow-none"
+                          isSafeUnrevealed && "bg-[#1a2c38]/50 opacity-50 shadow-none",
+                          isPending && !isRevealed && "opacity-70 cursor-not-allowed"
                         )}
                         data-testid={`tile-${i}`}
                       >
                         <AnimatePresence>
-                          {isRevealed && (
+                          {isGem && (
                             <motion.div
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
@@ -456,7 +492,7 @@ export default function Mines() {
                             </motion.div>
                           )}
 
-                          {isSafeRevealed && (
+                          {isSafeUnrevealed && (
                             <motion.div
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 0.8, opacity: 0.5 }}
@@ -478,19 +514,19 @@ export default function Mines() {
                 <div className="bg-[#1a2c38] rounded-lg px-4 py-2 text-center">
                   <div className="text-[10px] text-[#5b7a8a] uppercase tracking-wide mb-0.5">Next</div>
                   <div className="text-sm font-bold text-white">
-                    {calculateMultiplier(gameState.revealed.length + 1, minesCount).toFixed(2)}×
+                    {calculateMultiplier(gameState.revealed.length + 1, gameState.active ? gameState.minesCount : minesCount).toFixed(2)}×
                   </div>
                 </div>
                 <div className="bg-[#1a2c38] rounded-lg px-4 py-2 text-center">
                   <div className="text-[10px] text-[#5b7a8a] uppercase tracking-wide mb-0.5">Gems</div>
                   <div className="text-sm font-bold text-cyan-400">
-                    {gameState.revealed.length} / {safeSpots}
+                    {gameState.revealed.length} / {GRID_SIZE - (gameState.active ? gameState.minesCount : minesCount)}
                   </div>
                 </div>
                 <div className="bg-[#1a2c38] rounded-lg px-4 py-2 text-center">
                   <div className="text-[10px] text-[#5b7a8a] uppercase tracking-wide mb-0.5">Mines</div>
                   <div className="text-sm font-bold text-red-400">
-                    {minesCount}
+                    {gameState.active ? gameState.minesCount : minesCount}
                   </div>
                 </div>
               </div>

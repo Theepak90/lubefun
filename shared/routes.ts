@@ -172,6 +172,14 @@ export const api = {
       },
     },
     mines: {
+      active: {
+        method: "GET" as const,
+        path: "/api/games/mines/active",
+        responses: {
+          200: z.custom<typeof bets.$inferSelect | null>(),
+          401: errorSchemas.unauthorized,
+        },
+      },
       start: {
         method: "POST" as const,
         path: "/api/games/mines/start",

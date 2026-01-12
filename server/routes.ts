@@ -577,6 +577,29 @@ Your bets are verifiable after the server seed is revealed.
   });
 
   // MINES
+  
+  // GET active mines game (for page load/refresh)
+  app.get(api.games.mines.active.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
+    
+    const activeGame = await storage.getActiveMinesBet(user.id);
+    if (!activeGame) {
+      return res.json(null);
+    }
+    
+    // Ensure session is tracked
+    minesSessionManager.startSession(user.id, activeGame.id);
+    
+    // Mask mines in response
+    const responseBet = { 
+      ...activeGame, 
+      result: { ...(activeGame.result as any), mines: undefined } 
+    };
+    res.json(responseBet);
+  });
+  
   app.post(api.games.mines.start.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = await storage.getUser(req.user!.id);
