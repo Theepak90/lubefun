@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bomb, Gem, Skull, Shield, Info } from "lucide-react";
+import { Bomb, Gem, Skull, Shield, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { GAME_CONFIG } from "@shared/config";
@@ -18,8 +18,7 @@ import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useToast } from "@/hooks/use-toast";
 
-const GRID_SIZES = [25, 36, 49, 64] as const;
-type GridSize = typeof GRID_SIZES[number];
+const GRID_SIZE = 25;
 
 export default function Mines() {
   const { start, reveal, cashout } = useMinesGame();
@@ -30,7 +29,6 @@ export default function Mines() {
   const { toast } = useToast();
   
   const [amount, setAmount] = useState<string>("10");
-  const [gridSize, setGridSize] = useState<GridSize>(25);
   const [minesCount, setMinesCount] = useState<number>(3);
   const [gameState, setGameState] = useState<{
     active: boolean;
@@ -49,16 +47,15 @@ export default function Mines() {
   });
   const [isShaking, setIsShaking] = useState(false);
   const [showWinPulse, setShowWinPulse] = useState(false);
+  const [winPopup, setWinPopup] = useState<{ show: boolean; amount: number; profit: number } | null>(null);
   const pendingTilesRef = useRef<Set<number>>(new Set());
 
-  const gridCols = Math.sqrt(gridSize);
-  const maxMines = gridSize - 1;
-  const safeSpots = gridSize - minesCount;
+  const safeSpots = GRID_SIZE - minesCount;
 
   const calculateMultiplier = (revealedCount: number, mines: number) => {
     let multiplier = 1;
     for(let i = 0; i < revealedCount; i++) {
-      multiplier *= (gridSize - i) / (gridSize - mines - i);
+      multiplier *= (GRID_SIZE - i) / (GRID_SIZE - mines - i);
     }
     return multiplier * GAME_CONFIG.RTP;
   };
@@ -72,6 +69,7 @@ export default function Mines() {
     if (isNaN(val) || val < 0.1) return;
     
     pendingTilesRef.current.clear();
+    setWinPopup(null);
     
     playSound("bet");
     start.mutate({ betAmount: val, minesCount: minesCount }, {
@@ -118,12 +116,6 @@ export default function Mines() {
             setTimeout(() => setIsShaking(false), 500);
             
             recordResult("mines", data.betAmount, 0, false);
-            
-            toast({
-              title: "You lost",
-              description: `Lost ${formatCurrency(data.betAmount)} (profit ${formatCurrency(-data.betAmount)})`,
-              duration: 1500,
-            });
             
             addResult({
               game: "mines",
@@ -174,11 +166,7 @@ export default function Mines() {
         const payout = data.betAmount + data.profit;
         recordResult("mines", data.betAmount, payout, true);
         
-        toast({
-          title: "You won!",
-          description: `Won ${formatCurrency(payout)} (profit ${formatCurrency(data.profit)})`,
-          duration: 1500,
-        });
+        setWinPopup({ show: true, amount: payout, profit: data.profit });
         
         addResult({
           game: "mines",
@@ -253,34 +241,6 @@ export default function Mines() {
                 </div>
               </div>
 
-              {/* Grid Size */}
-              <div className="space-y-2 mb-6">
-                <Label className="text-xs text-[#5b7a8a] font-medium">Grid Size</Label>
-                <div className="flex gap-2">
-                  {GRID_SIZES.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => {
-                        if (!gameState.active) {
-                          setGridSize(size);
-                          setMinesCount(Math.min(minesCount, size - 1));
-                        }
-                      }}
-                      disabled={gameState.active}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-md text-sm font-semibold transition-all",
-                        gridSize === size 
-                          ? "bg-[#00e701] text-[#0f1923]" 
-                          : "bg-[#1a2c38] text-[#5b7a8a] hover:text-white"
-                      )}
-                      data-testid={`button-grid-${size}`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Number of Mines - Slider */}
               <div className="space-y-3 mb-6">
                 <Label className="text-xs text-[#5b7a8a] font-medium">Number of Mines</Label>
@@ -293,7 +253,7 @@ export default function Mines() {
                     value={[minesCount]}
                     onValueChange={(val) => !gameState.active && setMinesCount(val[0])}
                     min={1}
-                    max={maxMines}
+                    max={24}
                     step={1}
                     disabled={gameState.active}
                     className="flex-1"
@@ -347,7 +307,7 @@ export default function Mines() {
             </div>
 
             {/* Right Panel - Game Grid */}
-            <div className="flex-1 p-4 lg:p-8 bg-[#0a1218]">
+            <div className="flex-1 p-4 lg:p-8 bg-[#0a1218] relative">
               
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
@@ -367,16 +327,69 @@ export default function Mines() {
                 </div>
               </div>
 
+              {/* Win Popup */}
+              <AnimatePresence>
+                {winPopup?.show && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm rounded-xl"
+                  >
+                    <motion.div
+                      initial={{ y: 20 }}
+                      animate={{ y: 0 }}
+                      className="bg-gradient-to-b from-[#1a2c38] to-[#0f1923] border border-emerald-500/50 rounded-2xl p-8 text-center shadow-2xl shadow-emerald-500/20 max-w-sm mx-4"
+                    >
+                      <button
+                        onClick={() => setWinPopup(null)}
+                        className="absolute top-4 right-4 text-[#5b7a8a] hover:text-white transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                      
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1, rotate: [0, 10, -10, 0] }}
+                        transition={{ delay: 0.2, duration: 0.5 }}
+                        className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-full flex items-center justify-center"
+                      >
+                        <Gem className="w-10 h-10 text-white" />
+                      </motion.div>
+                      
+                      <h2 className="text-2xl font-bold text-white mb-2">You Won!</h2>
+                      
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="text-4xl font-bold text-emerald-400 mb-2"
+                      >
+                        ${winPopup.amount.toFixed(2)}
+                      </motion.div>
+                      
+                      <p className="text-[#5b7a8a] text-sm mb-6">
+                        Profit: <span className="text-emerald-400">+${winPopup.profit.toFixed(2)}</span>
+                      </p>
+                      
+                      <Button
+                        onClick={() => setWinPopup(null)}
+                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-semibold"
+                      >
+                        Play Again
+                      </Button>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Game Grid */}
               <div className="flex items-center justify-center">
                 <motion.div 
                   className={cn(
-                    "grid gap-2 sm:gap-2.5 w-full max-w-[500px]",
+                    "grid grid-cols-5 gap-2 sm:gap-2.5 w-full max-w-[400px]",
                     showWinPulse && "ring-2 ring-emerald-500/50 rounded-xl"
                   )}
-                  style={{
-                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`
-                  }}
                   animate={isShaking ? { 
                     x: [0, -8, 8, -6, 6, -4, 4, 0],
                     transition: { duration: 0.5 }
@@ -390,7 +403,7 @@ export default function Mines() {
                       transition={{ duration: 0.6 }}
                     />
                   )}
-                  {Array.from({ length: gridSize }).map((_, i) => {
+                  {Array.from({ length: GRID_SIZE }).map((_, i) => {
                     const isMine = gameState.mines?.includes(i);
                     const isExploded = i === gameState.explodedIndex;
                     const isRevealed = gameState.revealed.includes(i) && !isMine && !isExploded;
@@ -411,7 +424,7 @@ export default function Mines() {
                           gameState.active && !wasClicked && "hover:bg-[#3a5565] hover:border-cyan-500/50 cursor-pointer",
                           isRevealed && "bg-[#1a2c38] border-emerald-500/50 shadow-none",
                           isExploded && "bg-red-900/60 border-red-500 shadow-none",
-                          isMine && !isExploded && !gameState.active && "bg-[#1a2c38] opacity-70 shadow-none",
+                          isMine && !isExploded && !gameState.active && "bg-[#1a2c38] border-red-500/30 shadow-none",
                           isSafeRevealed && "bg-[#1a2c38]/50 opacity-50 shadow-none"
                         )}
                         data-testid={`tile-${i}`}
@@ -432,13 +445,13 @@ export default function Mines() {
                             <motion.div
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              transition={{ duration: 0.1 }}
+                              transition={{ duration: 0.15, delay: isExploded ? 0 : 0.1 }}
                               className="absolute inset-0 flex items-center justify-center"
                             >
                               {isExploded ? (
                                 <Skull className="w-1/2 h-1/2 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
                               ) : (
-                                <Bomb className="w-1/2 h-1/2 text-red-400/80" />
+                                <Bomb className="w-1/2 h-1/2 text-red-400" />
                               )}
                             </motion.div>
                           )}
