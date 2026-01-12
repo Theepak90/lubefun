@@ -340,25 +340,27 @@ export default function Mines() {
                   />
                 )}
                 {Array.from({ length: 25 }).map((_, i) => {
-                  const isRevealed = gameState.revealed.includes(i);
-                  const isMine = !gameState.active && gameState.mines?.includes(i);
+                  const isMine = gameState.mines?.includes(i);
                   const isExploded = i === gameState.explodedIndex;
-                  const isSafeRevealed = !gameState.active && !isMine && !isRevealed;
+                  const isRevealed = gameState.revealed.includes(i) && !isMine && !isExploded;
+                  const isSafeRevealed = !gameState.active && !isMine && !gameState.revealed.includes(i);
+
+                  const wasClicked = gameState.revealed.includes(i);
 
                   return (
                     <motion.button
                       key={i}
-                      whileHover={gameState.active && !isRevealed ? { scale: 1.05 } : {}}
-                      whileTap={gameState.active && !isRevealed ? { scale: 0.95 } : {}}
+                      whileHover={gameState.active && !wasClicked ? { scale: 1.05 } : {}}
+                      whileTap={gameState.active && !wasClicked ? { scale: 0.95 } : {}}
                       onClick={() => handleTileClick(i)}
-                      disabled={!gameState.active || isRevealed}
+                      disabled={!gameState.active || wasClicked}
                       className={cn(
                         "aspect-square rounded-xl relative shadow-lg transition-all duration-100",
                         "bg-[#1a2530] border border-[#2a3a4a]",
-                        gameState.active && !isRevealed && "hover:bg-[#1e2a38] hover:border-emerald-500/50 cursor-pointer",
+                        gameState.active && !wasClicked && "hover:bg-[#1e2a38] hover:border-emerald-500/50 cursor-pointer",
                         isRevealed && "bg-[#111921] border-emerald-500/30",
                         isExploded && "bg-red-500/20 border-red-500",
-                        isMine && !isExploded && "bg-[#1a2530]/50 opacity-60",
+                        isMine && !isExploded && !gameState.active && "bg-[#1a2530]/50 opacity-60",
                         isSafeRevealed && "bg-[#1a2530]/30 opacity-40"
                       )}
                       data-testid={`tile-${i}`}
@@ -374,7 +376,7 @@ export default function Mines() {
                           </motion.div>
                         )}
                         
-                        {isMine && (
+                        {isMine && !gameState.active && (
                           <motion.div
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
