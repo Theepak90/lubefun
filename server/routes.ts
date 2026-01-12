@@ -740,6 +740,7 @@ Your bets are verifiable after the server seed is revealed.
       result: { ...result, status: "cashed_out" }
     });
     
+    // Include mines in response since game is over
     res.json(updatedBet);
   });
 

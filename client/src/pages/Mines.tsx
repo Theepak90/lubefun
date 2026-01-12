@@ -18,7 +18,7 @@ import { RecentResults } from "@/components/RecentResults";
 import { LiveWins } from "@/components/LiveWins";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, getQueryFn } from "@/lib/queryClient";
 
 const GRID_SIZE = 25;
 
@@ -59,8 +59,9 @@ export default function Mines() {
 
   const safeSpots = GRID_SIZE - minesCount;
 
-  const { data: activeGame, isLoading: isLoadingActive } = useQuery({
+  const { data: activeGame, isLoading: isLoadingActive } = useQuery<any>({
     queryKey: ['/api/games/mines/active'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!user,
     refetchOnWindowFocus: true,
     staleTime: 0,
@@ -169,7 +170,7 @@ export default function Mines() {
           setGameState(prev => ({
             ...prev,
             revealed: result.revealed || prev.revealed,
-            multiplier: data.payoutMultiplier || calculateMultiplier(result.revealed?.length || 0, prev.minesCount)
+            multiplier: data.payoutMultiplier || 1.0
           }));
         }
       },
