@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Layout } from "@/components/ui/Layout";
 import { useMinesGame } from "@/hooks/use-games";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ export default function Mines() {
   });
   const [isShaking, setIsShaking] = useState(false);
   const [showWinPulse, setShowWinPulse] = useState(false);
+  const pendingTilesRef = useRef<Set<number>>(new Set());
 
   const calculateMultiplier = (revealedCount: number, mines: number) => {
     let multiplier = 1;
@@ -61,13 +62,18 @@ export default function Mines() {
     const val = parseFloat(amount);
     if (isNaN(val) || val < 0.1) return;
     
+    // Clear pending tiles for new game
+    pendingTilesRef.current.clear();
+    
     playSound("bet");
     start.mutate({ betAmount: val, minesCount: parseInt(minesCount) }, {
       onSuccess: (data: any) => {
+        // Sync revealed tiles from server (for idempotent start)
+        const serverRevealed = data.result?.revealed || [];
         setGameState({
           active: true,
           betId: data.id,
-          revealed: [],
+          revealed: serverRevealed,
           profit: 0,
           multiplier: 1.0
         });
@@ -76,7 +82,11 @@ export default function Mines() {
   };
 
   const handleTileClick = (index: number) => {
-    if (!gameState.active || gameState.revealed.includes(index) || reveal.isPending) return;
+    // Block if: not active, already revealed, already pending, or mutation in progress
+    if (!gameState.active || gameState.revealed.includes(index) || pendingTilesRef.current.has(index)) return;
+    
+    // Immediately mark as pending to prevent double-clicks
+    pendingTilesRef.current.add(index);
     
     // Optimistically reveal the tile immediately
     setGameState(prev => ({
@@ -86,7 +96,12 @@ export default function Mines() {
     
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
+        pendingTilesRef.current.delete(index);
+        
         if (!data || data.active === false) {
+          // Game over - clear all pending
+          pendingTilesRef.current.clear();
+          
           setGameState(prev => ({
             ...prev,
             active: false,
@@ -126,6 +141,7 @@ export default function Mines() {
         }
       },
       onError: () => {
+        pendingTilesRef.current.delete(index);
         setGameState(prev => ({
           ...prev,
           revealed: prev.revealed.filter(i => i !== index)
@@ -136,6 +152,9 @@ export default function Mines() {
 
   const handleCashout = () => {
     if (!gameState.active || !gameState.betId) return;
+    
+    // Clear pending tiles on cashout
+    pendingTilesRef.current.clear();
     
     cashout.mutate({ betId: gameState.betId }, {
       onSuccess: (data: any) => {
