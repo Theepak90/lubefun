@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { diceBetSchema, coinflipBetSchema, minesBetSchema, minesNextSchema, minesCashoutSchema, plinkoBetSchema, rouletteBetSchema, blackjackDealSchema, blackjackActionSchema, liveRouletteBetSchema, rouletteMultiBetSchema, WHEEL_PRIZES, DAILY_BONUS_AMOUNT, REQUIRED_DAILY_VOLUME, REWARDS_CONFIG, splitStealPlaySchema, pressureValveStartSchema, pressureValvePumpSchema, pressureValveCashoutSchema, MIN_BET, MAX_BET, RTP, HOUSE_EDGE } from "@shared/schema";
@@ -120,8 +121,13 @@ export async function registerRoutes(
     try {
       const user = await storage.getUserByUsername(username);
       if (!user) return done(null, false, { message: "Incorrect username." });
-      // In real app: bcrypt.compare(password, user.password)
-      if (user.password !== password) return done(null, false, { message: "Incorrect password." });
+      
+      // Check if password is hashed (starts with $2b$) or plain text (for migration)
+      const isPasswordValid = user.password.startsWith("$2b$")
+        ? await bcrypt.compare(password, user.password)
+        : user.password === password; // Fallback for old plain text passwords
+      
+      if (!isPasswordValid) return done(null, false, { message: "Incorrect password." });
       return done(null, user);
     } catch (err) {
       return done(err);
@@ -145,15 +151,22 @@ export async function registerRoutes(
       const existing = await storage.getUserByUsername(input.username);
       if (existing) return res.status(400).json({ message: "Username exists" });
       
+      // Hash password before storing
+      const hashedPassword = await bcrypt.hash(input.password, 10);
+      
       const user = await storage.createUser({
-        ...input,
+        username: input.username,
+        password: hashedPassword,
         clientSeed: generateClientSeed(),
         serverSeed: generateServerSeed(),
       });
       
+      // Don't send password hash to client
+      const { password: _, ...userWithoutPassword } = user;
+      
       req.login(user, (err) => {
         if (err) throw err;
-        res.status(201).json(user);
+        res.status(201).json(userWithoutPassword);
       });
     } catch (err) {
       res.status(400).json({ message: "Registration failed" });
@@ -161,7 +174,9 @@ export async function registerRoutes(
   });
 
   app.post(api.auth.login.path, passport.authenticate("local"), (req, res) => {
-    res.json(req.user);
+    // Don't send password hash to client
+    const { password: _, ...userWithoutPassword } = req.user as any;
+    res.json(userWithoutPassword);
   });
 
   app.post(api.auth.logout.path, (req, res) => {
@@ -172,7 +187,9 @@ export async function registerRoutes(
 
   app.get(api.auth.me.path, (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    // Don't send password hash to client
+    const { password: _, ...userWithoutPassword } = req.user as any;
+    res.json(userWithoutPassword);
   });
 
   // === UNIFIED BET ENDPOINT ===
@@ -2153,9 +2170,10 @@ Your bets are verifiable after the server seed is revealed.
   // Seed Data
   const existingUser = await storage.getUserByUsername("demo");
   if (!existingUser) {
+    const hashedPassword = await bcrypt.hash("password", 10);
     const demoUser = await storage.createUser({
       username: "demo",
-      password: "password",
+      password: hashedPassword,
       clientSeed: generateClientSeed(),
       serverSeed: generateServerSeed(),
     });

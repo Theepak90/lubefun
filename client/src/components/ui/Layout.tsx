@@ -18,7 +18,8 @@ import {
   Triangle,
   Handshake,
   ChevronDown,
-  Gauge
+  Gauge,
+  Home as HomeIcon
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSound } from "@/hooks/use-sound";
@@ -62,6 +63,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const navItems = [
+    { icon: HomeIcon, label: "Home", href: "/" },
     { icon: Dice5, label: "Dice", href: "/dice" },
     { icon: Bomb, label: "Mines", href: "/mines" },
     { icon: Spade, label: "Blackjack", href: "/blackjack" },
@@ -156,12 +158,14 @@ export function Layout({ children }: LayoutProps) {
         )}>
           <div className="p-4 flex-1 overflow-y-auto">
             <div className="space-y-1">
-              <div className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Games</div>
+              <Link href="/dice">
+                <div className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground cursor-pointer transition-colors">Games</div>
+              </Link>
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <div className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer mb-1",
-                    location === item.href 
+                    location === item.href
                       ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]" 
                       : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                   )}>
