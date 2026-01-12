@@ -3,8 +3,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // ==================== GAME CONSTANTS ====================
-export const HOUSE_EDGE = 0.04; // 4% house edge
-export const RTP = 0.96; // 96% Return to Player
+export const HOUSE_EDGE = 0.15; // 15% house edge
+export const RTP = 0.85; // 85% Return to Player
 export const MIN_BET = 0.10;
 export const MAX_BET = 10000;
 export const MAX_PAYOUT = 100000; // Max payout per bet

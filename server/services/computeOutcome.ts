@@ -407,9 +407,9 @@ function computePressureValveOutcome(wager: number, rngProof: string, choice: Ga
   const burstValue = parseInt(rngProof.substring(0, 8), 16);
   const multiplierValue = parseInt(rngProof.substring(8, 16), 16);
   
-  const baseChance = 0.30; // 30% - high chance to burst on first pump
-  const rampRate = 0.18; // 18% increase per pump
-  const maxChance = 0.90; // 90% max
+  const baseChance = 0.47; // 47% - very high chance to burst on first pump
+  const rampRate = 0.20; // 20% increase per pump
+  const maxChance = 0.95; // 95% max
   const burstChance = Math.min(baseChance + (pumpNumber * rampRate), maxChance);
   
   const burstRoll = (burstValue % 10000) / 10000;
