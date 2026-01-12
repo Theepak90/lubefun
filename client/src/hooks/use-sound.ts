@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import diceWinSound from "@assets/dive22_1768191472537.mp3";
+import minesClickSound from "@assets/mines_1768192528589.mp3";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
-type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop" | "cardDeal" | "diceWin";
+type SoundType = "bet" | "win" | "lose" | "tick" | "flip" | "land" | "spin" | "result" | "chipDrop" | "ballTick" | "ballLand" | "plinkoDrop" | "cardDeal" | "diceWin" | "minesClick";
 
 const audioCache: { [key: string]: HTMLAudioElement } = {};
 
@@ -441,6 +442,9 @@ export function useSound() {
           break;
         case "diceWin":
           playAudioFile(diceWinSound, 0.5);
+          break;
+        case "minesClick":
+          playAudioFile(minesClickSound, 0.5);
           break;
       }
     } catch (e) {

@@ -129,6 +129,7 @@ export default function Mines() {
     if (pendingClickRef.current || reveal.isPending) return;
     
     pendingClickRef.current = true;
+    playSound("minesClick");
     
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
