@@ -54,20 +54,18 @@ export default function Dice() {
           });
           setLastResult({ result, won: data.won });
           
-          setTimeout(() => {
-            playSound(data.won ? "diceWin" : "lose");
-            
-            const payout = data.won ? val + data.profit : 0;
-            recordResult("dice", val, payout, data.won);
-            
-            toast({
-              title: data.won ? "You won!" : "You lost",
-              description: data.won 
-                ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(data.profit)})`
-                : `Lost ${formatCurrency(val)} (profit ${formatCurrency(-val)})`,
-              duration: 1500,
-            });
-          }, 300);
+          playSound(data.won ? "diceWin" : "lose");
+          
+          const payout = data.won ? val + data.profit : 0;
+          recordResult("dice", val, payout, data.won);
+          
+          toast({
+            title: data.won ? "You won!" : "You lost",
+            description: data.won 
+              ? `Won ${formatCurrency(payout)} (profit ${formatCurrency(data.profit)})`
+              : `Lost ${formatCurrency(val)} (profit ${formatCurrency(-val)})`,
+            duration: 1500,
+          });
           
           addResult({
             game: "dice",
