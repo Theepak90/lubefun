@@ -86,43 +86,50 @@ export default function Mines() {
     
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
-        if (!data.active) {
+        if (!data || data.active === false) {
           setGameState(prev => ({
             ...prev,
             active: false,
-            mines: data.result.mines,
+            mines: data?.result?.mines,
             explodedIndex: index
           }));
           
-          playSound("lose");
-          setIsShaking(true);
-          setTimeout(() => setIsShaking(false), 500);
-          
-          recordResult("mines", data.betAmount, 0, false);
-          
-          toast({
-            title: "You lost",
-            description: `Lost ${formatCurrency(data.betAmount)} (profit ${formatCurrency(-data.betAmount)})`,
-            duration: 1500,
-          });
-          
-          addResult({
-            game: "mines",
-            betAmount: data.betAmount,
-            won: false,
-            profit: -data.betAmount,
-            detail: `Hit mine after ${data.result.revealed.length - 1} gems`
-          });
+          if (data) {
+            playSound("lose");
+            setIsShaking(true);
+            setTimeout(() => setIsShaking(false), 500);
+            
+            recordResult("mines", data.betAmount, 0, false);
+            
+            toast({
+              title: "You lost",
+              description: `Lost ${formatCurrency(data.betAmount)} (profit ${formatCurrency(-data.betAmount)})`,
+              duration: 1500,
+            });
+            
+            addResult({
+              game: "mines",
+              betAmount: data.betAmount,
+              won: false,
+              profit: -data.betAmount,
+              detail: `Hit mine after ${data.result.revealed.length - 1} gems`
+            });
+          }
         } else {
           playSound("tick");
           
           setGameState(prev => ({
             ...prev,
-            revealed: [...prev.revealed, index],
             profit: calculatePotentialProfit(data.betAmount, data.result.revealed.length, parseInt(minesCount)),
             multiplier: calculateMultiplier(data.result.revealed.length, parseInt(minesCount))
           }));
         }
+      },
+      onError: () => {
+        setGameState(prev => ({
+          ...prev,
+          revealed: prev.revealed.filter(i => i !== index)
+        }));
       }
     });
   };
