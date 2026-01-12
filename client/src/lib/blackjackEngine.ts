@@ -268,8 +268,10 @@ export type GameAction =
   | { type: "SPLIT" }
   | { type: "INSURANCE"; accept: boolean }
   | { type: "INSURANCE_COMPLETE" }
+  | { type: "REVEAL_HOLE" }
   | { type: "DEALER_PLAY" }
   | { type: "DEALER_COMPLETE" }
+  | { type: "FORCE_ROUND_END" }
   | { type: "ANIMATION_COMPLETE" }
   | { type: "NEW_ROUND" }
   | { type: "SET_BALANCE"; balance: number }
@@ -606,12 +608,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case "DEALER_PLAY": {
-      if (state.phase !== "DEALER_TURN") return state;
+    case "REVEAL_HOLE": {
+      if (state.dealerHoleRevealed) return state;
+      console.log("[Engine] REVEAL_HOLE - revealing dealer hole card");
+      return {
+        ...state,
+        dealerHoleRevealed: true,
+        lastAction: log,
+      };
+    }
 
+    case "DEALER_PLAY": {
+      if (state.phase !== "DEALER_TURN") {
+        console.log("[Engine] DEALER_PLAY ignored - not in DEALER_TURN phase, current:", state.phase);
+        return state;
+      }
+
+      console.log("[Engine] DEALER_PLAY starting");
       const allBusted = state.playerHands.every(h => h.isBusted);
       
       if (allBusted) {
+        console.log("[Engine] All players busted, skipping dealer draws");
         const result = settleHands({
           ...state,
           dealerHoleRevealed: true,
@@ -629,14 +646,26 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       let dealerHand = [...state.dealerHand];
       let shoe = [...state.shoe];
+      const MAX_DEALER_DRAWS = 10;
+      let drawCount = 0;
 
-      while (shouldDealerHit(dealerHand, state.dealerHitsSoft17)) {
+      while (shouldDealerHit(dealerHand, state.dealerHitsSoft17) && drawCount < MAX_DEALER_DRAWS) {
         if (shoe.length < 1) {
           shoe = createShoe(state.deckCount);
         }
         const newCard = createCard(shoe.shift()!);
         dealerHand.push(newCard);
+        drawCount++;
+        const { total } = calculateHandTotal(dealerHand);
+        console.log(`[Engine] Dealer draw #${drawCount}: ${newCard.rank}${newCard.suit}, total: ${total}`);
       }
+
+      if (drawCount >= MAX_DEALER_DRAWS) {
+        console.warn("[Engine] Dealer hit MAX_DEALER_DRAWS safety limit");
+      }
+
+      const { total: finalTotal } = calculateHandTotal(dealerHand);
+      console.log(`[Engine] Dealer finished with ${dealerHand.length} cards, total: ${finalTotal}`);
 
       const updatedState: GameState = {
         ...state,
@@ -658,11 +687,30 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         else message = "Dealer wins";
       }
 
+      console.log("[Engine] DEALER_PLAY complete, transitioning to ROUND_END");
       return {
         ...updatedState,
         roundResult: result,
         balance: updatedState.balance + result.totalPayout,
         message,
+      };
+    }
+
+    case "FORCE_ROUND_END": {
+      console.log("[Engine] FORCE_ROUND_END - emergency transition to ROUND_END");
+      const result = settleHands({
+        ...state,
+        dealerHoleRevealed: true,
+      });
+      return {
+        ...state,
+        phase: "ROUND_END",
+        dealerHoleRevealed: true,
+        roundResult: result,
+        balance: state.balance + result.totalPayout,
+        message: "Round ended",
+        lastAction: log,
+        isProcessing: false,
       };
     }
 

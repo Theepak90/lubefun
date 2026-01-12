@@ -57,7 +57,7 @@ function ChipButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "relative w-12 h-12 rounded-full flex items-center justify-center transition-all",
+        "relative w-[clamp(2.5rem,4vw,3rem)] h-[clamp(2.5rem,4vw,3rem)] rounded-full flex items-center justify-center transition-all",
         selected ? "scale-110 ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-900" : "hover:scale-105",
         disabled && "opacity-50 cursor-not-allowed"
       )}
@@ -85,7 +85,10 @@ function PlayingCard({
   size?: "normal" | "small";
 }) {
   const isRed = card.suit === "hearts" || card.suit === "diamonds";
-  const sizeClasses = size === "small" ? "w-12 h-16" : "w-16 h-22";
+  // Responsive card sizing using CSS custom properties
+  const sizeClasses = size === "small" 
+    ? "w-[clamp(2.5rem,4vw,3rem)] h-[clamp(3.5rem,5.5vw,4rem)]" 
+    : "w-[clamp(3rem,5vw,3.75rem)] h-[clamp(4.25rem,7vw,5.25rem)]";
   
   const suitSymbol = {
     spades: "♠",
@@ -102,7 +105,7 @@ function PlayingCard({
         transition={{ delay, duration: 0.3 }}
         className={cn(sizeClasses, "rounded-lg bg-gradient-to-br from-blue-800 to-blue-900 border-2 border-blue-600 shadow-lg flex items-center justify-center")}
       >
-        <div className="w-8 h-10 rounded border-2 border-blue-500 bg-blue-700/50" />
+        <div className="w-[60%] h-[70%] rounded border-2 border-blue-500 bg-blue-700/50" />
       </motion.div>
     );
   }
@@ -117,13 +120,13 @@ function PlayingCard({
         "rounded-lg bg-white border border-gray-200 shadow-lg flex flex-col items-center justify-between p-1.5"
       )}
     >
-      <div className={cn("text-sm font-bold self-start", isRed ? "text-red-500" : "text-gray-900")}>
+      <div className={cn("text-[clamp(0.6rem,1.5vw,0.75rem)] font-bold self-start leading-none", isRed ? "text-red-500" : "text-gray-900")}>
         {card.rank}
       </div>
-      <div className={cn("text-2xl", isRed ? "text-red-500" : "text-gray-900")}>
+      <div className={cn("text-[clamp(1rem,2.5vw,1.5rem)]", isRed ? "text-red-500" : "text-gray-900")}>
         {suitSymbol}
       </div>
-      <div className={cn("text-sm font-bold self-end rotate-180", isRed ? "text-red-500" : "text-gray-900")}>
+      <div className={cn("text-[clamp(0.6rem,1.5vw,0.75rem)] font-bold self-end rotate-180 leading-none", isRed ? "text-red-500" : "text-gray-900")}>
         {card.rank}
       </div>
     </motion.div>
@@ -247,6 +250,7 @@ export default function Blackjack() {
   const [selectedChipIndex, setSelectedChipIndex] = useState(1);
   const [chipHistory, setChipHistory] = useState<number[]>([]);
   const actionLockRef = useRef(false);
+  const dealerActingRef = useRef(false);
   
   const balance = user?.balance ?? 1000;
   
@@ -268,16 +272,47 @@ export default function Blackjack() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Dealer turn orchestration with hard guard and finally block
   useEffect(() => {
-    if (state.phase === "DEALER_TURN" && !state.isProcessing) {
-      dispatch({ type: "SET_PROCESSING", value: true });
-      const timer = setTimeout(() => {
-        dispatch({ type: "DEALER_PLAY" });
-        dispatch({ type: "SET_PROCESSING", value: false });
-      }, 800);
-      return () => clearTimeout(timer);
+    if (state.phase !== "DEALER_TURN") {
+      dealerActingRef.current = false;
+      return;
     }
-  }, [state.phase, state.isProcessing]);
+    
+    if (dealerActingRef.current) {
+      console.log("[Dealer] Already acting, skipping");
+      return;
+    }
+    
+    dealerActingRef.current = true;
+    console.log("[Dealer] Starting dealer turn");
+    
+    const runDealerTurn = async () => {
+      try {
+        dispatch({ type: "SET_PROCESSING", value: true });
+        
+        // Reveal hole card first
+        dispatch({ type: "REVEAL_HOLE" });
+        console.log("[Dealer] Hole card revealed");
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Dispatch dealer play which handles the draw loop
+        dispatch({ type: "DEALER_PLAY" });
+        console.log("[Dealer] DEALER_PLAY dispatched, turn complete");
+        
+      } catch (error) {
+        console.error("[Dealer] Error during dealer turn:", error);
+        // Force end round on error
+        dispatch({ type: "FORCE_ROUND_END" });
+      } finally {
+        dispatch({ type: "SET_PROCESSING", value: false });
+        dealerActingRef.current = false;
+        console.log("[Dealer] Cleanup complete, isProcessing=false");
+      }
+    };
+    
+    runDealerTurn();
+  }, [state.phase]);
 
   useEffect(() => {
     if (state.roundResult) {
@@ -391,7 +426,7 @@ export default function Blackjack() {
         className="min-h-screen flex flex-col"
         style={{ background: "linear-gradient(180deg, #0a1628 0%, #0c1929 50%, #0a1628 100%)" }}
       >
-        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full px-4 py-4">
+        <div className="flex-1 flex flex-col mx-auto w-full px-3 py-3" style={{ maxWidth: "min(1100px, 95vw)" }}>
           
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -407,8 +442,8 @@ export default function Blackjack() {
             className="flex-1 relative rounded-2xl overflow-hidden"
             style={{
               background: "radial-gradient(ellipse 120% 80% at 50% 40%, #1a3a5c 0%, #0f2744 40%, #0a1c30 100%)",
-              border: "3px solid rgba(30, 64, 100, 0.6)",
-              minHeight: "400px",
+              border: "2px solid rgba(30, 64, 100, 0.6)",
+              minHeight: "clamp(320px, 50vh, 400px)",
             }}
           >
             <div 
@@ -451,7 +486,7 @@ export default function Blackjack() {
               </AnimatePresence>
             </div>
 
-            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10">
+            <div className="absolute bottom-[clamp(5rem,12vh,8rem)] left-1/2 -translate-x-1/2 z-10">
               <div className="flex gap-4 items-end">
                 {state.playerHands.map((hand, i) => (
                   <HandDisplay 
@@ -463,14 +498,14 @@ export default function Blackjack() {
                 ))}
                 {state.playerHands.length === 0 && state.phase === "IDLE" && (
                   <div className="flex -space-x-4">
-                    <div className="w-16 h-22 rounded-lg border-2 border-dashed border-slate-600/40 bg-slate-800/20" />
-                    <div className="w-16 h-22 rounded-lg border-2 border-dashed border-slate-600/40 bg-slate-800/20" />
+                    <div className="w-[clamp(3rem,5vw,3.75rem)] h-[clamp(4.25rem,7vw,5.25rem)] rounded-lg border-2 border-dashed border-slate-600/40 bg-slate-800/20" />
+                    <div className="w-[clamp(3rem,5vw,3.75rem)] h-[clamp(4.25rem,7vw,5.25rem)] rounded-lg border-2 border-dashed border-slate-600/40 bg-slate-800/20" />
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+            <div className="absolute bottom-[clamp(1.5rem,4vh,2rem)] left-1/2 -translate-x-1/2 z-10">
               {state.pendingBet > 0 && state.phase === "IDLE" && (
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
