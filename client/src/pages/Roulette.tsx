@@ -281,7 +281,6 @@ export default function Roulette() {
         });
         
         setLastBets(pendingBets);
-        setPendingBets([]);
         
         queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       }, SPIN_DURATION);
