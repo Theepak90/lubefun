@@ -66,8 +66,8 @@ export const withdrawals = pgTable("withdrawals", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   amount: doublePrecision("amount").notNull(),
-  currency: text("currency").default("PLAY").notNull(),
-  network: text("network"),
+  currency: text("currency").default("SOL").notNull(),
+  network: text("network").default("mainnet"),
   address: text("address"),
   status: text("status").default("PENDING").notNull(), // PENDING, APPROVED, SENT, FAILED, CANCELLED
   requiresManualReview: boolean("requires_manual_review").default(false).notNull(),

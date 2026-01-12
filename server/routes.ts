@@ -16,6 +16,7 @@ import { rouletteOrchestrator } from "./rouletteOrchestrator";
 import { placeBet, startMultiStepGame, cashoutMultiStepGame, loseMultiStepGame, generateIdempotencyKey } from "./services/betService";
 import { computeOutcome, generateMinePositions, checkMineHit, hashServerSeed } from "./services/computeOutcome";
 import { requestWithdrawal, cancelWithdrawal, getUserWithdrawals } from "./services/withdrawalService";
+import { generateDepositAddress, isValidSolanaAddress, sendSol } from "./services/solanaService";
 
 // === Mines Session Manager ===
 // Tracks active mines games per user with auto-timeout to prevent stuck games
@@ -86,7 +87,22 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   // === WebSocket Server Setup for Live Roulette ===
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws/roulette" });
+  // IMPORTANT: use `noServer` and manually handle upgrades so we don't interfere
+  // with Vite's own HMR websocket (also attached to the same `httpServer`).
+  const wss = new WebSocketServer({ noServer: true });
+  httpServer.on("upgrade", (req, socket, head) => {
+    try {
+      const url = new URL(req.url ?? "", `http://${req.headers.host}`);
+      if (url.pathname !== "/ws/roulette") return;
+
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    } catch {
+      // If parsing fails, don't block other upgrade handlers (e.g. Vite HMR).
+      return;
+    }
+  });
   
   wss.on("connection", (ws) => {
     console.log("[WebSocket] Client connected to roulette");
@@ -274,6 +290,23 @@ export async function registerRoutes(
     res.json(bets);
   });
 
+  // === SOLANA DEPOSIT ADDRESS ===
+  app.get("/api/solana/deposit-address", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const depositAddress = generateDepositAddress(req.user!.id);
+      res.json({
+        address: depositAddress,
+        network: "mainnet",
+        currency: "SOL",
+      });
+    } catch (err) {
+      console.error("[Solana Deposit Address] Error:", err);
+      res.status(500).json({ error: "Failed to generate deposit address" });
+    }
+  });
+
   // === WITHDRAWAL ENDPOINT ===
   app.post(api.withdraw.request.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -285,12 +318,20 @@ export async function registerRoutes(
       }
       
       const { amount, address } = parsed.data;
+      
+      // Validate Solana address
+      if (!isValidSolanaAddress(address)) {
+        return res.status(400).json({ success: false, error: "Invalid Solana address" });
+      }
+      
       const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
       
       const result = await requestWithdrawal({
         userId: req.user!.id,
         amount,
         address,
+        currency: "SOL",
+        network: "mainnet",
         idempotencyKey,
       });
       
@@ -298,11 +339,45 @@ export async function registerRoutes(
         return res.status(400).json({ success: false, error: result.error });
       }
       
-      res.json({
-        success: true,
-        withdrawalId: result.withdrawal?.id,
-        status: result.withdrawal?.status,
-      });
+      // If withdrawal is approved and doesn't require manual review, process it
+      if (result.withdrawal && result.withdrawal.status === "PENDING" && !result.withdrawal.requiresManualReview) {
+        try {
+          // Send SOL
+          const txSignature = await sendSol(address, amount);
+          
+          // Update withdrawal with transaction hash
+          await storage.updateWithdrawal(result.withdrawal.id, {
+            status: "SENT",
+            txHash: txSignature,
+            processedAt: new Date(),
+          });
+          
+          // Unlock balance
+          await storage.unlockBalance(req.user!.id, amount);
+          
+          res.json({
+            success: true,
+            withdrawalId: result.withdrawal.id,
+            status: "SENT",
+            txHash: txSignature,
+          });
+        } catch (solError) {
+          console.error("[Solana Withdrawal] Error sending SOL:", solError);
+          // Withdrawal is still pending, will be retried
+          res.json({
+            success: true,
+            withdrawalId: result.withdrawal.id,
+            status: "PENDING",
+            message: "Withdrawal queued, processing...",
+          });
+        }
+      } else {
+        res.json({
+          success: true,
+          withdrawalId: result.withdrawal?.id,
+          status: result.withdrawal?.status,
+        });
+      }
     } catch (err) {
       console.error("[Withdrawal] Error:", err);
       res.status(400).json({ success: false, error: "Withdrawal request failed" });

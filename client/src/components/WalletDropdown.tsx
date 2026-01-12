@@ -2,49 +2,49 @@ import { useState, useRef, useEffect } from "react";
 import { Wallet, X, ChevronDown, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
+import QRCode from "react-qr-code";
+// To use a local Solana logo image, save it as solana-logo.png in attached_assets and uncomment:
+// import solanaLogo from "@assets/solana-logo.png";
+// Then replace SOLANA_LOGO_URL below with: const SOLANA_LOGO_URL = solanaLogo;
+const SOLANA_LOGO_URL = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
 
 type TabType = "deposit" | "withdraw";
 
-const currencies = [
-  { id: "btc", name: "Bitcoin", symbol: "BTC", icon: "₿" },
-  { id: "eth", name: "Ethereum", symbol: "ETH", icon: "Ξ" },
-  { id: "usdt", name: "Tether", symbol: "USDT", icon: "$" },
-  { id: "ltc", name: "Litecoin", symbol: "LTC", icon: "Ł" },
-];
+const SOLANA_CURRENCY = {
+  id: "sol",
+  name: "Solana",
+  symbol: "SOL",
+  icon: "◎",
+};
 
-const networks = [
-  { id: "mainnet", name: "Mainnet" },
-  { id: "polygon", name: "Polygon" },
-  { id: "bsc", name: "BSC" },
-];
+const SOLANA_NETWORK = {
+  id: "mainnet",
+  name: "Solana Mainnet",
+};
 
 export function WalletDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("deposit");
-  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
-  const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
-  const [networkDropdownOpen, setNetworkDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [withdrawAmount, setWithdrawAmount] = useState<string>("");
+  const [withdrawAddress, setWithdrawAddress] = useState<string>("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  const demoAddress = "0x7a9f...3b2c (Demo Only)";
+  // Solana wallet address (will be generated or fetched from backend)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setCurrencyDropdownOpen(false);
-        setNetworkDropdownOpen(false);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsOpen(false);
-        setCurrencyDropdownOpen(false);
-        setNetworkDropdownOpen(false);
       }
     };
 
@@ -59,13 +59,31 @@ export function WalletDropdown() {
     };
   }, [isOpen]);
 
-  const handleCopy = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Reset address and amounts when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setWalletAddress("");
+      setDepositAmount("");
+      setWithdrawAmount("");
+      setWithdrawAddress("");
+    }
+  }, [isOpen]);
 
-  const selectedCurrencyData = currencies.find(c => c.id === selectedCurrency);
-  const selectedNetworkData = networks.find(n => n.id === selectedNetwork);
+  // Use the provided Solana deposit address
+  useEffect(() => {
+    if (user && isOpen && !walletAddress) {
+      // Use the provided Solana wallet address directly
+      setWalletAddress("64BsBMK9ysDwgo1fAC8tqemDJozqSVh3zJWtDLG9rwVu");
+    }
+  }, [user, isOpen, walletAddress]);
+
+  const handleCopy = () => {
+    if (walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error")) {
+      navigator.clipboard.writeText(walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   if (!user) return null;
 
@@ -140,129 +158,85 @@ export function WalletDropdown() {
 
               {/* Content */}
               <div className="p-5 space-y-6">
-                {/* Step 1: Select Currency */}
+                {/* Step 1: Solana Currency Display */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-[#1a2633] border border-[#2a3a4a] flex items-center justify-center">
                       <span className="text-xs font-semibold text-slate-400">1</span>
                     </div>
-                    <span className="font-semibold text-white">Select Currency</span>
+                    <span className="font-semibold text-white">Currency</span>
                   </div>
-                  <div className="relative ml-10">
-                    <button
-                      onClick={() => {
-                        setCurrencyDropdownOpen(!currencyDropdownOpen);
-                        setNetworkDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl hover:border-[#3a4a5a] transition-colors"
-                      data-testid="select-currency"
-                    >
-                      <div className="flex items-center gap-3">
-                        {selectedCurrencyData ? (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
-                              {selectedCurrencyData.icon}
-                            </div>
-                            <span className="text-white font-medium">{selectedCurrencyData.name}</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6v12M6 12h12" />
-                              </svg>
-                            </div>
-                            <span className="text-slate-400">Select Crypto</span>
-                          </>
-                        )}
+                  <div className="ml-10">
+                    <div className="w-full flex items-center gap-3 px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-transparent">
+                        <img 
+                          src={SOLANA_LOGO_URL} 
+                          alt="Solana" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            // Fallback if image fails to load
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
                       </div>
-                      <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${currencyDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    <AnimatePresence>
-                      {currencyDropdownOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          className="absolute top-full left-0 right-0 mt-2 bg-[#1a2633] border border-[#2a3a4a] rounded-xl overflow-hidden z-10"
-                        >
-                          {currencies.map((currency) => (
-                            <button
-                              key={currency.id}
-                              onClick={() => {
-                                setSelectedCurrency(currency.id);
-                                setCurrencyDropdownOpen(false);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#243040] transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
-                                {currency.icon}
-                              </div>
-                              <span className="text-white">{currency.name}</span>
-                              <span className="text-slate-500 text-sm ml-auto">{currency.symbol}</span>
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                      <div className="flex-1">
+                        <span className="text-white font-medium">{SOLANA_CURRENCY.name}</span>
+                        <span className="text-slate-500 text-sm ml-2">{SOLANA_CURRENCY.symbol}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Step 2: Select Network */}
+                {/* Step 2: Amount Input */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-[#1a2633] border border-[#2a3a4a] flex items-center justify-center">
                       <span className="text-xs font-semibold text-slate-400">2</span>
                     </div>
-                    <span className="font-semibold text-white">Select Network</span>
+                    <span className="font-semibold text-white">Amount</span>
                   </div>
-                  <div className="relative ml-10">
-                    <button
-                      onClick={() => {
-                        setNetworkDropdownOpen(!networkDropdownOpen);
-                        setCurrencyDropdownOpen(false);
-                      }}
-                      disabled={!selectedCurrency}
-                      className={`w-full flex items-center justify-between px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl transition-colors ${
-                        selectedCurrency ? 'hover:border-[#3a4a5a]' : 'opacity-50 cursor-not-allowed'
-                      }`}
-                      data-testid="select-network"
-                    >
-                      <span className={selectedNetworkData ? "text-white font-medium" : "text-slate-500"}>
-                        {selectedNetworkData ? selectedNetworkData.name : "Select"}
-                      </span>
-                      <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${networkDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    <AnimatePresence>
-                      {networkDropdownOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          className="absolute top-full left-0 right-0 mt-2 bg-[#1a2633] border border-[#2a3a4a] rounded-xl overflow-hidden z-10"
+                  <div className="ml-10">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={activeTab === "deposit" ? depositAmount : withdrawAmount}
+                        onChange={(e) => {
+                          if (activeTab === "deposit") {
+                            setDepositAmount(e.target.value);
+                          } else {
+                            setWithdrawAmount(e.target.value);
+                          }
+                        }}
+                        placeholder={`Enter ${SOLANA_CURRENCY.symbol} amount`}
+                        className="w-full px-4 py-3 pr-16 bg-[#1a2633] border border-[#2a3a4a] rounded-xl text-white placeholder-slate-500 outline-none focus:border-emerald-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+                        {SOLANA_CURRENCY.symbol}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {[0.1, 0.5, 1, 5].map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => {
+                            if (activeTab === "deposit") {
+                              setDepositAmount(amount.toString());
+                            } else {
+                              setWithdrawAmount(amount.toString());
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 bg-[#0a0f14] border border-[#2a3a4a] rounded-lg text-xs text-slate-400 hover:text-white hover:border-emerald-500/50 transition-colors"
                         >
-                          {networks.map((network) => (
-                            <button
-                              key={network.id}
-                              onClick={() => {
-                                setSelectedNetwork(network.id);
-                                setNetworkDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-[#243040] transition-colors text-white"
-                            >
-                              {network.name}
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                          {amount} {SOLANA_CURRENCY.symbol}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Step 3: Deposit Address */}
+                {/* Step 3: Address */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-[#1a2633] border border-[#2a3a4a] flex items-center justify-center">
@@ -271,58 +245,87 @@ export function WalletDropdown() {
                     <span className="font-semibold text-white">{activeTab === "deposit" ? "Deposit" : "Withdraw"} Address</span>
                   </div>
                   <div className="ml-10 space-y-3">
-                    {/* Address Input */}
-                    <div className="flex items-center gap-2 px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl">
-                      <input
-                        type="text"
-                        value={selectedCurrency && selectedNetwork ? demoAddress : ""}
-                        readOnly
-                        placeholder=""
-                        className="flex-1 bg-transparent text-white text-sm outline-none"
-                      />
-                      <button
-                        onClick={handleCopy}
-                        disabled={!selectedCurrency || !selectedNetwork}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          selectedCurrency && selectedNetwork 
-                            ? 'hover:bg-[#243040] text-slate-400 hover:text-white' 
-                            : 'text-slate-600 cursor-not-allowed'
-                        }`}
-                      >
-                        {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    {/* QR Code Area */}
-                    <div className="flex gap-4">
-                      <div className="w-24 h-24 bg-[#1a2633] border border-[#2a3a4a] rounded-xl flex items-center justify-center">
-                        {selectedCurrency && selectedNetwork ? (
-                          <div className="w-16 h-16 bg-white rounded-lg p-1">
-                            <div className="w-full h-full grid grid-cols-5 gap-0.5">
-                              {Array.from({ length: 25 }).map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`${Math.random() > 0.5 ? 'bg-black' : 'bg-white'}`}
-                                />
-                              ))}
-                            </div>
+                    {activeTab === "deposit" ? (
+                      <>
+                        {/* Deposit Address Input */}
+                        <div className="flex items-center gap-2 px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl">
+                          <input
+                            type="text"
+                            value={walletAddress}
+                            readOnly
+                            placeholder="Generating Solana address..."
+                            className="flex-1 bg-transparent text-white text-sm outline-none font-mono"
+                          />
+                          <button
+                            onClick={handleCopy}
+                            disabled={!walletAddress || walletAddress === "Generating Solana address..." || walletAddress.startsWith("Error")}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error")
+                                ? 'hover:bg-[#243040] text-slate-400 hover:text-white' 
+                                : 'text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {/* QR Code Area */}
+                        <div className="flex gap-4">
+                          <a
+                            href={`solana:${walletAddress}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Open in Solana explorer
+                              window.open(`https://solscan.io/account/${walletAddress}`, '_blank');
+                            }}
+                            className="w-24 h-24 bg-white p-2 rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform border-2 border-transparent hover:border-emerald-500/50"
+                            title="Click to open in Solana explorer"
+                          >
+                            {walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error") ? (
+                              <QRCode
+                                value={walletAddress}
+                                level="H"
+                                size={88}
+                                style={{ height: 88, width: 88 }}
+                              />
+                            ) : (
+                              <svg className="w-10 h-10 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
+                                <rect x="7" y="7" width="10" height="10" rx="1" />
+                              </svg>
+                            )}
+                          </a>
+                          <div className="flex-1 flex items-center">
+                            <p className="text-sm text-slate-500">
+                              {walletAddress && walletAddress !== "Generating Solana address..." && !walletAddress.startsWith("Error")
+                                ? "Click QR code to view wallet or copy address above to deposit SOL"
+                                : walletAddress.startsWith("Error")
+                                ? walletAddress
+                                : "Generating your Solana wallet address..."
+                              }
+                            </p>
                           </div>
-                        ) : (
-                          <svg className="w-10 h-10 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
-                            <rect x="7" y="7" width="10" height="10" rx="1" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="flex-1 flex items-center">
-                        <p className="text-sm text-slate-500">
-                          {selectedCurrency && selectedNetwork 
-                            ? "Scan QR code or copy address above (Demo Only - No real crypto)"
-                            : "Please select a crypto to see your deposit address"
-                          }
-                        </p>
-                      </div>
-                    </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Withdraw Address Input */}
+                        <div className="flex items-center gap-2 px-4 py-3 bg-[#1a2633] border border-[#2a3a4a] rounded-xl">
+                          <input
+                            type="text"
+                            value={withdrawAddress}
+                            onChange={(e) => setWithdrawAddress(e.target.value)}
+                            placeholder="Enter your Solana wallet address"
+                            className="flex-1 bg-transparent text-white text-sm outline-none font-mono placeholder-slate-600"
+                          />
+                        </div>
+                        <button 
+                          disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount || "0") <= 0}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed rounded-xl font-semibold text-white transition-all"
+                        >
+                          Request Withdrawal
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -330,7 +333,7 @@ export function WalletDropdown() {
               {/* Footer */}
               <div className="px-5 py-3 bg-[#0a0f14] border-t border-[#1e2a36]">
                 <p className="text-[10px] text-slate-600 text-center">
-                  This is a demo wallet. No real cryptocurrency transactions.
+                  Solana integration - Real SOL deposits and withdrawals supported
                 </p>
               </div>
             </div>

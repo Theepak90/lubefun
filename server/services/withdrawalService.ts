@@ -88,7 +88,7 @@ async function checkIdempotencyKey(key: string, userId: number): Promise<Withdra
 }
 
 export async function requestWithdrawal(request: WithdrawalRequest): Promise<WithdrawalResponse> {
-  const { userId, amount, currency = "PLAY", network, address, idempotencyKey } = request;
+  const { userId, amount, currency = "SOL", network = "mainnet", address, idempotencyKey } = request;
   
   try {
     if (idempotencyKey) {
