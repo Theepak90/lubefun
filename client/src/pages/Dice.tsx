@@ -53,7 +53,7 @@ export default function Dice() {
           });
           setLastResult({ result, won: data.won });
           
-          playSound(data.won ? "diceWin" : "lose");
+          playSound(data.won ? "diceWin" : "diceLose");
           
           const payout = data.won ? val + data.profit : 0;
           recordResult("dice", val, payout, data.won);
