@@ -42,7 +42,6 @@ export default function Dice() {
     const val = parseFloat(amount);
     if (isNaN(val) || val < 0.1) return;
     setLastResult(null);
-    playSound("bet");
     playDice(
       { betAmount: val, target, condition },
       {
