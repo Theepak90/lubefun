@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import diceWinSound from "@assets/Dice_winning_1768191212421.mp3";
+import diceWinSound from "@assets/dive22_1768191472537.mp3";
 
 const SOUND_STORAGE_KEY = "sound_enabled";
 
