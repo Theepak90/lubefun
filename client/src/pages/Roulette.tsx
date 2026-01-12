@@ -416,7 +416,6 @@ export default function Roulette() {
     };
     
     const chipStack = getChipBreakdown(amount);
-    const displayAmount = amount >= 1000 ? `${(amount/1000).toFixed(0)}k` : amount >= 1 ? amount.toFixed(0) : amount.toFixed(2);
     
     return (
       <div className={cn(
@@ -439,23 +438,6 @@ export default function Roulette() {
               }}
             />
           ))}
-          <div 
-            className="absolute flex items-center justify-center"
-            style={{
-              width: chipSize,
-              height: chipSize,
-              bottom: (chipStack.length - 1) * 6,
-              left: 0,
-              zIndex: chipStack.length + 1,
-            }}
-          >
-            <span className={cn(
-              "font-bold text-white drop-shadow-md",
-              small ? "text-[8px]" : "text-[10px]"
-            )}>
-              ${displayAmount}
-            </span>
-          </div>
         </div>
       </div>
     );
