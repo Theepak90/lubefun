@@ -174,11 +174,6 @@ export default function Plinko() {
   const dropBall = useCallback(() => {
     if (!user || baseAmount < 0.1 || baseAmount > user.balance) return false;
     if (!canDropBall()) {
-      toast({
-        title: "Rate Limited",
-        description: "Too many balls! Wait a moment.",
-        variant: "destructive",
-      });
       return false;
     }
 
