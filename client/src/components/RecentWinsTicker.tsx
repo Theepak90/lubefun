@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Gem } from "lucide-react";
 
 import diceImg from "@assets/ChatGPT_Image_Jan_11,_2026,_02_04_41_AM_1768097091093.png";
-import coinflipImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_18_24_AM_1768106559756.png";
+import coinflipImg from "@assets/image-removebg-preview_1768190551224.png";
 import blackjackImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_29_05_AM_1768106559757.png";
 import plinkoImg from "@assets/ChatGPT_Image_Jan_11,_2026,_04_32_20_AM_1768106559758.png";
 import rouletteImg from "@assets/Glowing_roulette_card_with_blue_liquid_1768106559758.png";
