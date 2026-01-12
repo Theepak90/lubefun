@@ -429,17 +429,6 @@ export default function Plinko() {
             // Record to profit tracker
             recordResult("plinko", landed.betAmount, landed.payout, landed.won);
             
-            // Show toast (only for significant wins to avoid spam with multi-ball)
-            if (landed.multiplier >= 2 || !landed.won) {
-              toast({
-                title: landed.won ? "You won!" : "You lost",
-                description: landed.won 
-                  ? `Won ${formatCurrency(landed.payout)} (profit ${formatCurrency(landed.profit)})`
-                  : `Lost ${formatCurrency(landed.betAmount)} (profit ${formatCurrency(-landed.betAmount)})`,
-                duration: 1200,
-              });
-            }
-            
             // Add result to history
             addResult({
               game: "plinko",
