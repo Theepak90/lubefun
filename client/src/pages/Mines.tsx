@@ -78,6 +78,12 @@ export default function Mines() {
   const handleTileClick = (index: number) => {
     if (!gameState.active || gameState.revealed.includes(index) || reveal.isPending) return;
     
+    // Optimistically reveal the tile immediately
+    setGameState(prev => ({
+      ...prev,
+      revealed: [...prev.revealed, index],
+    }));
+    
     reveal.mutate({ betId: gameState.betId!, tileIndex: index }, {
       onSuccess: (data: any) => {
         if (!data.active) {
@@ -340,7 +346,7 @@ export default function Mines() {
                       onClick={() => handleTileClick(i)}
                       disabled={!gameState.active || isRevealed}
                       className={cn(
-                        "aspect-square rounded-xl relative shadow-lg transition-all duration-300",
+                        "aspect-square rounded-xl relative shadow-lg transition-all duration-100",
                         "bg-[#1a2530] border border-[#2a3a4a]",
                         gameState.active && !isRevealed && "hover:bg-[#1e2a38] hover:border-emerald-500/50 cursor-pointer",
                         isRevealed && "bg-[#111921] border-emerald-500/30",
