@@ -16,6 +16,69 @@ import { placeBet, startMultiStepGame, cashoutMultiStepGame, loseMultiStepGame, 
 import { computeOutcome, generateMinePositions, checkMineHit, hashServerSeed } from "./services/computeOutcome";
 import { requestWithdrawal, cancelWithdrawal, getUserWithdrawals } from "./services/withdrawalService";
 
+// === Mines Session Manager ===
+// Tracks active mines games per user with auto-timeout to prevent stuck games
+class MinesSessionManager {
+  private sessions: Map<number, { betId: number; lastActivity: number; timeout: NodeJS.Timeout }> = new Map();
+  private readonly TIMEOUT_MS = 60000; // 60 seconds inactivity timeout
+
+  startSession(userId: number, betId: number) {
+    // Clear any existing session first
+    this.endSession(userId);
+    
+    const timeout = setTimeout(() => {
+      this.handleTimeout(userId, betId);
+    }, this.TIMEOUT_MS);
+    
+    this.sessions.set(userId, { betId, lastActivity: Date.now(), timeout });
+  }
+
+  refreshSession(userId: number) {
+    const session = this.sessions.get(userId);
+    if (session) {
+      session.lastActivity = Date.now();
+      clearTimeout(session.timeout);
+      session.timeout = setTimeout(() => {
+        this.handleTimeout(userId, session.betId);
+      }, this.TIMEOUT_MS);
+    }
+  }
+
+  endSession(userId: number) {
+    const session = this.sessions.get(userId);
+    if (session) {
+      clearTimeout(session.timeout);
+      this.sessions.delete(userId);
+    }
+  }
+
+  hasActiveSession(userId: number): boolean {
+    return this.sessions.has(userId);
+  }
+
+  getSession(userId: number): { betId: number } | null {
+    const session = this.sessions.get(userId);
+    return session ? { betId: session.betId } : null;
+  }
+
+  private async handleTimeout(userId: number, betId: number) {
+    console.log(`[Mines] Session timeout for user ${userId}, bet ${betId}`);
+    try {
+      // Force end the game as a loss
+      await storage.updateBet(betId, {
+        active: false,
+        won: false,
+        profit: 0
+      });
+    } catch (err) {
+      console.error(`[Mines] Error handling timeout for bet ${betId}:`, err);
+    }
+    this.sessions.delete(userId);
+  }
+}
+
+const minesSessionManager = new MinesSessionManager();
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -519,8 +582,15 @@ Your bets are verifiable after the server seed is revealed.
     const user = await storage.getUser(req.user!.id);
     if (!user) return res.sendStatus(401);
     
+    // Check for active game in DB
     const activeGame = await storage.getActiveMinesBet(user.id);
-    if (activeGame) return res.status(400).json({ message: "Game already active" });
+    if (activeGame) {
+      // Idempotent: return existing game instead of error
+      // Also ensure session manager is tracking it
+      minesSessionManager.startSession(user.id, activeGame.id);
+      const responseBet = { ...activeGame, result: { ...(activeGame.result as any), mines: undefined } };
+      return res.json(responseBet);
+    }
 
     try {
       const input = minesBetSchema.parse(req.body);
@@ -529,10 +599,6 @@ Your bets are verifiable after the server seed is revealed.
       await storage.updateUserBalance(user.id, -input.betAmount);
       
       const mines = getMines(user.serverSeed, user.clientSeed, user.nonce, input.minesCount);
-      // Don't increment nonce yet! Wait until game over.
-      // Actually, nonce is usually incremented per Game Request or per Game Start?
-      // Stake usually increments per Game Start.
-      // So we use current nonce for the game, then increment.
       const gameNonce = user.nonce;
       await storage.incrementNonce(user.id);
 
@@ -542,22 +608,24 @@ Your bets are verifiable after the server seed is revealed.
         betAmount: input.betAmount,
         payoutMultiplier: 1.0,
         profit: 0,
-        won: undefined, // Pending
+        won: undefined,
         clientSeed: user.clientSeed,
         serverSeed: user.serverSeed,
         nonce: gameNonce,
         result: { 
           minesCount: input.minesCount, 
-          mines: mines, // Store mines (server side only technically, but here in DB). 
-                        // In API response we MUST mask this!
+          mines: mines,
           revealed: [], 
           status: "playing" 
         },
         active: true
       });
 
+      // Start session tracking with timeout
+      minesSessionManager.startSession(user.id, bet.id);
+
       // MASK MINES IN RESPONSE
-      const responseBet = { ...bet, result: { ...bet.result as any, mines: undefined } }; // Don't show mines
+      const responseBet = { ...bet, result: { ...bet.result as any, mines: undefined } };
       res.json(responseBet);
     } catch (err) {
       res.status(400).json({ message: "Invalid bet" });
@@ -567,9 +635,13 @@ Your bets are verifiable after the server seed is revealed.
   app.post(api.games.mines.reveal.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
     
-    const bet = await storage.getActiveMinesBet(user!.id);
+    const bet = await storage.getActiveMinesBet(user.id);
     if (!bet) return res.status(400).json({ message: "No active game" });
+
+    // Refresh session timeout
+    minesSessionManager.refreshSession(user.id);
 
     try {
       const input = minesNextSchema.parse(req.body);
@@ -582,25 +654,19 @@ Your bets are verifiable after the server seed is revealed.
       const isMine = result.mines.includes(input.tileIndex);
       
       if (isMine) {
-        // BOOM
+        // BOOM - End session
+        minesSessionManager.endSession(user.id);
+        
         const updatedBet = await storage.updateBet(bet.id, {
           active: false,
           won: false,
           profit: -bet.betAmount,
-          result: { ...result, revealed: [...result.revealed, input.tileIndex], status: "lost" } // Now we show mines? Logic in frontend usually reveals all.
+          result: { ...result, revealed: [...result.revealed, input.tileIndex], status: "lost" }
         });
-        res.json(updatedBet); // Send back full bet with mines (client can verify)
+        res.json(updatedBet);
       } else {
         // SAFE
         const newRevealed = [...result.revealed, input.tileIndex];
-        
-        // Calculate new multiplier
-        // Formula: 25 / (25 - mines - revealed_count + 1) ? 
-        // Standard Mines Multiplier logic.
-        // Simplification: Standard formula is complicated. 
-        // We'll calculate cumulative probability.
-        // Chance to hit safe = (25 - mines - current_revealed) / (25 - current_revealed)
-        // Multiplier *= 1 / Chance
         
         let multiplier = 1.0;
         for (let i = 0; i < newRevealed.length; i++) {
@@ -610,7 +676,6 @@ Your bets are verifiable after the server seed is revealed.
           multiplier *= (1 / chance);
         }
         
-        // Apply configurable house edge
         multiplier = multiplier * GAME_CONFIG.RTP; 
         
         const updatedBet = await storage.updateBet(bet.id, {
@@ -618,7 +683,6 @@ Your bets are verifiable after the server seed is revealed.
           result: { ...result, revealed: newRevealed, status: "playing" }
         });
         
-        // MASK MINES
         const responseBet = { ...updatedBet, result: { ...updatedBet.result as any, mines: undefined } };
         res.json(responseBet);
       }
@@ -630,17 +694,21 @@ Your bets are verifiable after the server seed is revealed.
   app.post(api.games.mines.cashout.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = await storage.getUser(req.user!.id);
+    if (!user) return res.sendStatus(401);
     
-    const bet = await storage.getActiveMinesBet(user!.id);
+    const bet = await storage.getActiveMinesBet(user.id);
     if (!bet) return res.status(400).json({ message: "No active game" });
     
     const result = bet.result as any;
     if (result.revealed.length === 0) return res.status(400).json({ message: "Cannot cashout without playing" });
     
+    // End session
+    minesSessionManager.endSession(user.id);
+    
     const payout = bet.betAmount * (bet.payoutMultiplier || 1);
     const profit = payout - bet.betAmount;
     
-    await storage.updateUserBalance(user!.id, payout);
+    await storage.updateUserBalance(user.id, payout);
     
     const updatedBet = await storage.updateBet(bet.id, {
       active: false,
